@@ -11,9 +11,6 @@ Map the stick once and fly with it in any game that only understands gamepads.
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>**Every other stick** gets the universal layout: axes and hat on the left, buttons on the right, and a live readout in the middle.</sub>
 
-One screen: your stick on black, every button and axis with a dropdown to pick the Xbox
-input it drives. Press something on the real stick and it lights up; the controller strip at
-the bottom shows what the virtual pad is sending.
 
 ## Supported joysticks
 
