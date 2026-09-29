@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+    <title>Game controls</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="reference">
+    <main class="ref">
+      <header class="ref-head">
+        <span class="ref-kicker">Game controls</span>
+        <h1 class="ref-title" id="ref-title"></h1>
+        <p class="ref-sub" id="ref-sub"></p>
+      </header>
+      <div class="ref-columns" aria-hidden="true">
+        <span>Action</span>
+        <span>Xbox controller</span>
+      </div>
+      <ol class="ref-list" id="ref-list"></ol>
+      <p class="ref-note">Use this to decide which part of your stick each action should go on.</p>
+    </main>
+    <script type="module" src="controls.js"></script>
+  </body>
+</html>

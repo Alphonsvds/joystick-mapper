@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    />
+    <title>Joystick Mapper</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="is-intro">
+    <main class="viewport">
+      <div class="stage" id="stage">
+        <img class="stick" id="stick" alt="Logitech Extreme 3D Pro, seen from above" draggable="false" />
+        <svg class="overlay" id="overlay" viewBox="0 0 1600 1000" aria-hidden="true">
+          <g id="guides"></g>
+          <g id="leaders"></g>
+        </svg>
+        <div class="callouts" id="callouts"></div>
+
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-title">Joystick Mapper</span>
+            <button class="profile-picker" id="profile-picker" type="button" aria-haspopup="dialog">
+              <span class="profile-key">Profile</span>
+              <span class="profile-name" id="profile-name">Default</span>
+            </button>
+            <button class="ghost" id="open-controls" type="button" title="Ace Combat 8's own gamepad controls, in a separate window">
+              AC8 controls ↗
+            </button>
+          </div>
+          <div class="controls">
+            <div class="stat" id="stat-stick">
+              <span class="stat-key">Joystick</span>
+              <span class="stat-value" id="stat-stick-value">Searching</span>
+            </div>
+            <button class="ghost" id="recenter" type="button" title="Let go of the stick, then click to set its resting centre">
+              Recenter
+            </button>
+            <button class="stat stat-switch" id="stat-pad" type="button" role="switch" aria-checked="false">
+              <span class="stat-key">Xbox emulation</span>
+              <span class="stat-value" id="stat-pad-value" hidden></span>
+              <span class="switch" aria-hidden="true"><span class="switch-knob"></span></span>
+            </button>
+            <button class="ghost ghost-accent" id="get-driver" type="button" hidden>Install driver</button>
+            <button class="save" id="save" type="button" disabled>Saved</button>
+          </div>
+        </header>
+
+        <footer class="monitor" id="monitor" title="What the virtual Xbox controller is sending">
+          <svg class="padviz" id="padviz" viewBox="0 0 620 64" aria-hidden="true"></svg>
+        </footer>
+      </div>
+    </main>
+
+    <div class="popover" id="popover" role="dialog" aria-modal="false" hidden></div>
+    <div class="popover profile-menu" id="profile-menu" role="dialog" aria-label="Profiles" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
