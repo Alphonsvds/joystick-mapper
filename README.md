@@ -1,7 +1,11 @@
 # Joystick Mapper
 
-Makes a **Logitech Extreme 3D Pro** show up to games as an **Xbox 360 controller**, for
-games (like Ace Combat) that only understand gamepads.
+**Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
+
+So this app makes a **Logitech Extreme 3D Pro** show up to games as an **Xbox 360
+controller**. Map the stick once and fly with it in any game that only understands gamepads.
+
+![Joystick Mapper with the Ace Combat 8 profile loaded](docs/screenshot.png)
 
 One screen: the stick on black, a line to every button and axis, and a dropdown on each
 line to pick the Xbox input it drives. Press something on the real stick and its hotspot
