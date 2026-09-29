@@ -1,0 +1,25 @@
+# Runs the tests on every pull request (and on main), so reviews start from a green build.
+# Read-only token: pull requests from forks can't change the repo or its releases.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test

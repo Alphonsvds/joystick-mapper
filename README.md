@@ -141,7 +141,16 @@ scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
 - Tray icon / start with Windows
 - HidHide integration so games only see the virtual pad
 
-## Third-party
+## Contributing
 
-ViGEmBus © Nefarius Software Solutions e.U., BSD-3-Clause. The licence ships with the
-installer (`resources/vigembus/ViGEmBus-LICENSE.txt`).
+Pull requests are welcome, especially presets for other games. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup and how to submit one. Every PR is reviewed and
+approved by the maintainer before it's merged.
+
+## License
+
+[GPL-3.0](LICENSE). You're free to use, study, share and modify it; if you share a modified
+version, it has to stay open source under the same license.
+
+The bundled ViGEmBus driver is © Nefarius Software Solutions e.U. under BSD-3-Clause; its
+licence ships with the installer (`resources/vigembus/ViGEmBus-LICENSE.txt`).

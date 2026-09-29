@@ -5,7 +5,8 @@
   "private": true,
   "description": "Map a Logitech Extreme 3D Pro joystick to a virtual Xbox 360 controller.",
   "author": "Halston",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
+  "repository": "github:Alphonsvds/joystick-mapper",
   "type": "module",
   "main": "src/main/main.js",
   "scripts": {
@@ -36,6 +37,10 @@
     ],
     "npmRebuild": false,
     "extraResources": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
       {
         "from": "build/vigembus",
         "to": "vigembus",
