@@ -150,7 +150,6 @@ export function buildGeneric(root, model, settings, hooks) {
   badge.textContent = model.support === 'full' ? 'Fully supported' : 'Experimental';
   const counts = [`${model.axes.length} axes`, model.hats.length ? `${model.hats.length} hat` : '', `${model.buttons} buttons`];
   el('span', 'gen-counts', meta).textContent = counts.filter(Boolean).join(' · ');
-  el('p', 'gen-tip', identity).textContent = 'Press any button or move any axis — its row lights up.';
   const actions = el('div', 'gen-actions', identity);
   hooks.action(actions, 'Copy device info', 'copy');
   hooks.action(actions, 'Report this stick ↗', 'report');
