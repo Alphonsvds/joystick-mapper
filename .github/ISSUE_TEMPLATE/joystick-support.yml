@@ -1,0 +1,41 @@
+name: Joystick support
+description: Report how your flight stick, throttle or pedals work in Joystick Mapper
+title: "Joystick support: "
+labels: ["joystick support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping add support for more sticks! In Joystick Mapper, open the
+        **Joystick** menu (top bar) and click **Copy device info**, then paste it below.
+  - type: input
+    id: model
+    attributes:
+      label: Joystick model
+      placeholder: e.g. Thrustmaster T.16000M FCS
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: How did it go?
+      options:
+        - Everything works
+        - Works, but some controls are wrong or missing
+        - It isn't detected
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened?
+      description: Which controls were wrong or missing? Did any axis move the wrong way, or not spring back to centre?
+  - type: textarea
+    id: device-info
+    attributes:
+      label: Device info
+      description: Paste from Joystick → Copy device info.
+      render: json
+    validations:
+      required: true

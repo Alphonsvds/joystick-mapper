@@ -1,12 +1,8 @@
 // Pure mapping engine: joystick state + bindings -> Xbox 360 (XUSB) report.
-import { PHYSICAL_CONTROLS, TARGET_BY_ID, XUSB } from './controls.js';
+import { TARGET_BY_ID, XUSB, controlKind } from './controls.js';
 
-export const NEUTRAL_INPUT = Object.freeze({
-  buttons: Object.freeze(
-    Object.fromEntries(PHYSICAL_CONTROLS.filter((c) => c.kind === 'button').map((c) => [c.id, false])),
-  ),
-  axes: Object.freeze({ pitch: 0, roll: 0, yaw: 0, throttle: 0 }),
-});
+// Nothing pressed, every axis centred (missing controls read as released / 0).
+export const NEUTRAL_INPUT = Object.freeze({ buttons: Object.freeze({}), axes: Object.freeze({}) });
 
 export const NEUTRAL_OUTPUT = Object.freeze({ buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 });
 
@@ -49,13 +45,12 @@ function applyLowDeadzone(t, dz) {
 export function mapInput(input, bindings) {
   const acc = { buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
 
-  for (const control of PHYSICAL_CONTROLS) {
-    const binding = bindings[control.id];
-    const target = binding && TARGET_BY_ID[binding.target];
+  for (const [controlId, binding] of Object.entries(bindings)) {
+    const target = TARGET_BY_ID[binding.target];
     if (!target) continue;
 
-    if (control.kind === 'button') {
-      if (!input.buttons[control.id]) continue;
+    if (controlKind(controlId) === 'button') {
+      if (!input.buttons[controlId]) continue;
       if (target.bit) acc.buttons |= target.bit;
       else if (target.id === 'lt' || target.id === 'rt') acc[target.id] = 1;
       else if (STICK_PUSH[target.id]) {
@@ -65,7 +60,7 @@ export function mapInput(input, bindings) {
       continue;
     }
 
-    let v = clamp(input.axes[control.id] ?? 0, -1, 1);
+    let v = clamp(input.axes[controlId] ?? 0, -1, 1);
     if (binding.invert) v = -v;
     const dz = binding.deadzone;
 

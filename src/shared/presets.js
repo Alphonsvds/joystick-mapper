@@ -1,4 +1,5 @@
-// Starting points for new profiles.
+// Starting points for new profiles. Control IDs are generic (see shared/controls.js):
+// on nearly every flight stick button 1 is the trigger and button 2 the thumb button.
 
 export const PRESETS = Object.freeze([
   { id: 'blank', name: 'Blank', description: 'Everything unmapped', bindings: {} },
@@ -8,23 +9,23 @@ export const PRESETS = Object.freeze([
     description: 'Matches the in-game default gamepad layout',
     bindings: {
       // Flight: stick = left stick, twist = yaw on the bumpers, throttle = LT / RT.
-      pitch: { target: 'ls_y', deadzone: 0.04 },
-      roll: { target: 'ls_x', deadzone: 0.04 },
-      yaw: { target: 'lb_rb', deadzone: 0.1 }, // Yaw left LB · Yaw right RB
+      y: { target: 'ls_y', deadzone: 0.04 },
+      x: { target: 'ls_x', deadzone: 0.04 },
+      rz: { target: 'lb_rb', deadzone: 0.1 }, // Yaw left LB · Yaw right RB
       // Wide neutral band so the throttle can sit at cruise without accelerating or braking.
-      throttle: { target: 'lt_rt', deadzone: 0.12 }, // Decelerate LT · Accelerate RT
+      slider: { target: 'lt_rt', deadzone: 0.12 }, // Decelerate LT · Accelerate RT
       // Weapons & targeting.
-      trigger: { target: 'b' }, // Fire missile or weapon
-      thumb: { target: 'a' }, // Fire machine gun
-      b3: { target: 'x' }, // Change weapon / next weapon
-      b4: { target: 'y' }, // Change target
-      b5: { target: 'view' }, // Switch radar map
-      b6: { target: 'ls_rs_click' }, // Deploy flares (both stick clicks)
+      btn1: { target: 'b' }, // Fire missile or weapon
+      btn2: { target: 'a' }, // Fire machine gun
+      btn3: { target: 'x' }, // Change weapon / next weapon
+      btn4: { target: 'y' }, // Change target
+      btn5: { target: 'view' }, // Switch radar map
+      btn6: { target: 'ls_rs_click' }, // Deploy flares (both stick clicks)
       // Hat looks around (camera is on the right stick).
-      hat_up: { target: 'rs_up' },
-      hat_right: { target: 'rs_right' },
-      hat_down: { target: 'rs_down' },
-      hat_left: { target: 'rs_left' },
+      hat1_up: { target: 'rs_up' },
+      hat1_right: { target: 'rs_right' },
+      hat1_down: { target: 'rs_down' },
+      hat1_left: { target: 'rs_left' },
     },
   },
 ]);

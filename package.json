@@ -1,9 +1,9 @@
 {
   "name": "joystick-mapper",
   "productName": "Joystick Mapper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Map a Logitech Extreme 3D Pro joystick to a virtual Xbox 360 controller.",
+  "description": "Map a flight stick to a virtual Xbox 360 controller.",
   "author": "Halston",
   "license": "GPL-3.0-only",
   "repository": "github:Alphonsvds/joystick-mapper",

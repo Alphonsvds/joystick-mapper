@@ -1,15 +1,17 @@
 // The profile library: a locked built-in "Default" plus named game profiles.
 // All functions are pure (they return a new library) so the main process and the
 // browser preview share exactly the same rules.
-import { emptyBindings, normalizeBindings } from './controls.js';
+import { emptyBindings, migrateLegacyBindings, normalizeBindings } from './controls.js';
 import { PRESET_BY_ID } from './presets.js';
 
 // Default leaves the joystick alone: nothing mapped, no virtual controller.
 export const DEFAULT_PROFILE_ID = 'default';
 export const DEFAULT_PROFILE_NAME = 'Default';
 export const MAX_NAME_LENGTH = 40;
-const LIBRARY_VERSION = 2;
+// v3: generic control IDs (btn1, x, …) so profiles work on any joystick.
+const LIBRARY_VERSION = 3;
 const EXPORT_FORMAT = 'joystick-mapper/profile';
+const EXPORT_VERSION = 2;
 
 export function emptyLibrary() {
   return { version: LIBRARY_VERSION, active: DEFAULT_PROFILE_ID, profiles: [] };
@@ -44,12 +46,14 @@ function newId(library) {
 export function normalizeLibrary(raw) {
   const library = emptyLibrary();
   const seen = new Set([DEFAULT_PROFILE_ID]);
+  const legacy = !(Number(raw?.version) >= LIBRARY_VERSION);
   for (const p of Array.isArray(raw?.profiles) ? raw.profiles : []) {
     const id = typeof p?.id === 'string' && /^[\w-]{1,40}$/.test(p.id) ? p.id : null;
     const name = cleanName(p?.name);
     if (!id || !name || seen.has(id)) continue;
     seen.add(id);
-    library.profiles.push({ id, name: uniqueName(library, name), bindings: normalizeBindings(p.bindings) });
+    const bindings = normalizeBindings(legacy ? migrateLegacyBindings(p.bindings) : p.bindings);
+    library.profiles.push({ id, name: uniqueName(library, name), bindings });
   }
   if (library.profiles.some((p) => p.id === raw?.active)) library.active = raw.active;
   return library;
@@ -115,9 +119,8 @@ export function setBindings(library, id, bindings) {
 export function toExport(profile) {
   return {
     format: EXPORT_FORMAT,
-    version: 1,
+    version: EXPORT_VERSION,
     name: profile.name,
-    device: 'Logitech Extreme 3D Pro',
     bindings: profile.bindings,
   };
 }
@@ -125,5 +128,6 @@ export function toExport(profile) {
 // Returns { name, bindings } or null if `raw` isn't an exported profile.
 export function fromExport(raw) {
   if (!raw || typeof raw !== 'object' || raw.format !== EXPORT_FORMAT) return null;
-  return { name: cleanName(raw.name) || 'Imported profile', bindings: normalizeBindings(raw.bindings) };
+  const bindings = Number(raw.version) >= EXPORT_VERSION ? raw.bindings : migrateLegacyBindings(raw.bindings);
+  return { name: cleanName(raw.name) || 'Imported profile', bindings: normalizeBindings(bindings) };
 }

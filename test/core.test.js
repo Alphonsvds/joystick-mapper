@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EXTREME_3D_PRO, normalizeAxes } from '../src/main/devices/extreme3dpro.js';
-import { XUSB, emptyBindings, normalizeBindings, sanitizeBinding, CONTROL_BY_ID } from '../src/shared/controls.js';
+import { Extreme3DProParser } from '../src/main/devices/extreme3dpro.js';
+import { XUSB, emptyBindings, normalizeBindings, sanitizeBinding } from '../src/shared/controls.js';
+import { describeDevice, hatDirections, normalizeInput } from '../src/shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
 import {
   DEFAULT_PROFILE_ID,
@@ -18,8 +19,37 @@ import {
   toExport,
 } from '../src/shared/profiles.js';
 
-// Build a raw 8-byte Windows report (leading report ID 0) from field values.
-function report({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
+// ─── Layout fixtures ──────────────────────────────────────────────────────────
+// Field lists as Windows' HID parser reports them (see src/main/hidp.js).
+
+// Read from a real Extreme 3D Pro through HidP on 2026-09-29.
+const EXTREME_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x31, min: 0, max: 1023 },
+    { page: 1, usage: 0x30, min: 0, max: 1023 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 1, usage: 0x35, min: 0, max: 255 },
+    { page: 1, usage: 0x36, min: 0, max: 255 },
+  ],
+  buttonCount: 12,
+};
+const EXTREME = { vendorId: 0x046d, productId: 0xc215, name: 'Logitech Extreme 3D' };
+
+// Thrustmaster T.16000M FCS, from its published specs (not a captured device).
+const T16000M_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 16383 },
+    { page: 1, usage: 0x31, min: 0, max: 16383 },
+    { page: 1, usage: 0x35, min: 0, max: 255 },
+    { page: 1, usage: 0x36, min: 0, max: 255 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+  ],
+  buttonCount: 16,
+};
+const T16000M = { vendorId: 0x044f, productId: 0xb10a, name: 'Thrustmaster T.16000M' };
+
+// Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
+function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
   const b = Buffer.alloc(8);
   b[1] = x & 0xff;
   b[2] = ((x >> 8) & 0x03) | ((y & 0x3f) << 2);
@@ -31,71 +61,178 @@ function report({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons 
   return b;
 }
 
-function bindingsWith(overrides) {
-  const b = emptyBindings();
-  for (const [id, patch] of Object.entries(overrides)) b[id] = { ...b[id], ...patch };
-  return b;
-}
+const decoded = (values, buttons = []) => ({ values, buttons: new Set(buttons) });
+const bindingsWith = (raw) => normalizeBindings(raw);
+const input = (buttons = {}, axes = {}) => ({ buttons: { ...NEUTRAL_INPUT.buttons, ...buttons }, axes: { ...NEUTRAL_INPUT.axes, ...axes } });
 
-const input = (buttons = {}, axes = {}) => ({
-  buttons: { ...NEUTRAL_INPUT.buttons, ...buttons },
-  axes: { ...NEUTRAL_INPUT.axes, ...axes },
+// ─── Reading sticks ───────────────────────────────────────────────────────────
+
+test('the Extreme 3D Pro fallback parser reads a report captured from a real stick', () => {
+  const parser = new Extreme3DProParser();
+  const { values, buttons } = parser.decode(Buffer.from([0x00, 0x00, 0x22, 0x87, 0x7f, 0x00, 0xff, 0x00]));
+  assert.deepEqual(values, [456, 512, 8, 127, 255]); // Y, X, hat, Rz, slider (HidP order)
+  assert.equal(buttons.size, 0);
 });
 
-test('parses a report captured from a real Extreme 3D Pro at rest', () => {
-  const s = EXTREME_3D_PRO.parse(Buffer.from([0x00, 0x00, 0x22, 0x87, 0x7f, 0x00, 0xff, 0x00]));
-  assert.deepEqual(s.raw, { roll: 512, pitch: 456, yaw: 127, throttle: 255 });
-  assert.equal(Object.values(s.buttons).some(Boolean), false);
+test('the fallback parser reads every field at its extremes, with or without the report ID', () => {
+  const parser = new Extreme3DProParser();
+  const full = parser.decode(extremeReport({ x: 1023, y: 0, hat: 2, twist: 255, slider: 0, buttons: 0b1000_0000_0001 }));
+  assert.deepEqual(full.values, [0, 1023, 2, 255, 0]);
+  assert.deepEqual([...full.buttons].sort((a, b) => a - b), [1, 12]);
+  const short = parser.decode(extremeReport({ x: 0, buttons: 0b10 }).subarray(1));
+  assert.equal(short.values[1], 0);
+  assert.deepEqual([...short.buttons], [2]);
 });
 
-test('parses every field at its extremes', () => {
-  const s = EXTREME_3D_PRO.parse(report({ x: 1023, y: 0, hat: 2, twist: 255, slider: 0, buttons: 0b1000_0000_0001 }));
-  assert.deepEqual(s.raw, { roll: 1023, pitch: 0, yaw: 255, throttle: 0 });
-  assert.equal(s.buttons.trigger, true);
-  assert.equal(s.buttons.b12, true);
-  assert.equal(s.buttons.thumb, false);
-  assert.equal(s.buttons.hat_right, true);
-  assert.equal(s.buttons.hat_up, false);
+test('a known stick gets its photo skin and friendly names', () => {
+  const model = describeDevice(EXTREME_LAYOUT, EXTREME);
+  assert.equal(model.key, '046d:c215');
+  assert.equal(model.skin, 'extreme3dpro');
+  assert.equal(model.support, 'full');
+  assert.equal(model.name, 'Logitech Extreme 3D Pro');
+  assert.deepEqual(
+    model.axes.map((a) => [a.id, a.name]),
+    [
+      ['y', 'Pitch'],
+      ['x', 'Roll'],
+      ['rz', 'Yaw'],
+      ['slider', 'Throttle'],
+    ],
+  );
+  assert.deepEqual(model.hats.map((h) => h.id), ['hat1']);
+  assert.equal(model.buttons, 12);
+  assert.equal(model.buttonNames.btn1, 'Trigger');
+  assert.equal(model.buttonNames.btn7, 'Button 7');
 });
 
-test('accepts the 7-byte report without a report ID (macOS / hidapi)', () => {
-  const s = EXTREME_3D_PRO.parse(report({ x: 0, buttons: 0b10 }).subarray(1));
-  assert.equal(s.raw.roll, 0);
-  assert.equal(s.buttons.thumb, true);
+test('an unknown stick is described generically and marked experimental', () => {
+  const model = describeDevice(T16000M_LAYOUT, T16000M);
+  assert.equal(model.key, '044f:b10a');
+  assert.equal(model.skin, null);
+  assert.equal(model.support, 'experimental');
+  assert.equal(model.name, 'Thrustmaster T.16000M');
+  assert.deepEqual(model.axes.map((a) => [a.id, a.centered]), [
+    ['x', true],
+    ['y', true],
+    ['rz', true],
+    ['slider', false],
+  ]);
+  assert.equal(model.buttons, 16);
+  assert.equal(model.buttonNames.btn16, 'Button 16');
+  // Known sticks can be forced onto the generic layout too.
+  assert.equal(describeDevice(EXTREME_LAYOUT, { ...EXTREME, ignoreSkin: true }).skin, null);
 });
 
-test('hat diagonals press two directions', () => {
-  const s = EXTREME_3D_PRO.parse(report({ hat: 7 }));
-  assert.equal(s.buttons.hat_up, true);
-  assert.equal(s.buttons.hat_left, true);
-  assert.equal(s.buttons.hat_down, false);
+test('duplicate axes get numbered; vendor data and empty ranges are ignored', () => {
+  const model = describeDevice(
+    {
+      values: [
+        { page: 1, usage: 0x36, min: 0, max: 255 },
+        { page: 1, usage: 0x36, min: 0, max: 255 },
+        { page: 0xff00, usage: 0x01, min: 0, max: 255 }, // vendor-defined
+        { page: 1, usage: 0x32, min: 0, max: 0 }, // no range
+        { page: 1, usage: 0x39, min: 0, max: 7 },
+        { page: 1, usage: 0x39, min: 0, max: 3 },
+      ],
+      buttonCount: 3,
+    },
+    { vendorId: 1, productId: 2, name: 'HOTAS' },
+  );
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name]), [
+    ['slider', 'Slider'],
+    ['slider2', 'Slider 2'],
+  ]);
+  assert.deepEqual(model.hats.map((h) => [h.id, h.name]), [
+    ['hat1', 'Hat Switch'],
+    ['hat2', 'Hat 2'],
+  ]);
 });
 
-test('normalises axes into the gamepad sense', () => {
-  const full = normalizeAxes(EXTREME_3D_PRO, { roll: 1023, pitch: 0, yaw: 255, throttle: 0 }, null);
-  assert.deepEqual(full, { roll: 1, pitch: 1, yaw: 1, throttle: 1 });
-  const back = normalizeAxes(EXTREME_3D_PRO, { roll: 0, pitch: 1023, yaw: 0, throttle: 255 }, null);
-  assert.deepEqual(back, { roll: -1, pitch: -1, yaw: -1, throttle: -1 });
+test('rudder pedals (simulation controls) are understood', () => {
+  const model = describeDevice(
+    {
+      values: [
+        { page: 2, usage: 0xba, min: 0, max: 1023 },
+        { page: 2, usage: 0xc5, min: 0, max: 255 },
+      ],
+      buttonCount: 0,
+    },
+    { vendorId: 3, productId: 4, name: 'Pedals' },
+  );
+  assert.deepEqual(model.axes.map((a) => [a.id, a.centered]), [
+    ['rudder', true],
+    ['brake', false],
+  ]);
 });
 
-test('calibrated centre reads zero and both ends still reach full deflection', () => {
-  const cal = { roll: 512, pitch: 462, yaw: 127 };
-  const rest = normalizeAxes(EXTREME_3D_PRO, { roll: 512, pitch: 462, yaw: 127, throttle: 128 }, cal);
-  assert.equal(rest.pitch, 0);
-  assert.equal(rest.roll, 0);
-  assert.equal(normalizeAxes(EXTREME_3D_PRO, { roll: 512, pitch: 0, yaw: 127, throttle: 0 }, cal).pitch, 1);
-  assert.equal(normalizeAxes(EXTREME_3D_PRO, { roll: 512, pitch: 1023, yaw: 127, throttle: 0 }, cal).pitch, -1);
+test('normalised axes follow the gamepad sense on the Extreme 3D Pro', () => {
+  const model = describeDevice(EXTREME_LAYOUT, EXTREME);
+  const full = normalizeInput(decoded([0, 1023, 8, 255, 0]), model, {});
+  assert.deepEqual(full.axes, { y: 1, x: 1, rz: 1, slider: 1 }); // forward, right, twist right, throttle forward
+  const back = normalizeInput(decoded([1023, 0, 8, 0, 255]), model, {});
+  assert.deepEqual(back.axes, { y: -1, x: -1, rz: -1, slider: -1 });
 });
+
+test('a calibrated centre reads zero and both ends still reach full deflection', () => {
+  const model = describeDevice(EXTREME_LAYOUT, EXTREME);
+  const settings = { calibration: { x: 512, y: 462, rz: 127 } };
+  const rest = normalizeInput(decoded([462, 512, 8, 127, 128]), model, settings);
+  assert.equal(rest.axes.y, 0);
+  assert.equal(rest.axes.x, 0);
+  assert.equal(normalizeInput(decoded([0, 512, 8, 127, 0]), model, settings).axes.y, 1);
+  assert.equal(normalizeInput(decoded([1023, 512, 8, 127, 0]), model, settings).axes.y, -1);
+});
+
+test('an axis can be switched between throttle-style and centred', () => {
+  const model = describeDevice(T16000M_LAYOUT, T16000M);
+  const values = [8191.5, 8191.5, 127.5, 255, 8];
+  assert.equal(normalizeInput(decoded(values), model, {}).axes.slider, -1);
+  const centred = normalizeInput(decoded(values), model, { centered: { slider: true } });
+  assert.equal(centred.axes.slider, -1); // raw max = back once inverted, either way
+  assert.equal(normalizeInput(decoded([0, 0, 0, 127.5, 8]), model, { centered: { slider: true } }).axes.slider, 0);
+});
+
+test('signed axis ranges centre on zero', () => {
+  const model = describeDevice({ values: [{ page: 1, usage: 0x30, min: -32768, max: 32767 }], buttonCount: 0 }, { vendorId: 5, productId: 6 });
+  assert.equal(normalizeInput(decoded([-0.5]), model, {}).axes.x, 0);
+  assert.equal(normalizeInput(decoded([32767]), model, {}).axes.x, 1);
+  assert.equal(normalizeInput(decoded([-32768]), model, {}).axes.x, -1);
+});
+
+test('buttons and hat directions become button controls', () => {
+  const model = describeDevice(EXTREME_LAYOUT, EXTREME);
+  const state = normalizeInput(decoded([512, 512, 7, 128, 128], [1, 12]), model, {});
+  assert.equal(state.buttons.btn1, true);
+  assert.equal(state.buttons.btn12, true);
+  assert.equal(state.buttons.btn2, false);
+  assert.equal(state.buttons.hat1_up, true);
+  assert.equal(state.buttons.hat1_left, true);
+  assert.equal(state.buttons.hat1_down, false);
+});
+
+test('hats: 8-way, 4-way, degrees, and centred', () => {
+  assert.deepEqual(hatDirections(0, 0, 7), [true, false, false, false]);
+  assert.deepEqual(hatDirections(3, 0, 7), [false, true, true, false]);
+  assert.deepEqual(hatDirections(8, 0, 7), [false, false, false, false]);
+  assert.deepEqual(hatDirections(null, 0, 7), [false, false, false, false]);
+  assert.deepEqual(hatDirections(1, 0, 3), [false, true, false, false]);
+  assert.deepEqual(hatDirections(3, 0, 3), [false, false, false, true]);
+  assert.deepEqual(hatDirections(1, 1, 8), [true, false, false, false]); // 1-based hats
+  assert.deepEqual(hatDirections(270, 0, 315), [false, false, false, true]); // degrees
+  assert.deepEqual(hatDirections(-1, 0, 315), [false, false, false, false]);
+});
+
+// ─── Mapping ──────────────────────────────────────────────────────────────────
 
 test('maps buttons, hat and stick axes to an XUSB report', () => {
   const p = bindingsWith({
-    trigger: { target: 'a' },
-    hat_up: { target: 'dpad_up' },
-    thumb: { target: 'rs_up' },
-    pitch: { target: 'ls_y' },
-    roll: { target: 'ls_x' },
+    btn1: { target: 'a' },
+    hat1_up: { target: 'dpad_up' },
+    btn2: { target: 'rs_up' },
+    y: { target: 'ls_y' },
+    x: { target: 'ls_x' },
   });
-  const out = mapInput(input({ trigger: true, hat_up: true, thumb: true }, { pitch: 1, roll: -1 }), p);
+  const out = mapInput(input({ btn1: true, hat1_up: true, btn2: true }, { y: 1, x: -1 }), p);
   assert.equal(out.buttons, XUSB.A | XUSB.DPAD_UP);
   assert.equal(out.ly, 32767);
   assert.equal(out.lx, -32767);
@@ -103,55 +240,62 @@ test('maps buttons, hat and stick axes to an XUSB report', () => {
 });
 
 test('deadzone swallows drift and rescales the rest', () => {
-  const p = bindingsWith({ pitch: { target: 'ls_y', deadzone: 0.1 } });
-  assert.equal(mapInput(input({}, { pitch: 0.08 }), p).ly, 0);
-  assert.equal(mapInput(input({}, { pitch: 1 }), p).ly, 32767);
-  assert.equal(mapInput(input({}, { pitch: 0.55 }), p).ly, Math.round(0.5 * 32767));
+  const p = bindingsWith({ y: { target: 'ls_y', deadzone: 0.1 } });
+  assert.equal(mapInput(input({}, { y: 0.08 }), p).ly, 0);
+  assert.equal(mapInput(input({}, { y: 1 }), p).ly, 32767);
+  assert.equal(mapInput(input({}, { y: 0.55 }), p).ly, Math.round(0.5 * 32767));
 });
 
 test('invert flips an axis', () => {
-  const p = bindingsWith({ pitch: { target: 'ls_y', invert: true } });
-  assert.equal(mapInput(input({}, { pitch: 1 }), p).ly, -32767);
+  const p = bindingsWith({ y: { target: 'ls_y', invert: true } });
+  assert.equal(mapInput(input({}, { y: 1 }), p).ly, -32767);
 });
 
 test('throttle split drives LT on the back half and RT on the front half', () => {
-  const p = bindingsWith({ throttle: { target: 'lt_rt', deadzone: 0 } });
-  assert.deepEqual([mapInput(input({}, { throttle: -1 }), p).lt, mapInput(input({}, { throttle: -1 }), p).rt], [255, 0]);
-  assert.deepEqual([mapInput(input({}, { throttle: 1 }), p).lt, mapInput(input({}, { throttle: 1 }), p).rt], [0, 255]);
-  assert.equal(mapInput(input({}, { throttle: 0 }), p).rt, 0);
+  const p = bindingsWith({ slider: { target: 'lt_rt', deadzone: 0 } });
+  assert.deepEqual([mapInput(input({}, { slider: -1 }), p).lt, mapInput(input({}, { slider: -1 }), p).rt], [255, 0]);
+  assert.deepEqual([mapInput(input({}, { slider: 1 }), p).lt, mapInput(input({}, { slider: 1 }), p).rt], [0, 255]);
+  assert.equal(mapInput(input({}, { slider: 0 }), p).rt, 0);
 });
 
 test('an axis on a single trigger uses its full travel', () => {
-  const p = bindingsWith({ throttle: { target: 'rt', deadzone: 0 } });
-  assert.equal(mapInput(input({}, { throttle: -1 }), p).rt, 0);
-  assert.equal(mapInput(input({}, { throttle: 0 }), p).rt, 128);
-  assert.equal(mapInput(input({}, { throttle: 1 }), p).rt, 255);
+  const p = bindingsWith({ slider: { target: 'rt', deadzone: 0 } });
+  assert.equal(mapInput(input({}, { slider: -1 }), p).rt, 0);
+  assert.equal(mapInput(input({}, { slider: 0 }), p).rt, 128);
+  assert.equal(mapInput(input({}, { slider: 1 }), p).rt, 255);
 });
 
 test('twist past halfway presses a bumper', () => {
-  const p = bindingsWith({ yaw: { target: 'lb_rb' } });
-  assert.equal(mapInput(input({}, { yaw: 0.3 }), p).buttons, 0);
-  assert.equal(mapInput(input({}, { yaw: 0.9 }), p).buttons, XUSB.RIGHT_SHOULDER);
-  assert.equal(mapInput(input({}, { yaw: -0.9 }), p).buttons, XUSB.LEFT_SHOULDER);
+  const p = bindingsWith({ rz: { target: 'lb_rb' } });
+  assert.equal(mapInput(input({}, { rz: 0.3 }), p).buttons, 0);
+  assert.equal(mapInput(input({}, { rz: 0.9 }), p).buttons, XUSB.RIGHT_SHOULDER);
+  assert.equal(mapInput(input({}, { rz: -0.9 }), p).buttons, XUSB.LEFT_SHOULDER);
 });
 
 test('L3 + R3 presses both stick clicks from one button', () => {
-  const p = bindingsWith({ b6: { target: 'ls_rs_click' } });
-  assert.equal(mapInput(input({ b6: true }), p).buttons, XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB);
-  assert.equal(mapInput(input({ b6: false }), p).buttons, 0);
-  assert.equal(presetBindings('ace-combat-8').b6.target, 'ls_rs_click');
+  const p = bindingsWith({ btn6: { target: 'ls_rs_click' } });
+  assert.equal(mapInput(input({ btn6: true }), p).buttons, XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB);
+  assert.equal(mapInput(input({ btn6: false }), p).buttons, 0);
+  assert.equal(presetBindings('ace-combat-8').btn6.target, 'ls_rs_click');
 });
 
 test('opposite D-pad directions cancel out', () => {
-  const p = bindingsWith({ b7: { target: 'dpad_up' }, b8: { target: 'dpad_down' } });
-  assert.equal(mapInput(input({ b7: true, b8: true }), p).buttons, 0);
+  const p = bindingsWith({ btn7: { target: 'dpad_up' }, btn8: { target: 'dpad_down' } });
+  assert.equal(mapInput(input({ btn7: true, btn8: true }), p).buttons, 0);
+});
+
+test('bindings for controls a stick lacks are simply ignored', () => {
+  const p = bindingsWith({ btn30: { target: 'a' }, dial: { target: 'rs_x' } });
+  assert.deepEqual(mapInput(input({ btn1: true }, { x: 1 }), p), mapInput(NEUTRAL_INPUT, {}));
 });
 
 test('bindings are validated against the control kind', () => {
-  assert.equal(sanitizeBinding(CONTROL_BY_ID.trigger, { target: 'ls_x' }), null);
-  assert.equal(sanitizeBinding(CONTROL_BY_ID.trigger, { target: 'nope' }), null);
-  assert.deepEqual(sanitizeBinding(CONTROL_BY_ID.trigger, { target: 'lt' }), { target: 'lt' });
-  assert.deepEqual(sanitizeBinding(CONTROL_BY_ID.throttle, { target: 'lt', invert: 'yes', deadzone: 9 }), {
+  assert.equal(sanitizeBinding('btn1', { target: 'ls_x' }), null);
+  assert.equal(sanitizeBinding('btn1', { target: 'nope' }), null);
+  assert.equal(sanitizeBinding('Bad Id!', { target: 'a' }), null);
+  assert.deepEqual(sanitizeBinding('btn1', { target: 'lt' }), { target: 'lt' });
+  assert.deepEqual(sanitizeBinding('hat2_left', { target: 'dpad_left' }), { target: 'dpad_left' });
+  assert.deepEqual(sanitizeBinding('slider', { target: 'lt', invert: 'yes', deadzone: 9 }), {
     target: 'lt',
     invert: false,
     deadzone: 0.5,
@@ -160,11 +304,11 @@ test('bindings are validated against the control kind', () => {
 
 test('damaged bindings fall back to unmapped, keeping valid entries', () => {
   assert.deepEqual(normalizeBindings('garbage'), emptyBindings());
-  const b = normalizeBindings({ trigger: { target: 'a' }, thumb: { target: 'ls_x' }, extra: {} });
-  assert.equal(b.trigger.target, 'a');
-  assert.equal(b.thumb.target, null);
-  assert.equal('extra' in b, false);
+  const b = normalizeBindings({ btn1: { target: 'a' }, btn2: { target: 'ls_x' }, 'no good': { target: 'a' } });
+  assert.deepEqual(Object.keys(b), ['btn1']);
 });
+
+// ─── Profiles ─────────────────────────────────────────────────────────────────
 
 test('the Default profile is always present, locked and unmapped', () => {
   const lib = normalizeLibrary(null);
@@ -179,8 +323,8 @@ test('the Default profile is always present, locked and unmapped', () => {
 test('profiles can be created from a preset, renamed, switched and deleted', () => {
   let { library: lib, id } = addProfile(normalizeLibrary(null), '  Ace   Combat 8 ', presetBindings('ace-combat-8'));
   assert.equal(getProfile(lib, id).name, 'Ace Combat 8');
-  assert.equal(getProfile(lib, id).bindings.throttle.target, 'lt_rt');
-  assert.equal(getProfile(lib, id).bindings.yaw.target, 'lb_rb');
+  assert.equal(getProfile(lib, id).bindings.slider.target, 'lt_rt');
+  assert.equal(getProfile(lib, id).bindings.rz.target, 'lb_rb');
 
   // Names stay unique (case-insensitively).
   const second = addProfile(lib, 'ace combat 8', {});
@@ -198,18 +342,52 @@ test('a reserved name is suffixed rather than shadowing Default', () => {
   assert.equal(getProfile(library, id).name, 'Default (2)');
 });
 
-test('export → import round-trips a profile and rejects other files', () => {
+test('profiles saved before universal support are migrated to generic control IDs', () => {
+  const lib = normalizeLibrary({
+    version: 2,
+    active: 'p-1',
+    profiles: [
+      {
+        id: 'p-1',
+        name: 'AC8',
+        bindings: {
+          trigger: { target: 'b' },
+          b6: { target: 'rs_click' },
+          hat_up: { target: 'rs_up' },
+          pitch: { target: 'ls_y', invert: false, deadzone: 0.04 },
+          throttle: { target: 'lt_rt', invert: false, deadzone: 0.02 },
+          thumb: { target: null },
+        },
+      },
+    ],
+  });
+  assert.equal(lib.active, 'p-1');
+  assert.deepEqual(getProfile(lib, 'p-1').bindings, {
+    btn1: { target: 'b' },
+    btn6: { target: 'rs_click' },
+    hat1_up: { target: 'rs_up' },
+    y: { target: 'ls_y', invert: false, deadzone: 0.04 },
+    slider: { target: 'lt_rt', invert: false, deadzone: 0.02 },
+  });
+});
+
+test('export → import round-trips a profile, migrates old files and rejects others', () => {
   const { library, id } = addProfile(normalizeLibrary(null), 'AC8', presetBindings('ace-combat-8'));
   const file = JSON.parse(JSON.stringify(toExport(getProfile(library, id))));
   const back = fromExport(file);
   assert.equal(back.name, 'AC8');
   assert.deepEqual(back.bindings, getProfile(library, id).bindings);
+
+  const old = fromExport({ format: 'joystick-mapper/profile', version: 1, name: 'Old', bindings: { trigger: { target: 'a' } } });
+  assert.deepEqual(old.bindings, { btn1: { target: 'a' } });
+
   assert.equal(fromExport({ bindings: {} }), null);
   assert.equal(fromExport('nope'), null);
 });
 
 test('a damaged library on disk keeps the good profiles', () => {
   const lib = normalizeLibrary({
+    version: 3,
     active: 'p-2',
     profiles: [{ id: 'p-1', name: 'Good', bindings: {} }, { id: 'bad id!', name: 'x' }, { id: 'p-3', name: '' }, 'junk'],
   });

@@ -19,6 +19,7 @@
           <g id="leaders"></g>
         </svg>
         <div class="callouts" id="callouts"></div>
+        <div class="generic" id="generic"></div>
 
         <header class="topbar">
           <div class="brand">
@@ -32,10 +33,10 @@
             </button>
           </div>
           <div class="controls">
-            <div class="stat" id="stat-stick">
+            <button class="stat stat-switch device-picker" id="device-picker" type="button" aria-haspopup="dialog">
               <span class="stat-key">Joystick</span>
-              <span class="stat-value" id="stat-stick-value">Searching</span>
-            </div>
+              <span class="stat-value" id="device-name">Searching</span>
+            </button>
             <button class="ghost" id="recenter" type="button" title="Let go of the stick, then click to set its resting centre">
               Recenter
             </button>
@@ -57,6 +58,7 @@
 
     <div class="popover" id="popover" role="dialog" aria-modal="false" hidden></div>
     <div class="popover profile-menu" id="profile-menu" role="dialog" aria-label="Profiles" hidden></div>
+    <div class="popover profile-menu" id="device-menu" role="dialog" aria-label="Joysticks" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script type="module" src="app.js"></script>

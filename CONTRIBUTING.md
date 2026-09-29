@@ -10,9 +10,11 @@ tests must pass.
   `src/shared/presets.js`, and its in-game gamepad layout in `src/shared/games.js`
   (that's what the "controls" window shows).
 - **Bug fixes.** Please include the steps that reproduce the bug.
-- **Other joysticks.** Device support lives in `src/main/devices/`. The screen layout is
-  currently built around the Extreme 3D Pro photo, so open an issue first to talk through
-  the approach.
+- **Other joysticks.** Any USB stick already works through the universal layout. Owners can
+  help by filing a "Joystick support" issue with the output of **Joystick → Copy device
+  info**; that becomes a test fixture in `test/`. Better names for a stick's controls go in
+  `SKINS` in `src/shared/devices.js`. A full photo layout (like the Extreme 3D Pro's in
+  `src/renderer/layout.js`) is bigger, so open an issue first.
 
 For anything bigger than a small fix, open an issue before you start so we can agree on
 the direction. That saves you from writing a PR that doesn't fit.

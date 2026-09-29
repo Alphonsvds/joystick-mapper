@@ -1,15 +1,16 @@
 // Electron main process: owns the joystick, the mapping engine and the virtual
 // Xbox controller, and streams live state to the UI. Everything that matters for
 // the game happens here, so it keeps working with the window in the background.
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EXTREME_3D_PRO } from './devices/extreme3dpro.js';
-import { JoystickReader } from './joystick.js';
+import { JoystickManager } from './joystick.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
 import { readJson, writeJsonAtomic } from './store.js';
-import { CONTROL_BY_ID, emptyBindings, sanitizeBinding } from '../shared/controls.js';
+import { emptyBindings, sanitizeBinding } from '../shared/controls.js';
+import { isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -34,21 +35,26 @@ const FRAME_MS = 16;
 const AUTO_CENTER_MAX_SPREAD = 0.04;
 const AUTO_CENTER_MAX_OFFSET = 0.15;
 const FILE_FILTERS = [{ name: 'Joystick Mapper profile', extensions: ['json'] }];
+const NEW_ISSUE_URL = 'https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml';
+const LEGACY_EXTREME_KEY = '046d:c215';
 
-const joystick = new JoystickReader(EXTREME_3D_PRO);
+// JOYMAP_GENERIC=1 shows even known sticks with the generic layout (tests that path).
+const joystick = new JoystickManager({ ignoreSkins: process.env.JOYMAP_GENERIC === '1' });
 const pad = createVirtualPad();
 
 let win = null;
 let library = emptyLibrary();
 let working = getProfile(library, library.active).bindings; // unsaved edits to the active profile
-let calibration = null;
+// Per-stick settings: { selected, devices: { [key]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
+let deviceSettings = { selected: null, devices: {} };
 let paused = false; // emulation switched off while a game profile is active
 let input = NEUTRAL_INPUT;
 let output = NEUTRAL_OUTPUT;
 let frameDirty = true;
 
 const profilesFile = () => path.join(app.getPath('userData'), 'profiles.json');
-const calibrationFile = () => path.join(app.getPath('userData'), 'calibration.json');
+const devicesFile = () => path.join(app.getPath('userData'), 'devices.json');
+const legacyCalibrationFile = () => path.join(app.getPath('userData'), 'calibration.json');
 // Shipped inside the installer (see package.json extraResources).
 const bundledDriver = () => path.join(process.resourcesPath, 'vigembus', 'ViGEmBus_Setup.exe');
 
@@ -57,15 +63,16 @@ const locked = () => isLocked(library.active);
 const dirty = () => !locked() && JSON.stringify(working) !== JSON.stringify(activeProfile().bindings);
 const emulating = () => !locked() && !paused;
 const windowAlive = () => win !== null && !win.isDestroyed();
+const settingsFor = (key) => deviceSettings.devices[key] ?? {};
 
 function status() {
   const profile = activeProfile();
+  const key = joystick.model?.key;
   return {
-    joystick: joystick.status,
+    joystick: { ...joystick.status, settings: key ? settingsFor(key) : {} },
     pad: pad.status,
     profile: { id: profile.id, name: profile.name, locked: profile.locked },
     emulation: emulating(),
-    calibrated: calibration !== null,
     dirty: dirty(),
   };
 }
@@ -144,33 +151,64 @@ function saveWorking() {
   sendStatus();
 }
 
-function loadCalibration() {
-  const raw = readJson(calibrationFile());
-  if (!raw || typeof raw !== 'object') return null;
-  const clean = {};
-  for (const [id, spec] of Object.entries(EXTREME_3D_PRO.axes)) {
-    if (spec.center === undefined) continue;
-    const v = Number(raw[id]);
-    if (!Number.isFinite(v) || v < spec.min || v > spec.max) return null;
-    clean[id] = v;
+// Reads devices.json, folding in the pre-universal calibration.json (Extreme 3D Pro only).
+function loadDeviceSettings() {
+  const raw = readJson(devicesFile());
+  const settings = { selected: null, devices: {} };
+  if (raw && typeof raw === 'object') {
+    if (typeof raw.selected === 'string') settings.selected = raw.selected;
+    for (const [key, value] of Object.entries(raw.devices ?? {})) {
+      if (!/^[0-9a-f]{4}:[0-9a-f]{4}$/.test(key) || !value || typeof value !== 'object') continue;
+      const clean = {};
+      for (const field of ['calibration', 'centered']) {
+        if (value[field] && typeof value[field] === 'object') {
+          clean[field] = Object.fromEntries(
+            Object.entries(value[field]).filter(([, v]) => (field === 'centered' ? typeof v === 'boolean' : Number.isFinite(v))),
+          );
+        }
+      }
+      settings.devices[key] = clean;
+    }
   }
-  return clean;
+  const legacy = readJson(legacyCalibrationFile());
+  if (legacy && !settings.devices[LEGACY_EXTREME_KEY]?.calibration) {
+    const calibration = { x: Number(legacy.roll), y: Number(legacy.pitch), rz: Number(legacy.yaw) };
+    if (Object.values(calibration).every(Number.isFinite)) {
+      settings.devices[LEGACY_EXTREME_KEY] = { ...settings.devices[LEGACY_EXTREME_KEY], calibration };
+    }
+  }
+  return settings;
 }
 
-function applyCalibration(next) {
-  calibration = next;
-  joystick.setCalibration(next);
-  writeJsonAtomic(calibrationFile(), next);
+function updateDeviceSettings(key, change) {
+  deviceSettings = {
+    ...deviceSettings,
+    devices: { ...deviceSettings.devices, [key]: change(settingsFor(key)) },
+  };
+  joystick.setSettings(deviceSettings.devices);
+  writeJsonAtomic(devicesFile(), deviceSettings);
   sendStatus();
 }
 
-// Until the stick has a saved centre, keep trying whenever it's left at rest. The stick
-// only reports changes (and ignores "send your current state" requests), so right after
-// connecting there may be nothing to measure yet, or someone may still be holding it.
+function applyCalibration(key, centres) {
+  updateDeviceSettings(key, (s) => ({ ...s, calibration: { ...s.calibration, ...centres } }));
+}
+
+// Spring-centred axes of the current stick that don't have a measured centre yet.
+function uncalibratedAxes() {
+  const model = joystick.model;
+  if (!model) return [];
+  const s = settingsFor(model.key);
+  return model.axes.filter((a) => isCentered(a, s) && !Number.isFinite(s.calibration?.[a.id]));
+}
+
+// Until the stick's centred axes have a saved centre, keep trying whenever it's left at
+// rest. Sticks only report changes (many ignore "send your current state" requests), so
+// right after connecting there may be nothing to measure yet, or someone may be holding it.
 let autoCenterTimer = null;
 let autoCentering = false;
 function autoCenter() {
-  if (autoCentering || calibration !== null || joystick.status.state !== 'connected') return;
+  if (autoCentering || uncalibratedAxes().length === 0 || joystick.status.state !== 'connected') return;
   clearTimeout(autoCenterTimer);
   autoCentering = true;
   recenter({ onlyIfResting: true })
@@ -184,16 +222,17 @@ function autoCenter() {
 }
 
 async function recenter({ onlyIfResting }) {
+  const key = joystick.model?.key;
   const measured = await joystick.measureCenter(onlyIfResting ? 800 : 500);
-  if (!measured) return false;
+  if (!measured || !key || joystick.model?.key !== key || Object.keys(measured).length === 0) return false;
   if (onlyIfResting) {
-    for (const [id, m] of Object.entries(measured)) {
-      const { min, max, center } = EXTREME_3D_PRO.axes[id];
+    for (const m of Object.values(measured)) {
+      const [min, max] = m.range;
       if (m.spread > AUTO_CENTER_MAX_SPREAD) return false;
-      if (Math.abs(m.mean - center) / (max - min) > AUTO_CENTER_MAX_OFFSET) return false;
+      if (Math.abs(m.mean - (min + max) / 2) / (max - min) > AUTO_CENTER_MAX_OFFSET) return false;
     }
   }
-  applyCalibration(Object.fromEntries(Object.entries(measured).map(([id, m]) => [id, m.mean])));
+  applyCalibration(key, Object.fromEntries(Object.entries(measured).map(([id, m]) => [id, m.mean])));
   return true;
 }
 
@@ -206,9 +245,10 @@ function registerIpc() {
 
   ipcMain.handle('joymap:set-binding', (_event, controlId, binding) => {
     if (locked()) throw new Error('The Default profile can’t be changed');
-    const clean = sanitizeBinding(CONTROL_BY_ID[controlId], binding);
+    const clean = sanitizeBinding(controlId, binding);
     if (!clean) throw new Error(`Invalid binding for ${controlId}`);
-    working = { ...working, [controlId]: clean };
+    const { [controlId]: _previous, ...rest } = working;
+    working = clean.target === null ? rest : { ...rest, [controlId]: clean };
     pump();
     sendStatus();
     return snapshot();
@@ -321,6 +361,33 @@ function registerIpc() {
 
   ipcMain.handle('joymap:open-controls', () => openControlsWindow());
 
+  ipcMain.handle('joymap:select-device', async (_event, key) => {
+    if (typeof key !== 'string') return false;
+    deviceSettings = { ...deviceSettings, selected: key };
+    writeJsonAtomic(devicesFile(), deviceSettings);
+    await joystick.select(key);
+    return true;
+  });
+
+  // Throttle-style axes read end to end; spring-centred ones read from a calibrated middle.
+  ipcMain.handle('joymap:set-axis-centered', (_event, axisId, centered) => {
+    const key = joystick.model?.key;
+    if (!key || !joystick.model.axes.some((a) => a.id === axisId)) return false;
+    updateDeviceSettings(key, (s) => ({ ...s, centered: { ...s.centered, [axisId]: centered === true } }));
+    autoCenter();
+    return true;
+  });
+
+  ipcMain.handle('joymap:copy-device-info', () => {
+    const report = joystick.deviceReport();
+    if (!report) return false;
+    const info = { app: `${app.getName()} ${app.getVersion()}`, os: `${process.platform} ${os.release()}`, ...report };
+    clipboard.writeText(JSON.stringify(info, null, 2));
+    return true;
+  });
+
+  ipcMain.handle('joymap:report-device', () => shell.openExternal(NEW_ISSUE_URL));
+
   ipcMain.handle('joymap:recenter', () => recenter({ onlyIfResting: false }));
 
   ipcMain.handle('joymap:install-driver', async () => {
@@ -428,13 +495,14 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     library = normalizeLibrary(readJson(profilesFile()));
     working = activeProfile().bindings;
-    calibration = loadCalibration();
-    joystick.setCalibration(calibration);
+    deviceSettings = loadDeviceSettings();
+    joystick.setSettings(deviceSettings.devices);
+    joystick.preferredKey = deviceSettings.selected;
 
     joystick.on('state', (state) => {
       input = state;
       pump();
-      if (calibration === null) autoCenter(); // the first report is the first chance to measure
+      if (uncalibratedAxes().length) autoCenter(); // the first report is the first chance to measure
     });
     joystick.on('lost', () => {
       input = NEUTRAL_INPUT;

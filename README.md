@@ -2,14 +2,34 @@
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
-So this app makes a **Logitech Extreme 3D Pro** show up to games as an **Xbox 360
-controller**. Map the stick once and fly with it in any game that only understands gamepads.
+So this app makes your **flight stick** show up to games as an **Xbox 360 controller**.
+Map the stick once and fly with it in any game that only understands gamepads.
 
-![Joystick Mapper with the Ace Combat 8 profile loaded](docs/screenshot.png)
+![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
+<sub>**Fully supported sticks** get a photo layout, with a line to every control.</sub>
 
-One screen: the stick on black, a line to every button and axis, and a dropdown on each
-line to pick the Xbox input it drives. Press something on the real stick and its hotspot
-lights up; the controller strip at the bottom shows what the virtual pad is sending.
+![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
+<sub>**Every other stick** gets the universal layout: axes and hat on the left, buttons on the right, and a live readout in the middle.</sub>
+
+One screen: your stick on black, every button and axis with a dropdown to pick the Xbox
+input it drives. Press something on the real stick and it lights up; the controller strip at
+the bottom shows what the virtual pad is sending.
+
+## Supported joysticks
+
+| Support | Joysticks |
+| --- | --- |
+| **Fully supported** | Logitech Extreme 3D Pro: tested, with a photo layout and named controls |
+| **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
+
+Experimental sticks are detected automatically. Windows describes each stick's axes, hats
+and buttons, and the app builds its screen from that, with a **Joystick** menu to switch
+if you have more than one plugged in. Press anything and its row lights up, so you can
+find "Button 7" without a picture.
+
+**Help make your stick fully supported:** open **Joystick ▾ → Copy device info**, then
+[open a Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml)
+and paste it in. Say what worked and what didn't.
 
 ## Download
 
@@ -36,6 +56,9 @@ driver it needs, so there's nothing else to set up. Windows asks for admin permi
 - **Xbox emulation switch.** Pauses the virtual controller without leaving your profile.
 - **Recenter.** Let go of the stick and click it if the plane drifts. The app also
   calibrates automatically the first time it sees the stick at rest.
+- **Throttle vs centred axes.** Each axis's dropdown has **Springs back to centre**. Leave it
+  on for sticks, twists and pedals, and turn it off for throttles and sliders. Experimental
+  sticks get a best guess from Windows' description.
 
 Handy axis options for flying: **Throttle → LT / RT Split** (pull back = brake, push
 forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
@@ -50,7 +73,15 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   If one reacts to both, hiding the stick with HidHide is on the v2 list.
 - **Steam Input** can wrap the virtual pad. That's normally harmless; if inputs look doubled,
   disable Steam Input for that game.
-- Your settings live in `%APPDATA%\Joystick Mapper\` (`profiles.json`, `calibration.json`).
+- **A "pick an app to open this ms-gamebar link" popup?** Windows calls Xbox Game Bar
+  whenever an Xbox controller (including the virtual one) connects. If Game Bar has been
+  uninstalled, Windows asks what should open it instead. Reinstall **Xbox Game Bar** from the
+  Microsoft Store, then turn off **Settings → Gaming → Xbox Game Bar → "Open Xbox Game Bar
+  using this button on a controller"**.
+- Your settings live in `%APPDATA%\Joystick Mapper\` (`profiles.json`, and `devices.json`
+  for each stick's calibration).
+- Profiles use each stick's own button numbers (on nearly every flight stick, button 1 is
+  the trigger), so a profile mostly carries over if you switch sticks.
 - Uninstalling the app leaves the ViGEmBus driver in place (other tools use it too). Remove
   it from **Settings → Apps** if you want.
 
@@ -60,15 +91,17 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
 ## How it works
 
 ```
-Extreme 3D Pro ──raw HID──▶ Electron main process ──mapping──▶ ViGEmBus ──▶ "Xbox 360 controller"
-                           (keeps running while the                         (what the game sees)
-                            game has focus)
-                                    │
-                                    └──live state──▶ the mapper screen
+Flight stick ──raw HID──▶ Electron main process ──mapping──▶ ViGEmBus ──▶ "Xbox 360 controller"
+                         (keeps running while the                         (what the game sees)
+                          game has focus)
+                                  │
+                                  └──live state──▶ the mapper screen
 ```
 
 - **Input** is read straight from the stick over HID (`node-hid`), so it works in the
-  background while the game is focused.
+  background while the game is focused. Each report is decoded by **Windows' own HID
+  parser** (`hid.dll`) from the stick's self-description, so any stick works without
+  per-model code.
 - **Output** is a virtual Xbox 360 pad created by the free
   [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver (the one DS4Windows uses). The
   app talks to the driver directly through `koffi`, so no C++ build tools are needed.
@@ -111,26 +144,32 @@ git push origin main --tags
 
 **Preview the UI without hardware.** Serve `src/` with any static server and open
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
-R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons).
+R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro
+and a Thrustmaster T.16000M (add `?device=t16000m` to start on the universal layout).
 
-macOS: the screen and live joystick input work, but the virtual Xbox controller needs
-ViGEmBus, which is Windows-only.
+**Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
+`npm start` to show even the Extreme 3D Pro with the generic screen.
+
+macOS: only the Extreme 3D Pro is read (Windows' HID parser isn't available), and the
+virtual Xbox controller needs ViGEmBus, which is Windows-only.
 
 ## Project layout
 
 ```
 src/main/main.js                 Electron main: window, profiles, IPC, wiring
-src/main/joystick.js             HID reader, reconnects on unplug
-src/main/devices/extreme3dpro.js Report format + axis normalisation for the stick
+src/main/joystick.js             Finds and reads joysticks, reconnects on unplug
+src/main/hidp.js                 Windows' HID parser: reads any stick from its self-description
+src/main/devices/extreme3dpro.js Hand-written Extreme 3D Pro reader (macOS / Linux fallback)
+src/shared/devices.js            Stick layout → controls (axes, hats, buttons), skins, calibration
 src/main/vigem.js                Virtual Xbox 360 controller via ViGEmBus
 src/main/store.js                JSON persistence
 src/main/preload.cjs             The UI's only bridge to the main process
-src/shared/controls.js           Physical controls, Xbox targets, binding rules
+src/shared/controls.js           Control IDs, Xbox targets, binding rules
 src/shared/profiles.js           Profile library (Default + game profiles, export format)
 src/shared/presets.js            Starting points for new profiles (Ace Combat 8, …)
 src/shared/games.js              Each game's own gamepad controls (the controls window)
 src/shared/mapper.js             Pure mapping engine (joystick state → XUSB report)
-src/renderer/                    The single screen
+src/renderer/                    The single screen (layout.js: photo skin, generic.js: universal)
 build/                           Installer resources (icon, NSIS driver step)
 scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
 ```
@@ -140,6 +179,8 @@ scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
 - Switch profiles automatically when a game starts
 - Tray icon / start with Windows
 - HidHide integration so games only see the virtual pad
+- HOTAS: combine a separate stick and throttle into one virtual pad
+- Photo skins for more sticks (contributions welcome)
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 // Shared definitions used by both the Electron main process and the renderer:
-// the physical controls on the joystick, the Xbox 360 outputs they can drive,
-// and the profile format that ties them together.
+// the joystick control IDs, the Xbox 360 outputs they can drive, and the binding
+// format that ties them together.
 
 // XUSB (XInput) button bits, as submitted to the virtual Xbox 360 controller.
 export const XUSB = Object.freeze({
@@ -21,33 +21,37 @@ export const XUSB = Object.freeze({
   Y: 0x8000,
 });
 
-// Every input on the Logitech Extreme 3D Pro. Hat directions behave like buttons.
-// Axis values are normalised to -1..1 with a "gamepad" sense: roll right, pitch
-// forward, twist right and throttle forward are all positive.
-export const PHYSICAL_CONTROLS = Object.freeze([
-  { id: 'trigger', name: 'Trigger', kind: 'button' },
-  { id: 'thumb', name: 'Thumb Button', kind: 'button' },
-  { id: 'b3', name: 'Button 3', kind: 'button' },
-  { id: 'b4', name: 'Button 4', kind: 'button' },
-  { id: 'b5', name: 'Button 5', kind: 'button' },
-  { id: 'b6', name: 'Button 6', kind: 'button' },
-  { id: 'b7', name: 'Button 7', kind: 'button' },
-  { id: 'b8', name: 'Button 8', kind: 'button' },
-  { id: 'b9', name: 'Button 9', kind: 'button' },
-  { id: 'b10', name: 'Button 10', kind: 'button' },
-  { id: 'b11', name: 'Button 11', kind: 'button' },
-  { id: 'b12', name: 'Button 12', kind: 'button' },
-  { id: 'hat_up', name: 'Hat Up', kind: 'button' },
-  { id: 'hat_right', name: 'Hat Right', kind: 'button' },
-  { id: 'hat_down', name: 'Hat Down', kind: 'button' },
-  { id: 'hat_left', name: 'Hat Left', kind: 'button' },
-  { id: 'pitch', name: 'Pitch', kind: 'axis', hint: 'Stick forward / back', defaultDeadzone: 0.04 },
-  { id: 'roll', name: 'Roll', kind: 'axis', hint: 'Stick left / right', defaultDeadzone: 0.04 },
-  { id: 'yaw', name: 'Yaw', kind: 'axis', hint: 'Twist the stick', defaultDeadzone: 0.1 },
-  { id: 'throttle', name: 'Throttle', kind: 'axis', hint: 'Slider on the base', defaultDeadzone: 0.02 },
-]);
+// Joystick controls are identified generically so bindings work on any stick:
+//   btn1…btnN               buttons, numbered as the stick reports them
+//   hat1_up / _right / …    hat directions (they behave like buttons)
+//   x, y, rz, slider, …     axes, named after their HID usage (see shared/devices.js)
+// Axis values are normalised to -1..1 with a "gamepad" sense: right, forward and
+// throttle-forward are positive.
+const BUTTON_ID = /^btn\d{1,3}$/;
+const HAT_ID = /^hat\d_(up|right|down|left)$/;
+const AXIS_ID = /^[a-z][a-z0-9]{0,15}$/;
 
-export const CONTROL_BY_ID = Object.freeze(Object.fromEntries(PHYSICAL_CONTROLS.map((c) => [c.id, c])));
+export function controlKind(id) {
+  if (typeof id !== 'string') return null;
+  if (BUTTON_ID.test(id) || HAT_ID.test(id)) return 'button';
+  if (AXIS_ID.test(id)) return 'axis';
+  return null;
+}
+
+// Control IDs used before joysticks were detected generically (Extreme 3D Pro only).
+export const LEGACY_CONTROL_IDS = Object.freeze({
+  trigger: 'btn1',
+  thumb: 'btn2',
+  ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`b${i + 3}`, `btn${i + 3}`])),
+  hat_up: 'hat1_up',
+  hat_right: 'hat1_right',
+  hat_down: 'hat1_down',
+  hat_left: 'hat1_left',
+  roll: 'x',
+  pitch: 'y',
+  yaw: 'rz',
+  throttle: 'slider',
+});
 
 // Xbox 360 outputs. `accepts` says which kind of physical control may drive it.
 export const TARGETS = Object.freeze([
@@ -113,42 +117,53 @@ export const TARGET_MENUS = Object.freeze({
 });
 
 export const MAX_DEADZONE = 0.5;
+export const DEFAULT_DEADZONE = 0.04;
 
-export function unmappedBinding(control) {
-  return control.kind === 'axis'
-    ? { target: null, invert: false, deadzone: control.defaultDeadzone }
-    : { target: null };
-}
-
+// Bindings are sparse ({ [controlId]: binding }): a stick's controls vary, and a
+// profile keeps working on another stick for the controls they share.
 export function emptyBindings() {
-  return Object.fromEntries(PHYSICAL_CONTROLS.map((c) => [c.id, unmappedBinding(c)]));
+  return {};
 }
 
-// Returns a clean binding for `control`, or null when `raw` isn't a valid one.
-export function sanitizeBinding(control, raw) {
-  if (!control || !raw || typeof raw !== 'object') return null;
+// The binding for `controlId`, or an unmapped one.
+export function bindingFor(bindings, controlId, deadzone = DEFAULT_DEADZONE) {
+  const found = bindings[controlId];
+  if (found) return found;
+  return controlKind(controlId) === 'axis' ? { target: null, invert: false, deadzone } : { target: null };
+}
+
+// Returns a clean binding for `controlId`, or null when `raw` isn't a valid one.
+export function sanitizeBinding(controlId, raw) {
+  const kind = controlKind(controlId);
+  if (!kind || !raw || typeof raw !== 'object') return null;
   const target = raw.target ?? null;
   if (target !== null) {
     const def = TARGET_BY_ID[target];
-    if (!def || !def.accepts.includes(control.kind)) return null;
+    if (!def || !def.accepts.includes(kind)) return null;
   }
-  if (control.kind !== 'axis') return { target };
+  if (kind !== 'axis') return { target };
   const dz = Number(raw.deadzone);
   return {
     target,
     invert: raw.invert === true,
-    deadzone: Number.isFinite(dz) ? Math.min(MAX_DEADZONE, Math.max(0, dz)) : control.defaultDeadzone,
+    deadzone: Number.isFinite(dz) ? Math.min(MAX_DEADZONE, Math.max(0, dz)) : DEFAULT_DEADZONE,
   };
 }
 
-// Accepts anything (read from disk, imported, a partial preset) and returns a
-// complete, valid set of bindings; invalid entries fall back to unmapped.
+// Accepts anything (read from disk, imported, a preset) and returns valid bindings;
+// invalid or unmapped entries are dropped.
 export function normalizeBindings(raw) {
-  const bindings = emptyBindings();
+  const bindings = {};
   if (!raw || typeof raw !== 'object') return bindings;
-  for (const control of PHYSICAL_CONTROLS) {
-    const clean = sanitizeBinding(control, raw[control.id]);
-    if (clean) bindings[control.id] = clean;
+  for (const [id, value] of Object.entries(raw)) {
+    const clean = sanitizeBinding(id, value);
+    if (clean && clean.target !== null) bindings[id] = clean;
   }
   return bindings;
+}
+
+// Renames pre-universal (Extreme 3D Pro only) control IDs.
+export function migrateLegacyBindings(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  return Object.fromEntries(Object.entries(raw).map(([id, value]) => [LEGACY_CONTROL_IDS[id] ?? id, value]));
 }

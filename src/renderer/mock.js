@@ -1,8 +1,11 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
-// The keyboard simulates the joystick so the whole screen can be tried without hardware:
+// Two simulated sticks: the Extreme 3D Pro (photo layout) and a Thrustmaster T.16000M
+// built from its published layout (universal layout). Add ?device=t16000m to start on it.
+// The keyboard drives whichever is selected:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
-//   Space = trigger · V = thumb · 3–6 = head buttons · 7 8 9 0 - = = base buttons 7–12
-import { CONTROL_BY_ID, emptyBindings, sanitizeBinding } from '../shared/controls.js';
+//   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
+import { sanitizeBinding, emptyBindings } from '../shared/controls.js';
+import { describeDevice } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -22,32 +25,66 @@ import {
 
 const STORAGE_KEY = 'joymap.preview.library';
 
+const hat = { page: 1, usage: 0x39, min: 0, max: 7 };
+const SIMULATED = [
+  {
+    vendorId: 0x046d,
+    productId: 0xc215,
+    name: 'Logitech Extreme 3D',
+    layout: {
+      values: [
+        { page: 1, usage: 0x31, min: 0, max: 1023 },
+        { page: 1, usage: 0x30, min: 0, max: 1023 },
+        hat,
+        { page: 1, usage: 0x35, min: 0, max: 255 },
+        { page: 1, usage: 0x36, min: 0, max: 255 },
+      ],
+      buttonCount: 12,
+    },
+  },
+  {
+    vendorId: 0x044f,
+    productId: 0xb10a,
+    name: 'Thrustmaster T.16000M',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 16383 },
+        { page: 1, usage: 0x31, min: 0, max: 16383 },
+        { page: 1, usage: 0x35, min: 0, max: 255 },
+        { page: 1, usage: 0x36, min: 0, max: 255 },
+        hat,
+      ],
+      buttonCount: 16,
+    },
+  },
+].map((d) => ({ ...d, model: describeDevice(d.layout, d) }));
+
 const KEY_BUTTONS = {
-  Space: 'trigger',
-  KeyV: 'thumb',
-  Digit3: 'b3',
-  Digit4: 'b4',
-  Digit5: 'b5',
-  Digit6: 'b6',
-  Digit7: 'b7',
-  Digit8: 'b8',
-  Digit9: 'b9',
-  Digit0: 'b10',
-  Minus: 'b11',
-  Equal: 'b12',
-  ArrowUp: 'hat_up',
-  ArrowRight: 'hat_right',
-  ArrowDown: 'hat_down',
-  ArrowLeft: 'hat_left',
+  Space: 'btn1',
+  KeyV: 'btn2',
+  Digit3: 'btn3',
+  Digit4: 'btn4',
+  Digit5: 'btn5',
+  Digit6: 'btn6',
+  Digit7: 'btn7',
+  Digit8: 'btn8',
+  Digit9: 'btn9',
+  Digit0: 'btn10',
+  Minus: 'btn11',
+  Equal: 'btn12',
+  ArrowUp: 'hat1_up',
+  ArrowRight: 'hat1_right',
+  ArrowDown: 'hat1_down',
+  ArrowLeft: 'hat1_left',
 };
 
 const KEY_AXES = {
-  KeyW: ['pitch', 1],
-  KeyS: ['pitch', -1],
-  KeyD: ['roll', 1],
-  KeyA: ['roll', -1],
-  KeyE: ['yaw', 1],
-  KeyQ: ['yaw', -1],
+  KeyW: ['y', 1],
+  KeyS: ['y', -1],
+  KeyD: ['x', 1],
+  KeyA: ['x', -1],
+  KeyE: ['rz', 1],
+  KeyQ: ['rz', -1],
 };
 
 function readStored() {
@@ -72,8 +109,11 @@ export function createMockApi() {
   let library = readStored();
   let working = getProfile(library, library.active).bindings;
   let paused = false;
+  const wanted = new URLSearchParams(location.search).get('device');
+  let device = SIMULATED.find((d) => wanted && d.model.key === wanted) ?? (wanted === 't16000m' ? SIMULATED[1] : SIMULATED[0]);
+  const deviceSettings = {};
   const held = new Set();
-  const axes = { ...NEUTRAL_INPUT.axes, throttle: -1 };
+  const axes = { x: 0, y: 0, rz: 0, slider: -1 };
   const frameListeners = new Set();
   const statusListeners = new Set();
 
@@ -90,11 +130,16 @@ export function createMockApi() {
   const status = () => {
     const p = active();
     return {
-      joystick: { state: 'connected', name: 'Logitech Extreme 3D Pro (simulated)', message: '' },
+      joystick: {
+        state: 'connected',
+        message: '',
+        device: device.model,
+        devices: SIMULATED.map((d) => ({ key: d.model.key, name: `${d.name} (simulated)` })),
+        settings: deviceSettings[device.model.key] ?? {},
+      },
       pad: { state: emulating() ? 'connected' : 'off', message: '' },
       profile: { id: p.id, name: p.name, locked: p.locked },
       emulation: emulating(),
-      calibrated: true,
       dirty: dirty(),
     };
   };
@@ -131,18 +176,18 @@ export function createMockApi() {
   function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    const target = { pitch: 0, roll: 0, yaw: 0 };
+    const target = { x: 0, y: 0, rz: 0 };
     for (const code of held) {
       const axis = KEY_AXES[code];
       if (axis) target[axis[0]] += axis[1];
     }
     // Springy stick: ease toward the held direction, return to centre when released.
-    for (const id of ['pitch', 'roll', 'yaw']) axes[id] += (target[id] - axes[id]) * Math.min(1, dt * 10);
+    for (const id of ['x', 'y', 'rz']) axes[id] += (target[id] - axes[id]) * Math.min(1, dt * 10);
     // Throttle stays where you leave it.
-    if (held.has('KeyR')) axes.throttle = Math.min(1, axes.throttle + dt * 1.2);
-    if (held.has('KeyF')) axes.throttle = Math.max(-1, axes.throttle - dt * 1.2);
+    if (held.has('KeyR')) axes.slider = Math.min(1, axes.slider + dt * 1.2);
+    if (held.has('KeyF')) axes.slider = Math.max(-1, axes.slider - dt * 1.2);
 
-    const buttons = { ...NEUTRAL_INPUT.buttons };
+    const buttons = {};
     for (const code of held) if (KEY_BUTTONS[code]) buttons[KEY_BUTTONS[code]] = true;
     const input = { buttons, axes: { ...axes } };
     const output = mapInput(emulating() ? input : NEUTRAL_INPUT, working);
@@ -157,9 +202,10 @@ export function createMockApi() {
     },
     async setBinding(controlId, binding) {
       if (isLocked(library.active)) throw new Error('The Default profile can’t be changed');
-      const clean = sanitizeBinding(CONTROL_BY_ID[controlId], binding);
+      const clean = sanitizeBinding(controlId, binding);
       if (!clean) throw new Error(`Invalid binding for ${controlId}`);
-      working = { ...working, [controlId]: clean };
+      const { [controlId]: _previous, ...rest } = working;
+      working = clean.target === null ? rest : { ...rest, [controlId]: clean };
       emitStatus();
       return snapshot();
     },
@@ -240,6 +286,24 @@ export function createMockApi() {
     },
     async openControls() {
       window.open('controls.html', 'joymap-controls', 'width=560,height=700');
+    },
+    async selectDevice(key) {
+      device = SIMULATED.find((d) => d.model.key === key) ?? device;
+      emitStatus();
+      return true;
+    },
+    async setAxisCentered(axisId, centered) {
+      const key = device.model.key;
+      deviceSettings[key] = { ...deviceSettings[key], centered: { ...deviceSettings[key]?.centered, [axisId]: centered } };
+      emitStatus();
+      return true;
+    },
+    async copyDeviceInfo() {
+      await navigator.clipboard?.writeText(JSON.stringify({ simulated: true, device: device.name, layout: device.layout }, null, 2));
+      return true;
+    },
+    async reportDevice() {
+      window.open('https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml', '_blank');
     },
     async recenter() {
       return true;
