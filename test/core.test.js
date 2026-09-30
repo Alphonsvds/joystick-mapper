@@ -281,6 +281,16 @@ test('L3 + R3 presses both stick clicks from one button', () => {
   assert.equal(presetBindings('ace-combat-8').btn2.target, 'ls_rs_click');
 });
 
+test('LT + RT pulls both triggers fully from one button', () => {
+  const p = bindingsWith({ btn6: { target: 'lt_rt_both' } });
+  const pressed = mapInput(input({ btn6: true }), p);
+  assert.deepEqual([pressed.lt, pressed.rt], [255, 255]);
+  const released = mapInput(input({ btn6: false }), p);
+  assert.deepEqual([released.lt, released.rt], [0, 0]);
+  // Axes can't drive it: it is a button-only combo.
+  assert.equal(normalizeBindings({ slider: { target: 'lt_rt_both' } }).slider, undefined);
+});
+
 test('the Ace Combat 8 preset keeps every binding and matches the controls window', () => {
   const preset = PRESETS.find((p) => p.id === 'ace-combat-8');
   // Nothing is dropped by validation.

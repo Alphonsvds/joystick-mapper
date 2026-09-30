@@ -79,6 +79,14 @@ function bothSticks() {
   return svg(click(8.5, 'L') + click(23.5, 'R'));
 }
 
+// Both triggers pulled together.
+function bothTriggers() {
+  const one = (x, text) =>
+    `<path d="M${x - 4} 27 V13.5 C${x - 4} 8.5 ${x - 2} 5.5 ${x} 5.5 C${x + 2} 5.5 ${x + 4} 8.5 ${x + 4} 13.5 V27 Z" fill="currentColor"/>` +
+    label(text, x, 22, 6, '#000');
+  return svg(one(9, 'LT') + one(23, 'RT'));
+}
+
 // Two outputs sharing one axis, e.g. LT on the back half and RT on the front half.
 function split(left, right) {
   return svg(
@@ -118,6 +126,7 @@ const ICONS = {
   rs_right: () => stick('R', ['right']),
   rs_click: () => stick('R', [], true),
   ls_rs_click: () => bothSticks(),
+  lt_rt_both: () => bothTriggers(),
   rs_x: () => stick('R', ['left', 'right']),
   rs_y: () => stick('R', ['up', 'down']),
   view: () => menuButton('view'),
@@ -155,6 +164,7 @@ export const TILE_LABELS = {
   rs_right: 'Right',
   rs_click: 'Click',
   ls_rs_click: 'L3 + R3',
+  lt_rt_both: 'LT + RT',
   view: 'View',
   menu: 'Menu',
   ls_x: 'LS  ←→',

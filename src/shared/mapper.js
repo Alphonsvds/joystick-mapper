@@ -53,6 +53,7 @@ export function mapInput(input, bindings) {
       if (!input.buttons[controlId]) continue;
       if (target.bit) acc.buttons |= target.bit;
       else if (target.id === 'lt' || target.id === 'rt') acc[target.id] = 1;
+      else if (target.id === 'lt_rt_both') acc.lt = acc.rt = 1;
       else if (STICK_PUSH[target.id]) {
         const [axis, dir] = STICK_PUSH[target.id];
         acc[axis] += dir;
