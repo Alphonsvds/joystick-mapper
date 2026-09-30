@@ -445,7 +445,8 @@ body.is-intro * {
   opacity: 0.55;
 }
 
-.inv {
+.inv,
+.dz {
   height: 30px;
   padding: 0 9px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -459,9 +460,24 @@ body.is-intro * {
   transition: all 0.2s ease;
 }
 
-.inv:hover {
+.inv:hover,
+.dz:hover:not(:disabled),
+.dz.is-open {
   border-color: rgba(255, 255, 255, 0.5);
   color: #fff;
+}
+
+/* Fixed width so the label doesn't shift while the slider moves. */
+.dz {
+  width: 62px;
+  padding: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+}
+
+.dz.is-open {
+  border-color: #fff;
 }
 
 .inv.is-on {
@@ -524,6 +540,7 @@ body.is-intro * {
 }
 
 .stage.is-locked .inv,
+.stage.is-locked .dz,
 .stage.is-locked .chip .chevron {
   display: none;
 }
@@ -1115,6 +1132,15 @@ body.is-intro * {
   margin-top: 14px;
 }
 
+/* The deadzone-only popover is narrower and has no tile grid above its slider. */
+.popover.is-compact {
+  width: 320px;
+}
+
+.popover.is-compact .pop-options {
+  margin-top: 0;
+}
+
 .pop-option {
   display: flex;
   align-items: center;
@@ -1295,6 +1321,16 @@ body.reference {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.ref-section {
+  margin-top: 26px;
+  padding: 0 14px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 9.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 .ref-row {
@@ -1650,7 +1686,8 @@ body.reference {
   color: var(--ink-dim);
 }
 
-.inv:disabled {
+.inv:disabled,
+.dz:disabled {
   opacity: 0.3;
   cursor: default;
 }

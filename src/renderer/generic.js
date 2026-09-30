@@ -32,7 +32,7 @@ function heading(parent, title, count) {
   if (count !== undefined) el('span', 'gen-count', h).textContent = String(count);
 }
 
-// hooks: { chip(controlId, parent), inv(axisId, parent), register(controlId, row, extras) }
+// hooks: { chip(controlId, parent), inv(axisId, parent), dz(axisId, parent), register(controlId, row, extras) }
 function axisRow(parent, axis, centered, hooks) {
   const row = el('div', 'gen-row gen-axis', parent);
   const label = el('div', 'gen-label', row);
@@ -43,6 +43,7 @@ function axisRow(parent, axis, centered, hooks) {
   const controls = el('div', 'gen-controls', row);
   hooks.chip(axis.id, controls);
   hooks.inv(axis.id, controls);
+  hooks.dz(axis.id, controls);
   hooks.register(axis.id, row, { meterFill: fill, meter });
 }
 

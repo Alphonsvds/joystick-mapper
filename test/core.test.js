@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Extreme3DProParser } from '../src/main/devices/extreme3dpro.js';
-import { XUSB, emptyBindings, normalizeBindings, sanitizeBinding } from '../src/shared/controls.js';
+import { TARGET_BY_ID, XUSB, emptyBindings, normalizeBindings, sanitizeBinding } from '../src/shared/controls.js';
 import { describeDevice, hatDirections, normalizeInput } from '../src/shared/devices.js';
+import { GAMES } from '../src/shared/games.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
+import { PRESETS } from '../src/shared/presets.js';
 import {
   DEFAULT_PROFILE_ID,
   addProfile,
@@ -276,7 +278,44 @@ test('L3 + R3 presses both stick clicks from one button', () => {
   const p = bindingsWith({ btn6: { target: 'ls_rs_click' } });
   assert.equal(mapInput(input({ btn6: true }), p).buttons, XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB);
   assert.equal(mapInput(input({ btn6: false }), p).buttons, 0);
-  assert.equal(presetBindings('ace-combat-8').btn6.target, 'ls_rs_click');
+  assert.equal(presetBindings('ace-combat-8').btn2.target, 'ls_rs_click');
+});
+
+test('the Ace Combat 8 preset keeps every binding and matches the controls window', () => {
+  const preset = PRESETS.find((p) => p.id === 'ace-combat-8');
+  // Nothing is dropped by validation.
+  assert.deepEqual(Object.keys(presetBindings('ace-combat-8')).sort(), Object.keys(preset.bindings).sort());
+
+  const b = presetBindings('ace-combat-8');
+  // Squad commands are on the D-pad buttons; the hat is the camera (right stick).
+  assert.deepEqual(
+    [b.btn7, b.btn8, b.btn9, b.btn10].map((x) => x.target),
+    ['dpad_up', 'dpad_down', 'dpad_left', 'dpad_right'],
+  );
+  assert.deepEqual(
+    [b.hat1_up, b.hat1_right, b.hat1_down, b.hat1_left].map((x) => x.target),
+    ['rs_up', 'rs_right', 'rs_down', 'rs_left'],
+  );
+
+  const ac8 = GAMES.find((g) => g.id === 'ace-combat-8');
+  const rows = Object.fromEntries(ac8.sections.flatMap((s) => s.controls).map((c) => [c.action, c.target]));
+  assert.deepEqual(
+    [rows['Camera up'], rows['Camera left'], rows['Camera down'], rows['Camera right']],
+    ['rs_up', 'rs_left', 'rs_down', 'rs_right'],
+  );
+  assert.deepEqual(
+    [rows['Forward attack'], rows['Disp. atk.'], rows['SP weapons on/off'], rows['Cover']],
+    ['dpad_up', 'dpad_left', 'dpad_right', 'dpad_down'],
+  );
+});
+
+test('every controls-window row points at a real Xbox output', () => {
+  for (const game of GAMES) {
+    for (const section of game.sections) {
+      assert.ok(section.title && section.controls.length, `${game.id}: empty section`);
+      for (const { action, target } of section.controls) assert.ok(TARGET_BY_ID[target], `${action} → ${target}`);
+    }
+  }
 });
 
 test('opposite D-pad directions cancel out', () => {

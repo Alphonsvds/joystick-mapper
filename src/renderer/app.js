@@ -24,7 +24,8 @@ let status = null;
 let model = null; // the connected stick: { key, name, skin, support, axes, hats, buttons, buttonNames }
 let layoutKey = null; // what the stage was last built for
 let focused = null; // callout / row id currently highlighted
-let openControl = null; // control id whose picker is open
+let openControl = null; // control id whose picker (or deadzone popover) is open
+let openKind = 'picker'; // picker | deadzone
 let drawHud = null; // generic layout's live readout
 
 const isLocked = () => status?.profile.locked ?? true;
@@ -35,6 +36,7 @@ let calloutEl = {}; // callout / row id -> element
 let leaderEl = {}; // callout id -> svg group (photo layout only)
 let chipEl = {}; // control id -> chip button
 let invEl = {}; // control id -> invert toggle
+let dzEl = {}; // control id -> deadzone button
 let liveEl = {}; // control id -> element that lights when pressed
 let meterEl = {}; // control id -> meter fill
 let guideEl = {}; // axis id -> { group, dot } (photo layout only)
@@ -89,10 +91,13 @@ function controlInfo(id) {
   return { id, kind, name: model?.buttonNames[id] ?? id };
 }
 
-function currentBinding(id) {
+function axisDefaultDeadzone(id) {
   const axis = model?.axes.find((a) => a.id === id);
-  const dz = axis ? defaultDeadzone(axis, isCentered(axis, deviceSettings())) : undefined;
-  return bindingFor(bindings, id, dz);
+  return axis ? defaultDeadzone(axis, isCentered(axis, deviceSettings())) : undefined;
+}
+
+function currentBinding(id) {
+  return bindingFor(bindings, id, axisDefaultDeadzone(id));
 }
 
 // ─── Stage ────────────────────────────────────────────────────────────────────
@@ -109,6 +114,7 @@ function resetRegistries() {
   leaderEl = {};
   chipEl = {};
   invEl = {};
+  dzEl = {};
   liveEl = {};
   meterEl = {};
   guideEl = {};
@@ -212,6 +218,14 @@ function buildInv(axisId, parent) {
   return inv;
 }
 
+function buildDz(axisId, parent) {
+  const dz = button('dz', 'DZ', parent, () => openDeadzone(axisId));
+  dz.title = 'Deadzone: how far the axis must move before it counts';
+  dz.setAttribute('aria-haspopup', 'dialog');
+  dzEl[axisId] = dz;
+  return dz;
+}
+
 const HAT_DPAD = { up: 'dpad_up', right: 'dpad_right', down: 'dpad_down', left: 'dpad_left' };
 
 function buildCallouts() {
@@ -246,7 +260,10 @@ function buildCallouts() {
       }
       const row = htmlEl('div', 'callout-row', node);
       buildChip(c.id, row);
-      if (axis) buildInv(c.id, row);
+      if (axis) {
+        buildInv(c.id, row);
+        buildDz(c.id, row);
+      }
       liveEl[c.id] = node;
       calloutOf[c.id] = c.id;
     }
@@ -261,6 +278,7 @@ function buildCallouts() {
 const genericHooks = {
   chip: buildChip,
   inv: buildInv,
+  dz: buildDz,
   register(id, row, extras = {}) {
     liveEl[id] = row;
     calloutEl[id] = row;
@@ -310,6 +328,14 @@ function renderChip(controlId) {
     inv.disabled = !target;
     inv.setAttribute('aria-pressed', String(binding.invert === true));
     inv.classList.toggle('is-on', binding.invert === true);
+  }
+
+  const dz = dzEl[controlId];
+  if (dz) {
+    const percent = Math.round((binding.deadzone ?? 0) * 100);
+    dz.disabled = !target;
+    dz.textContent = `DZ ${percent}%`;
+    dz.setAttribute('aria-label', `${controlInfo(controlId).name} deadzone: ${percent}%`);
   }
 }
 
@@ -361,9 +387,11 @@ function openPicker(controlId) {
   const binding = currentBinding(controlId);
   const used = usedTargets(controlId);
   openControl = controlId;
+  openKind = 'picker';
   setFocus(calloutOf[controlId]);
   chipEl[controlId].classList.add('is-open');
 
+  popover.classList.remove('is-compact');
   popover.replaceChildren();
   popover.setAttribute('aria-label', `Map ${control.name}`);
   const head = htmlEl('div', 'pop-head', popover);
@@ -406,22 +434,7 @@ function openPicker(controlId) {
 
   if (control.kind === 'axis') {
     const options = htmlEl('div', 'pop-options', popover);
-    const label = htmlEl('label', 'pop-option', options);
-    htmlEl('span', 'pop-option-name', label).textContent = 'Deadzone';
-    const slider = htmlEl('input', 'slider', label);
-    slider.type = 'range';
-    slider.min = '0';
-    slider.max = String(MAX_DEADZONE * 100);
-    slider.step = '1';
-    slider.value = String(Math.round(binding.deadzone * 100));
-    const value = htmlEl('output', 'pop-option-value', label);
-    value.textContent = `${slider.value}%`;
-    let timer = null;
-    slider.addEventListener('input', () => {
-      value.textContent = `${slider.value}%`;
-      clearTimeout(timer);
-      timer = setTimeout(() => updateBinding(controlId, { deadzone: Number(slider.value) / 100 }), 120);
-    });
+    deadzoneSlider(options, controlId);
 
     // Throttles read end to end; sticks, twists and pedals spring back to a calibrated middle.
     if (control.axis) {
@@ -453,11 +466,83 @@ function openPicker(controlId) {
   (popover.querySelector('.tile.is-selected') ?? popover.querySelector('.tile'))?.focus({ preventScroll: true });
 }
 
-// Opens beside the chip, on whichever side has more room.
+// The deadzone slider, shared by the picker and the DZ popover. Returns a setter so the
+// popover's Reset button can move it. `onInput` gets the new deadzone (0–0.5) as it changes.
+function deadzoneSlider(parent, controlId, onInput) {
+  const label = htmlEl('label', 'pop-option', parent);
+  htmlEl('span', 'pop-option-name', label).textContent = 'Deadzone';
+  const slider = htmlEl('input', 'slider', label);
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = String(MAX_DEADZONE * 100);
+  slider.step = '1';
+  slider.value = String(Math.round(currentBinding(controlId).deadzone * 100));
+  const value = htmlEl('output', 'pop-option-value', label);
+  value.textContent = `${slider.value}%`;
+  let timer = null;
+  slider.addEventListener('input', () => {
+    value.textContent = `${slider.value}%`;
+    onInput?.(Number(slider.value) / 100);
+    clearTimeout(timer);
+    timer = setTimeout(() => updateBinding(controlId, { deadzone: Number(slider.value) / 100 }), 120);
+  });
+  return {
+    slider,
+    set(deadzone) {
+      slider.value = String(Math.round(deadzone * 100));
+      value.textContent = `${slider.value}%`;
+    },
+  };
+}
+
+// A small popover with only the deadzone, opened from the DZ button beside an axis.
+function openDeadzone(controlId) {
+  if (openControl === controlId && openKind === 'deadzone') return closePicker();
+  if (isLocked()) return;
+  closeMenus();
+  closePicker({ restoreFocus: false });
+  const control = controlInfo(controlId);
+  const fallback = axisDefaultDeadzone(controlId);
+  openControl = controlId;
+  openKind = 'deadzone';
+  setFocus(calloutOf[controlId]);
+  dzEl[controlId].classList.add('is-open');
+
+  popover.classList.add('is-compact');
+  popover.replaceChildren();
+  popover.setAttribute('aria-label', `Deadzone for ${control.name}`);
+  const head = htmlEl('div', 'pop-head', popover);
+  htmlEl('span', 'pop-kicker', head).textContent = 'Deadzone';
+  htmlEl('span', 'pop-title', head).textContent = control.name;
+
+  const sameAsDefault = (deadzone) => Math.round(deadzone * 100) === Math.round(fallback * 100);
+  let reset = null;
+  const options = htmlEl('div', 'pop-options', popover);
+  const field = deadzoneSlider(options, controlId, (deadzone) => (reset.disabled = sameAsDefault(deadzone)));
+
+  const foot = htmlEl('div', 'pop-foot', popover);
+  htmlEl('span', 'pop-hint', foot).textContent = 'Movement smaller than this is ignored. Raise it if the axis drifts.';
+  reset = button('pop-clear', 'Reset', foot, async () => {
+    field.set(fallback);
+    reset.disabled = true;
+    await updateBinding(controlId, { deadzone: fallback });
+  });
+  reset.disabled = sameAsDefault(currentBinding(controlId).deadzone);
+
+  popover.hidden = false;
+  positionPicker(controlId);
+  field.slider.focus({ preventScroll: true });
+}
+
+// The button the open popover hangs off: the DZ button, or the mapping chip.
+const pickerAnchor = (controlId) => (openKind === 'deadzone' ? dzEl[controlId] : chipEl[controlId]);
+
+// Opens beside its button, on whichever side has more room. The deadzone popover clears
+// the whole row (chip, INV and DZ) so the axis it edits stays visible.
 function positionPicker(controlId) {
-  const chip = chipEl[controlId];
-  if (!chip) return;
-  const rect = chip.getBoundingClientRect();
+  const anchor = pickerAnchor(controlId);
+  if (!anchor) return;
+  const rect = (openKind === 'deadzone' ? anchor.parentElement : anchor).getBoundingClientRect();
   const onLeftHalf = rect.left + rect.width / 2 < window.innerWidth / 2;
   const gap = 18;
   const width = popover.offsetWidth;
@@ -472,7 +557,7 @@ function positionPicker(controlId) {
 
 function closePicker({ restoreFocus = true } = {}) {
   if (!openControl) return;
-  const chip = chipEl[openControl];
+  const chip = pickerAnchor(openControl);
   chip?.classList.remove('is-open');
   openControl = null;
   popover.hidden = true;
@@ -600,8 +685,10 @@ function renderNameForm(kind) {
   input.value = kind === 'rename' ? status.profile.name : '';
   input.required = true;
 
+  // Templates are only offered on the fully supported stick; any other stick starts blank.
   let presetId = 'blank';
-  if (kind === 'new') {
+  if (kind === 'new' && (!model || model.support === 'full')) {
+    presetId = 'ace-combat-8';
     htmlEl('h3', 'pop-heading', form).textContent = 'Start from';
     const choices = htmlEl('div', 'preset-list', form);
     let typed = false;
@@ -615,9 +702,10 @@ function renderNameForm(kind) {
       choice.addEventListener('click', () => {
         presetId = preset.id;
         for (const c of choices.children) c.classList.toggle('is-selected', c === choice);
-        if (!typed && preset.id !== 'blank') input.value = preset.name;
+        if (!typed) input.value = preset.id === 'blank' ? '' : preset.name;
       });
     }
+    input.value = presets.find((p) => p.id === presetId)?.name ?? '';
   }
 
   const actions = htmlEl('div', 'profile-actions profile-form-actions', form);
@@ -689,7 +777,7 @@ for (const menu of [profileMenu, deviceMenu]) {
 }
 
 document.addEventListener('pointerdown', (event) => {
-  if (openControl && !popover.contains(event.target) && !chipEl[openControl]?.contains(event.target)) {
+  if (openControl && !popover.contains(event.target) && !pickerAnchor(openControl)?.contains(event.target)) {
     closePicker({ restoreFocus: false });
   }
   const inMenus = [profileMenu, deviceMenu, $('#profile-picker'), $('#device-picker')].some((n) => n.contains(event.target));
