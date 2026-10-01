@@ -291,6 +291,13 @@ test('LT + RT pulls both triggers fully from one button', () => {
   assert.equal(normalizeBindings({ slider: { target: 'lt_rt_both' } }).slider, undefined);
 });
 
+test('LB + RB presses both bumpers from one button', () => {
+  const p = bindingsWith({ btn6: { target: 'lb_rb_both' } });
+  assert.equal(mapInput(input({ btn6: true }), p).buttons, XUSB.LEFT_SHOULDER | XUSB.RIGHT_SHOULDER);
+  assert.equal(mapInput(input({ btn6: false }), p).buttons, 0);
+  assert.equal(normalizeBindings({ slider: { target: 'lb_rb_both' } }).slider, undefined);
+});
+
 test('the Ace Combat 8 preset keeps every binding and matches the controls window', () => {
   const preset = PRESETS.find((p) => p.id === 'ace-combat-8');
   // Nothing is dropped by validation.

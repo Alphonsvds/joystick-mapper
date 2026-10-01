@@ -84,6 +84,13 @@ export const TARGETS = Object.freeze([
     bit: XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB,
     hint: 'Clicks both sticks at once (flares in Ace Combat)',
   },
+  {
+    id: 'lb_rb_both',
+    name: 'LB + RB',
+    accepts: ['button'],
+    bit: XUSB.LEFT_SHOULDER | XUSB.RIGHT_SHOULDER,
+    hint: 'Presses both bumpers at once',
+  },
   { id: 'lt_rt_both', name: 'LT + RT', accepts: ['button'], hint: 'Pulls both triggers at once' },
   { id: 'view', name: 'View', accepts: ['button'], bit: XUSB.BACK, hint: 'Back on Xbox 360 pads' },
   { id: 'menu', name: 'Menu', accepts: ['button'], bit: XUSB.START, hint: 'Start on Xbox 360 pads' },
@@ -108,7 +115,7 @@ export const TARGET_MENUS = Object.freeze({
     { title: 'Left stick', items: ['ls_up', 'ls_down', 'ls_left', 'ls_right', 'ls_click'] },
     { title: 'Right stick', items: ['rs_up', 'rs_down', 'rs_left', 'rs_right', 'rs_click'] },
     { title: 'Menu', items: ['view', 'menu'] },
-    { title: 'Combos', items: ['ls_rs_click', 'lt_rt_both'] },
+    { title: 'Combos', items: ['ls_rs_click', 'lb_rb_both', 'lt_rt_both'] },
   ],
   axis: [
     { title: 'Stick axes', items: ['ls_x', 'ls_y', 'rs_x', 'rs_y'] },

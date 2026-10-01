@@ -79,6 +79,18 @@ function bothSticks() {
   return svg(click(8.5, 'L') + click(23.5, 'R'));
 }
 
+// Both bumpers pressed together.
+function bothBumpers() {
+  const one = (x, text, mirror) => {
+    const flip = mirror ? ` transform="matrix(-1 0 0 1 ${2 * x} 0)"` : '';
+    return (
+      `<path d="M${x - 7.5} 22 C${x - 7.5} 15.5 ${x - 5} 11 ${x - 0.5} 11 H${x + 5} C${x + 7} 11 ${x + 7.5} 13.2 ${x + 7.5} 16.5 V22 Z"${flip} fill="currentColor"/>` +
+      label(text, x, 19.6, 6.5, '#000')
+    );
+  };
+  return svg(one(8.5, 'LB', false) + one(23.5, 'RB', true));
+}
+
 // Both triggers pulled together.
 function bothTriggers() {
   const one = (x, text) =>
@@ -126,6 +138,7 @@ const ICONS = {
   rs_right: () => stick('R', ['right']),
   rs_click: () => stick('R', [], true),
   ls_rs_click: () => bothSticks(),
+  lb_rb_both: () => bothBumpers(),
   lt_rt_both: () => bothTriggers(),
   rs_x: () => stick('R', ['left', 'right']),
   rs_y: () => stick('R', ['up', 'down']),
@@ -164,6 +177,7 @@ export const TILE_LABELS = {
   rs_right: 'Right',
   rs_click: 'Click',
   ls_rs_click: 'L3 + R3',
+  lb_rb_both: 'LB + RB',
   lt_rt_both: 'LT + RT',
   view: 'View',
   menu: 'Menu',
