@@ -27,9 +27,62 @@ const AXIS_USAGES = {
   [`${PAGE_SIMULATION}:${0xc8}`]: { id: 'steering', name: 'Steering', centered: true },
 };
 
+// A hat that reports as five plain buttons: `first` is its "up" button.
+const buttonHat = (name, first) =>
+  Object.fromEntries(['Up', 'Right', 'Down', 'Left', 'Push'].map((dir, i) => [`btn${first + i}`, `${name} ${dir}`]));
+
+// How well a stick is known, shown next to its name:
+//   full          photo layout and names, checked against the real stick
+//   beta          photo layout and names that owners are still confirming
+//   experimental  everything else: the generic layout, built from what the stick reports
+export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Beta', experimental: 'Experimental' });
+
 // Sticks with a photo layout and friendly names. Everything else gets the generic
 // layout and is marked experimental until someone confirms it.
 export const SKINS = Object.freeze({
+  // VKB Gladiator NXT EVO, right hand (reports as "VKBsim Gladiator EVO R"), with the
+  // Premium / Space Combat grip. Button numbers are VKB's factory profile; the stick
+  // advertises 128 buttons and two spare axes (Slider, Dial) that it doesn't use.
+  // Beta until an owner has confirmed every label against the stick.
+  '231d:0200': {
+    id: 'gladiatorevo',
+    name: 'VKB Gladiator NXT EVO',
+    support: 'beta',
+    names: {
+      btn1: 'Trigger Stage 1',
+      btn2: 'Trigger Stage 2',
+      btn3: 'A2 Button',
+      btn4: 'B1 Button',
+      btn5: 'D1 Button',
+      ...buttonHat('A3', 6),
+      ...buttonHat('A4', 11),
+      ...buttonHat('C1', 16),
+      btn21: 'Rapid Fire Forward',
+      btn22: 'Rapid Fire Back',
+      btn23: 'En1 Up',
+      btn24: 'En1 Down',
+      btn25: 'Sw1 Up',
+      btn26: 'Sw1 Down',
+      btn27: 'F1',
+      btn28: 'F2',
+      btn29: 'F3',
+      hat1: 'A1 Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      rz: 'Yaw',
+      z: 'Throttle',
+      rx: 'A1 Stick X',
+      ry: 'A1 Stick Y',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      rz: 'Twist the stick',
+      z: 'Lever on the base',
+      rx: 'A1 ministick in analog mode',
+      ry: 'A1 ministick in analog mode',
+    },
+  },
   '046d:c215': {
     id: 'extreme3dpro',
     name: 'Logitech Extreme 3D Pro',
@@ -99,7 +152,7 @@ export function describeDevice(layout, { vendorId, productId, name, ignoreSkin =
     key,
     name: skin?.name ?? name ?? `Joystick ${key}`,
     skin: skin?.id ?? null,
-    support: skin ? 'full' : 'experimental',
+    support: skin ? (skin.support ?? 'full') : 'experimental',
     axes,
     hats,
     buttons,

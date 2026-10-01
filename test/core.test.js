@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Extreme3DProParser } from '../src/main/devices/extreme3dpro.js';
 import { TARGET_BY_ID, XUSB, emptyBindings, normalizeBindings, sanitizeBinding } from '../src/shared/controls.js';
-import { describeDevice, hatDirections, normalizeInput } from '../src/shared/devices.js';
+import { SKINS, describeDevice, hatDirections, normalizeInput } from '../src/shared/devices.js';
 import { GAMES } from '../src/shared/games.js';
+import { LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
 import { PRESETS } from '../src/shared/presets.js';
 import {
@@ -49,6 +50,25 @@ const T16000M_LAYOUT = {
   buttonCount: 16,
 };
 const T16000M = { vendorId: 0x044f, productId: 0xb10a, name: 'Thrustmaster T.16000M' };
+
+// VKB Gladiator NXT EVO (right hand), from an owner's "Copy device info" on 2026-10-01
+// (GitHub issue #1). GLADIATOR_REST is the axis part of its last report, stick let go.
+const GLADIATOR_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 4095 },
+    { page: 1, usage: 0x31, min: 0, max: 4095 },
+    { page: 1, usage: 0x35, min: 0, max: 2047 },
+    { page: 1, usage: 0x32, min: 0, max: 2047 },
+    { page: 1, usage: 0x33, min: 0, max: 1023 },
+    { page: 1, usage: 0x34, min: 0, max: 1023 },
+    { page: 1, usage: 0x36, min: 0, max: 2047 },
+    { page: 1, usage: 0x37, min: 0, max: 2047 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+  ],
+  buttonCount: 128,
+};
+const GLADIATOR = { vendorId: 0x231d, productId: 0x0200, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO R' };
+const GLADIATOR_REST = [2048, 2048, 1024, 1010, 512, 512, 1024, 1024, null];
 
 // Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
 function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
@@ -105,6 +125,69 @@ test('a known stick gets its photo skin and friendly names', () => {
   assert.equal(model.buttons, 12);
   assert.equal(model.buttonNames.btn1, 'Trigger');
   assert.equal(model.buttonNames.btn7, 'Button 7');
+});
+
+test('the Gladiator NXT EVO gets its skin, with names for the controls it ships with', () => {
+  const model = describeDevice(GLADIATOR_LAYOUT, GLADIATOR);
+  assert.equal(model.key, '231d:0200');
+  assert.equal(model.skin, 'gladiatorevo');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'VKB Gladiator NXT EVO');
+  assert.deepEqual(
+    model.axes.map((a) => [a.id, a.name]),
+    [
+      ['x', 'Roll'],
+      ['y', 'Pitch'],
+      ['rz', 'Yaw'],
+      ['z', 'Throttle'],
+      ['rx', 'A1 Stick X'],
+      ['ry', 'A1 Stick Y'],
+      ['slider', 'Slider'],
+      ['dial', 'Dial'],
+    ],
+  );
+  assert.deepEqual(model.hats.map((h) => [h.id, h.name]), [['hat1', 'A1 Hat']]);
+  // The stick advertises 128 buttons; the factory profile uses the first 29.
+  assert.equal(model.buttons, 128);
+  assert.equal(model.buttonNames.btn2, 'Trigger Stage 2');
+  assert.equal(model.buttonNames.btn10, 'A3 Push');
+  assert.equal(model.buttonNames.btn16, 'C1 Up');
+  assert.equal(model.buttonNames.btn29, 'F3');
+  assert.equal(model.buttonNames.btn30, 'Button 30');
+});
+
+test('a Gladiator at rest reads centred, including its two spare axes', () => {
+  const model = describeDevice(GLADIATOR_LAYOUT, GLADIATOR);
+  const { axes, buttons } = normalizeInput({ values: GLADIATOR_REST, buttons: new Set() }, model);
+  for (const id of ['x', 'y', 'rz', 'rx', 'ry', 'slider', 'dial']) assert.ok(Math.abs(axes[id]) < 0.01, `${id} = ${axes[id]}`);
+  assert.ok(Math.abs(axes.z) < 0.05); // the throttle lever happened to be near the middle
+  assert.equal(Object.values(buttons).some(Boolean), false);
+});
+
+test('every photo layout points only at controls its stick has, each one once', () => {
+  const sticks = { extreme3dpro: [EXTREME_LAYOUT, EXTREME], gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR] };
+  assert.deepEqual(Object.keys(LAYOUTS).sort(), Object.values(SKINS).map((s) => s.id).sort());
+  for (const [skin, layout] of Object.entries(LAYOUTS)) {
+    const model = describeDevice(...sticks[skin]);
+    const known = new Set([
+      ...model.axes.map((a) => a.id),
+      ...model.hats.flatMap((h) => ['up', 'right', 'down', 'left'].map((dir) => `${h.id}_${dir}`)),
+      ...Object.keys(model.buttonNames),
+    ]);
+    const shown = layout.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+    assert.deepEqual(shown.filter((id) => !known.has(id)), [], `${skin}: unknown controls`);
+    assert.equal(new Set(shown).size, shown.length, `${skin}: a control is shown twice`);
+    for (const axis of Object.keys(layout.guides)) assert.ok(shown.includes(axis), `${skin}: guide for ${axis}`);
+  }
+  // The Gladiator's photo covers everything the factory profile sends.
+  const gladiator = LAYOUTS.gladiatorevo.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  for (let b = 1; b <= 29; b++) assert.ok(gladiator.includes(`btn${b}`), `btn${b}`);
+});
+
+test('a template is only offered on the stick it was written for', () => {
+  const skins = Object.values(SKINS).map((s) => s.id);
+  assert.equal(PRESETS.find((p) => p.id === 'blank').skin, undefined);
+  for (const preset of PRESETS.filter((p) => p.id !== 'blank')) assert.ok(skins.includes(preset.skin), preset.id);
 });
 
 test('an unknown stick is described generically and marked experimental', () => {

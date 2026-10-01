@@ -533,6 +533,94 @@ body.is-intro * {
   color: #fff;
 }
 
+/* Paired rows: several controls under one label, two to a line (a hat that is five
+   buttons, a two-stage trigger). An `is-wide` row takes the whole line. */
+.callout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  grid-auto-flow: row dense;
+  gap: 6px 10px;
+}
+
+.callout-grid .hat-row {
+  gap: 7px;
+  margin-top: 0;
+}
+
+/* Mirrored on the left, so the first of each pair sits nearest the stick. */
+.side-left .callout-grid > :nth-child(odd) {
+  grid-column: 2;
+}
+
+.side-left .callout-grid > :nth-child(even) {
+  grid-column: 1;
+}
+
+.callout-grid > .hat-row.is-wide {
+  grid-column: 1 / -1;
+}
+
+.callout-grid .hat-label {
+  width: 40px;
+}
+
+.side-left .callout-grid .hat-label {
+  text-align: right;
+}
+
+.callout-grid.has-icons .hat-label {
+  width: 18px;
+  text-align: center;
+}
+
+.chip.is-compact {
+  width: 148px;
+  min-width: 0;
+  height: 26px;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.chip.is-compact.is-mapped {
+  letter-spacing: 0.08em;
+}
+
+/* Sticks with many controls pack their labels tighter (see DENSE in layout.js). */
+.stage[data-density='dense'] .callout {
+  width: 400px;
+  gap: 6px;
+}
+
+.stage[data-density='dense'] .callout-head {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.stage[data-density='dense'] .chip,
+.stage[data-density='dense'] .inv,
+.stage[data-density='dense'] .dz {
+  height: 26px;
+}
+
+.stage[data-density='dense'] .callout.is-focus {
+  transform: scale(1.04);
+}
+
+/* A black stick on a black stage: lift it a little, and keep the whole base in view. */
+.stage[data-skin='gladiatorevo'] .stick {
+  filter: brightness(1.25) contrast(1.05) saturate(0.85) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35))
+    drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.stage[data-skin='gladiatorevo'].has-focus .stick {
+  filter: brightness(0.8) contrast(1.05) saturate(0.7) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25))
+    drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));
+}
+
 /* Default profile: the joystick is left alone, so mapping controls step back. */
 .stage.is-locked .chip {
   border-color: rgba(255, 255, 255, 0.14);
@@ -1664,8 +1752,20 @@ body.reference {
   white-space: nowrap;
 }
 
-.badge-experimental {
+.badge-experimental,
+.badge-beta {
   border: 1px solid rgba(227, 166, 75, 0.6);
+  color: var(--warn);
+}
+
+/* "Beta" beside the name of a stick whose photo layout is still being confirmed. */
+.stat-tag {
+  padding: 3px 6px 2px 8px;
+  border: 1px solid rgba(227, 166, 75, 0.6);
+  border-radius: 9px;
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  line-height: 1;
   color: var(--warn);
 }
 

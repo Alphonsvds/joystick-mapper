@@ -1,6 +1,7 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
-// Two simulated sticks: the Extreme 3D Pro (photo layout) and a Thrustmaster T.16000M
-// built from its published layout (universal layout). Add ?device=t16000m to start on it.
+// Three simulated sticks: the Extreme 3D Pro and the VKB Gladiator NXT EVO (photo layouts)
+// and a Thrustmaster T.16000M built from its published layout (universal layout). Add
+// ?device=gladiator or ?device=t16000m to start on one of the others.
 // The keyboard drives whichever is selected:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
@@ -31,6 +32,8 @@ const SIMULATED = [
     vendorId: 0x046d,
     productId: 0xc215,
     name: 'Logitech Extreme 3D',
+    alias: 'extreme3dpro',
+    throttle: 'slider',
     layout: {
       values: [
         { page: 1, usage: 0x31, min: 0, max: 1023 },
@@ -46,6 +49,8 @@ const SIMULATED = [
     vendorId: 0x044f,
     productId: 0xb10a,
     name: 'Thrustmaster T.16000M',
+    alias: 't16000m',
+    throttle: 'slider',
     layout: {
       values: [
         { page: 1, usage: 0x30, min: 0, max: 16383 },
@@ -55,6 +60,29 @@ const SIMULATED = [
         hat,
       ],
       buttonCount: 16,
+    },
+  },
+  // As reported by a real stick (GitHub issue #1): 128 buttons, and the Slider and Dial
+  // axes are spares that rest at their midpoint.
+  {
+    vendorId: 0x231d,
+    productId: 0x0200,
+    name: 'VKBsim Gladiator EVO R',
+    alias: 'gladiator',
+    throttle: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x35, min: 0, max: 2047 },
+        { page: 1, usage: 0x32, min: 0, max: 2047 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 2047 },
+        { page: 1, usage: 0x37, min: 0, max: 2047 },
+        hat,
+      ],
+      buttonCount: 128,
     },
   },
 ].map((d) => ({ ...d, model: describeDevice(d.layout, d) }));
@@ -110,10 +138,11 @@ export function createMockApi() {
   let working = getProfile(library, library.active).bindings;
   let paused = false;
   const wanted = new URLSearchParams(location.search).get('device');
-  let device = SIMULATED.find((d) => wanted && d.model.key === wanted) ?? (wanted === 't16000m' ? SIMULATED[1] : SIMULATED[0]);
+  let device = SIMULATED.find((d) => wanted && (d.model.key === wanted || d.alias === wanted)) ?? SIMULATED[0];
   const deviceSettings = {};
   const held = new Set();
-  const axes = { x: 0, y: 0, rz: 0, slider: -1 };
+  let throttle = -1;
+  const axes = { x: 0, y: 0, rz: 0 };
   const frameListeners = new Set();
   const statusListeners = new Set();
 
@@ -184,12 +213,12 @@ export function createMockApi() {
     // Springy stick: ease toward the held direction, return to centre when released.
     for (const id of ['x', 'y', 'rz']) axes[id] += (target[id] - axes[id]) * Math.min(1, dt * 10);
     // Throttle stays where you leave it.
-    if (held.has('KeyR')) axes.slider = Math.min(1, axes.slider + dt * 1.2);
-    if (held.has('KeyF')) axes.slider = Math.max(-1, axes.slider - dt * 1.2);
+    if (held.has('KeyR')) throttle = Math.min(1, throttle + dt * 1.2);
+    if (held.has('KeyF')) throttle = Math.max(-1, throttle - dt * 1.2);
 
     const buttons = {};
     for (const code of held) if (KEY_BUTTONS[code]) buttons[KEY_BUTTONS[code]] = true;
-    const input = { buttons, axes: { ...axes } };
+    const input = { buttons, axes: { ...axes, [device.throttle]: throttle } };
     const output = mapInput(emulating() ? input : NEUTRAL_INPUT, working);
     frameListeners.forEach((cb) => cb({ input, output }));
     requestAnimationFrame(tick);
@@ -198,7 +227,7 @@ export function createMockApi() {
 
   return {
     async init() {
-      return { ...snapshot(), presets: PRESETS.map(({ id, name, description }) => ({ id, name, description })), platform: 'preview' };
+      return { ...snapshot(), presets: PRESETS.map(({ id, name, description, skin }) => ({ id, name, description, skin })), platform: 'preview' };
     },
     async setBinding(controlId, binding) {
       if (isLocked(library.active)) throw new Error('The Default profile can’t be changed');

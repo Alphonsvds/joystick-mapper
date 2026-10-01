@@ -1,5 +1,6 @@
-// Starting points for new profiles, offered only on the fully supported Extreme 3D Pro
-// (other sticks start blank). Control IDs are generic (see shared/controls.js).
+// Starting points for new profiles. A preset is written for one stick's button numbers
+// (`skin`), so it's only offered on that stick; every other stick starts blank.
+// Control IDs are generic (see shared/controls.js).
 
 export const PRESETS = Object.freeze([
   { id: 'blank', name: 'Blank', description: 'Everything unmapped', bindings: {} },
@@ -7,6 +8,7 @@ export const PRESETS = Object.freeze([
     id: 'ace-combat-8',
     name: 'Ace Combat 8',
     description: 'Flight, weapons, camera and squad commands',
+    skin: 'extreme3dpro',
     bindings: {
       // Flight: stick = left stick, twist = yaw on the bumpers, throttle = LT / RT.
       y: { target: 'ls_y', deadzone: 0.04 },

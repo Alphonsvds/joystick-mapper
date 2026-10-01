@@ -1,7 +1,7 @@
 // The universal layout for sticks without a photo skin: axes and hats on the left, every
 // button on the right, and a live HUD in the middle. Pressing anything lights up its row,
 // so "Button 7" can be found without a picture of the stick.
-import { isCentered } from '../shared/devices.js';
+import { SUPPORT_LABELS, isCentered } from '../shared/devices.js';
 import { targetIcon } from './icons.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -32,7 +32,8 @@ function heading(parent, title, count) {
   if (count !== undefined) el('span', 'gen-count', h).textContent = String(count);
 }
 
-// hooks: { chip(controlId, parent), inv(axisId, parent), dz(axisId, parent), register(controlId, row, extras) }
+// hooks: { chip(controlId, parent), inv(axisId, parent), dz(axisId, parent), register(controlId, row, extras),
+//          action(parent, label, kind) }
 function axisRow(parent, axis, centered, hooks) {
   const row = el('div', 'gen-row gen-axis', parent);
   const label = el('div', 'gen-label', row);
@@ -129,7 +130,8 @@ function buildHud(parent, model, settings) {
 }
 
 // Builds the layout into `root`. Returns { drawHud(axes) }.
-export function buildGeneric(root, model, settings, hooks) {
+// `options.photo`: the stick also has a photo layout, so offer the way back to it.
+export function buildGeneric(root, model, settings, hooks, options = {}) {
   root.replaceChildren();
 
   const left = el('section', 'gen-panel', root);
@@ -148,10 +150,11 @@ export function buildGeneric(root, model, settings, hooks) {
   el('div', 'gen-device', identity).textContent = model.name;
   const meta = el('div', 'gen-meta', identity);
   const badge = el('span', `badge badge-${model.support}`, meta);
-  badge.textContent = model.support === 'full' ? 'Fully supported' : 'Experimental';
+  badge.textContent = SUPPORT_LABELS[model.support];
   const counts = [`${model.axes.length} axes`, model.hats.length ? `${model.hats.length} hat` : '', `${model.buttons} buttons`];
   el('span', 'gen-counts', meta).textContent = counts.filter(Boolean).join(' · ');
   const actions = el('div', 'gen-actions', identity);
+  if (options.photo) hooks.action(actions, 'Photo view', 'photo');
   hooks.action(actions, 'Copy device info', 'copy');
   hooks.action(actions, 'Report this stick ↗', 'report');
 

@@ -8,6 +8,9 @@ Map the stick once and fly with it in any game that only understands gamepads.
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
 <sub>**Fully supported sticks** get a photo layout, with a line to every control.</sub>
 
+![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
+<sub>The **VKB Gladiator NXT EVO** (beta): its hats, two-stage trigger and base controls each get their own label.</sub>
+
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>**Every other stick** gets the universal layout: axes and hat on the left, buttons on the right, and a live readout in the middle.</sub>
 
@@ -17,12 +20,20 @@ Map the stick once and fly with it in any game that only understands gamepads.
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported** | Logitech Extreme 3D Pro: tested, with a photo layout and named controls |
+| **Beta** | VKB Gladiator NXT EVO (right hand): photo layout and named controls, still being confirmed by owners |
 | **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
 
 Experimental sticks are detected automatically. Windows describes each stick's axes, hats
 and buttons, and the app builds its screen from that, with a **Joystick** menu to switch
 if you have more than one plugged in. Press anything and its row lights up, so you can
 find "Button 7" without a picture.
+
+Beta sticks have a photo layout whose labels haven't all been checked on the real stick
+yet. If a line points at the wrong control, please say so in an issue.
+
+A photo layout labels the controls a stick ships with. If yours has been reprogrammed
+(VKB sticks often are), **Joystick ▾ → List view** shows every button and axis it reports
+instead, and **Photo view** switches back.
 
 **Help make your stick fully supported:** open **Joystick ▾ → Copy device info**, then
 [open a Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml)
@@ -141,8 +152,9 @@ git push origin main --tags
 
 **Preview the UI without hardware.** Serve `src/` with any static server and open
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
-R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro
-and a Thrustmaster T.16000M (add `?device=t16000m` to start on the universal layout).
+R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
+a VKB Gladiator NXT EVO (add `?device=gladiator`) and a Thrustmaster T.16000M
+(`?device=t16000m`, the universal layout).
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.
@@ -166,7 +178,7 @@ src/shared/profiles.js           Profile library (Default + game profiles, expor
 src/shared/presets.js            Starting points for new profiles (Ace Combat 8, …)
 src/shared/games.js              Each game's own gamepad controls (the controls window)
 src/shared/mapper.js             Pure mapping engine (joystick state → XUSB report)
-src/renderer/                    The single screen (layout.js: photo skin, generic.js: universal)
+src/renderer/                    The single screen (layout.js: photo skins, generic.js: universal)
 build/                           Installer resources (icon, NSIS driver step)
 scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
 ```

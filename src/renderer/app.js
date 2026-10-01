@@ -1,9 +1,9 @@
 import { MAX_DEADZONE, TARGET_BY_ID, TARGET_MENUS, XUSB, bindingFor, controlKind } from '../shared/controls.js';
-import { defaultDeadzone, isCentered } from '../shared/devices.js';
+import { SUPPORT_LABELS, defaultDeadzone, isCentered } from '../shared/devices.js';
 import { MAX_NAME_LENGTH } from '../shared/profiles.js';
-import { AXIS_GUIDES, CALLOUTS, COLUMNS, IMAGE, STAGE, toStage } from './layout.js';
+import { LAYOUTS, STAGE, toStage } from './layout.js';
 import { buildGeneric } from './generic.js';
-import { CHEVRON, FACE_COLORS, TILE_LABELS, targetIcon } from './icons.js';
+import { CHEVRON, FACE_COLORS, TILE_LABELS, hatIcon, targetIcon } from './icons.js';
 
 // Inside Electron the preload exposes `window.joymap`; in a plain browser we run a simulator.
 const api = window.joymap ?? (await import('./mock.js')).createMockApi();
@@ -22,6 +22,7 @@ let activeId = 'default';
 let presets = [];
 let status = null;
 let model = null; // the connected stick: { key, name, skin, support, axes, hats, buttons, buttonNames }
+let layout = null; // the connected stick's photo layout, when it has one and it's showing
 let layoutKey = null; // what the stage was last built for
 let focused = null; // callout / row id currently highlighted
 let openControl = null; // control id whose picker (or deadzone popover) is open
@@ -100,6 +101,34 @@ function currentBinding(id) {
   return bindingFor(bindings, id, axisDefaultDeadzone(id));
 }
 
+// ─── Photo or list ───────────────────────────────────────────────────────────
+
+// A stick with a photo layout can be shown as the plain list instead: the photo only
+// labels the controls the stick ships with, the list has everything it reports (for
+// sticks that have been reprogrammed). Remembered per stick, on this computer.
+const LIST_VIEW_KEY = 'joymap.listView';
+
+function listViewKeys() {
+  try {
+    const keys = JSON.parse(localStorage.getItem(LIST_VIEW_KEY));
+    return Array.isArray(keys) ? keys : [];
+  } catch {
+    return [];
+  }
+}
+
+const inListView = (key) => listViewKeys().includes(key);
+
+function setListView(key, on) {
+  const keys = listViewKeys().filter((k) => k !== key);
+  try {
+    localStorage.setItem(LIST_VIEW_KEY, JSON.stringify(on ? [...keys, key] : keys));
+  } catch {
+    // Storage unavailable: the choice just won't be remembered.
+  }
+  if (status) renderStatus(status);
+}
+
 // ─── Stage ────────────────────────────────────────────────────────────────────
 
 function fitStage() {
@@ -131,8 +160,11 @@ function buildStage() {
   resetRegistries();
   for (const id of ['#leaders', '#guides', '#callouts', '#generic']) $(id).replaceChildren();
   stage.classList.remove('has-focus');
-  const mode = !model ? 'empty' : model.skin === 'extreme3dpro' ? 'photo' : 'generic';
+  layout = (model && !inListView(model.key) && LAYOUTS[model.skin]) || null;
+  const mode = !model ? 'empty' : layout ? 'photo' : 'generic';
   stage.dataset.mode = mode;
+  stage.dataset.skin = layout ? model.skin : '';
+  stage.dataset.density = layout?.dense ? 'dense' : '';
 
   if (mode === 'photo') {
     buildImage();
@@ -140,7 +172,8 @@ function buildStage() {
     buildLeaders();
     buildCallouts();
   } else if (mode === 'generic') {
-    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks));
+    const photo = Boolean(LAYOUTS[model.skin]);
+    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks, { photo }));
     endIntro();
   } else {
     const empty = htmlEl('div', 'gen-empty', $('#generic'));
@@ -152,22 +185,24 @@ function buildStage() {
 }
 
 function buildImage() {
+  const { image } = layout;
   const img = $('#stick');
-  img.style.left = `${IMAGE.x}px`;
-  img.style.top = `${IMAGE.y}px`;
-  img.style.width = `${IMAGE.width * IMAGE.scale}px`;
-  img.style.height = `${IMAGE.height * IMAGE.scale}px`;
-  if (img.complete && img.naturalWidth) return endIntro();
+  img.alt = layout.alt;
+  img.style.left = `${image.x}px`;
+  img.style.top = `${image.y}px`;
+  img.style.width = `${image.width * image.scale}px`;
+  img.style.height = `${image.height * image.scale}px`;
+  if (img.getAttribute('src') === image.src && img.complete && img.naturalWidth) return endIntro();
   img.addEventListener('load', endIntro, { once: true });
   img.addEventListener('error', endIntro, { once: true });
-  img.src = IMAGE.src;
+  img.src = image.src;
 }
 
 function buildLeaders() {
   const layer = $('#leaders');
-  CALLOUTS.forEach((c, i) => {
-    const col = COLUMNS[c.side];
-    const [tx, ty] = toStage(c.at);
+  layout.callouts.forEach((c, i) => {
+    const col = layout.columns[c.side];
+    const [tx, ty] = toStage(layout, c.at);
     const points = [[col.anchor, c.y], [col.elbow, c.y], ...(c.via ?? []), [tx, ty]]
       .map((p) => p.join(','))
       .join(' ');
@@ -190,7 +225,7 @@ function buildLeaders() {
 
 function buildGuides() {
   const layer = $('#guides');
-  for (const [axis, guide] of Object.entries(AXIS_GUIDES)) {
+  for (const [axis, guide] of Object.entries(layout.guides)) {
     const group = svgEl('g', { class: 'guide' }, layer);
     svgEl('path', { class: 'guide-path', d: guide.path }, group);
     for (const [x, y, angle] of guide.arrows) {
@@ -226,31 +261,37 @@ function buildDz(axisId, parent) {
   return dz;
 }
 
-const HAT_DPAD = { up: 'dpad_up', right: 'dpad_right', down: 'dpad_down', left: 'dpad_left' };
-
 function buildCallouts() {
   const layer = $('#callouts');
-  CALLOUTS.forEach((c, i) => {
+  layout.callouts.forEach((c, i) => {
     const node = htmlEl('div', `callout side-${c.side}`, layer);
     node.dataset.callout = c.id;
     node.style.setProperty('--i', i);
     node.style.top = `${c.y - 11}px`;
-    if (c.side === 'left') node.style.right = `${STAGE.width - COLUMNS.left.edge}px`;
-    else node.style.left = `${COLUMNS.right.edge}px`;
+    if (c.side === 'left') node.style.right = `${STAGE.width - layout.columns.left.edge}px`;
+    else node.style.left = `${layout.columns.right.edge}px`;
 
     const head = htmlEl('div', 'callout-head', node);
-    const name = c.group ? model.hats.find((h) => h.id === c.id)?.name ?? 'Hat Switch' : controlInfo(c.id).name;
+    const name = c.name ?? (c.group ? model.hats.find((h) => h.id === c.id)?.name ?? 'Hat Switch' : controlInfo(c.id).name);
     htmlEl('span', 'callout-name', head).textContent = name;
     if (c.tag) htmlEl('span', 'callout-tag', head).textContent = c.tag;
 
     if (c.group) {
-      for (const { id, dir } of c.group) {
-        const row = htmlEl('div', 'callout-row hat-row', node);
-        htmlEl('span', 'hat-icon', row).innerHTML = targetIcon(HAT_DPAD[dir]);
-        htmlEl('span', 'hat-label', row).textContent = dir;
-        buildChip(id, row);
-        liveEl[id] = row;
-        calloutOf[id] = c.id;
+      // Paired rows are narrow, so their chips abbreviate; a `wide` row spans the pair.
+      const paired = c.columns === 2;
+      const rows = paired ? htmlEl('div', `callout-grid${c.group.some((item) => item.dir) ? ' has-icons' : ''}`, node) : node;
+      for (const item of c.group) {
+        const row = htmlEl('div', `callout-row hat-row${item.wide ? ' is-wide' : ''}`, rows);
+        if (item.dir) htmlEl('span', 'hat-icon', row).innerHTML = hatIcon(item.dir);
+        if (item.label) htmlEl('span', 'hat-label', row).textContent = item.label;
+        const chip = buildChip(item.id, row);
+        if (paired && !item.wide) chip.classList.add('is-compact');
+        if (controlKind(item.id) === 'axis') {
+          buildInv(item.id, row);
+          buildDz(item.id, row);
+        }
+        liveEl[item.id] = row;
+        calloutOf[item.id] = c.id;
       }
     } else {
       const axis = model.axes.find((a) => a.id === c.id);
@@ -288,7 +329,8 @@ const genericHooks = {
     row.addEventListener('pointerleave', () => setFocus(null));
   },
   action(parent, label, kind) {
-    button('ghost', label, parent, () => (kind === 'copy' ? copyDeviceInfo() : api.reportDevice()));
+    const run = { copy: copyDeviceInfo, report: () => api.reportDevice(), photo: () => setListView(model.key, false) };
+    button('ghost', label, parent, run[kind]);
   },
 };
 
@@ -311,6 +353,13 @@ function setFocus(id) {
 
 // ─── Chips ───────────────────────────────────────────────────────────────────
 
+// For the narrow chips in paired rows: "Right Stick Up" → "RS Up", "A Button" → "A".
+function shortName(target) {
+  const part = /^(ls|rs|dpad)_(up|down|left|right|click)$/.exec(target.id)?.[1];
+  const prefix = part ? (part === 'dpad' ? 'D-Pad ' : `${part.toUpperCase()} `) : '';
+  return prefix + TILE_LABELS[target.id];
+}
+
 function renderChip(controlId) {
   const chip = chipEl[controlId];
   if (!chip) return;
@@ -320,7 +369,9 @@ function renderChip(controlId) {
   chip.innerHTML = target
     ? `<span class="chip-icon">${targetIcon(target.id)}</span><span class="chip-label"></span>${CHEVRON}`
     : `<span class="chip-label"></span>${CHEVRON}`;
-  chip.querySelector('.chip-label').textContent = target ? target.name : 'Not mapped';
+  const compact = chip.classList.contains('is-compact');
+  chip.querySelector('.chip-label').textContent = target ? (compact ? shortName(target) : target.name) : 'Not mapped';
+  chip.title = target && compact ? target.name : '';
   chip.setAttribute('aria-label', `${controlInfo(controlId).name}: ${target ? target.name : 'not mapped'}`);
 
   const inv = invEl[controlId];
@@ -685,15 +736,17 @@ function renderNameForm(kind) {
   input.value = kind === 'rename' ? status.profile.name : '';
   input.required = true;
 
-  // Templates are only offered on the fully supported stick; any other stick starts blank.
+  // A template is written for one stick's buttons, so it's only offered on that stick
+  // (or before any stick is plugged in); every other stick starts blank.
+  const offered = presets.filter((p) => !p.skin || p.skin === (model ? model.skin : 'extreme3dpro'));
   let presetId = 'blank';
-  if (kind === 'new' && (!model || model.support === 'full')) {
-    presetId = 'ace-combat-8';
+  if (kind === 'new' && offered.some((p) => p.skin)) {
+    presetId = offered.find((p) => p.skin).id;
     htmlEl('h3', 'pop-heading', form).textContent = 'Start from';
     const choices = htmlEl('div', 'preset-list', form);
     let typed = false;
     input.addEventListener('input', () => (typed = input.value.trim() !== ''));
-    for (const preset of presets) {
+    for (const preset of offered) {
       const choice = htmlEl('button', 'preset', choices);
       choice.type = 'button';
       choice.classList.toggle('is-selected', preset.id === presetId);
@@ -705,7 +758,7 @@ function renderNameForm(kind) {
         if (!typed) input.value = preset.id === 'blank' ? '' : preset.name;
       });
     }
-    input.value = presets.find((p) => p.id === presetId)?.name ?? '';
+    input.value = offered.find((p) => p.id === presetId)?.name ?? '';
   }
 
   const actions = htmlEl('div', 'profile-actions profile-form-actions', form);
@@ -745,7 +798,7 @@ function openDeviceMenu() {
     const text = htmlEl('span', 'profile-text', item);
     htmlEl('span', 'profile-item-name', text).textContent = d.name;
     htmlEl('span', 'profile-item-note', text).textContent =
-      current && model ? `${model.support === 'full' ? 'Fully supported' : 'Experimental'} · ${d.key}` : d.key;
+      current && model ? `${SUPPORT_LABELS[model.support]} · ${d.key}` : d.key;
     item.addEventListener('click', async () => {
       closeMenus();
       if (!current) await api.selectDevice(d.key);
@@ -753,6 +806,14 @@ function openDeviceMenu() {
   }
   if (model) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
+    if (LAYOUTS[model.skin]) {
+      const listed = inListView(model.key);
+      const view = button('ghost', listed ? 'Photo view' : 'List view', actions, () => {
+        closeMenus();
+        setListView(model.key, !listed);
+      });
+      view.title = listed ? 'Show the photo of the stick' : 'Show every button and axis the stick reports, as a list';
+    }
     button('ghost', 'Copy device info', actions, () => {
       closeMenus();
       copyDeviceInfo();
@@ -795,9 +856,18 @@ const PAD_PROBLEM = {
 };
 let lastPadError = '';
 
+// What each support level means, for the joystick button's tooltip.
+const SUPPORT_TIPS = {
+  full: 'fully supported',
+  beta: 'beta: its labels are still being confirmed, so say if one points at the wrong control',
+  experimental: 'experimental support',
+};
+
 // A stick's layout signature; the stage is rebuilt only when it changes.
 const layoutSignature = (m, settings) =>
-  m ? JSON.stringify([m.key, m.skin, m.axes.map((a) => a.id), m.hats.length, m.buttons, settings.centered ?? {}]) : 'none';
+  m
+    ? JSON.stringify([m.key, m.skin, inListView(m.key), m.axes.map((a) => a.id), m.hats.length, m.buttons, settings.centered ?? {}])
+    : 'none';
 
 function renderStatus(next) {
   status = next;
@@ -816,8 +886,8 @@ function renderStatus(next) {
   const connected = next.joystick.state === 'connected' && model;
   stick.dataset.state = connected ? 'connected' : next.joystick.state;
   $('#device-name').textContent = connected ? model.name : next.joystick.state === 'unsupported' ? 'Unsupported' : 'Not detected';
-  const support = connected ? ` · ${model.support === 'full' ? 'fully supported' : 'experimental support'}` : '';
-  stick.title = next.joystick.message || (connected ? `${model.name} (${model.key})${support}` : 'Plug in a joystick');
+  stick.title = next.joystick.message || (connected ? `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` : 'Plug in a joystick');
+  $('#device-tag').hidden = !(connected && model.support === 'beta');
   $('#recenter').disabled = !connected;
 
   const pad = $('#stat-pad');
@@ -973,7 +1043,7 @@ function drawGuide(id, v, centered, now) {
     guide.last = v;
     guide.movedAt = now;
   }
-  const [x, y] = AXIS_GUIDES[id].point(v);
+  const [x, y] = layout.guides[id].point(v);
   guide.dot.setAttribute('cx', x.toFixed(1));
   guide.dot.setAttribute('cy', y.toFixed(1));
   const deflected = centered && Math.abs(v) > 0.12;
@@ -993,12 +1063,10 @@ function drawFrame() {
   const { input, output } = pendingFrame;
   const now = performance.now();
   const settings = deviceSettings();
-  let hatLive = false;
 
   for (const id of controlIds()) {
     if (controlKind(id) === 'button') {
       const on = input.buttons[id] === true;
-      if (id.startsWith('hat') && on) hatLive = true;
       if (live[id] === on) continue;
       live[id] = on;
       liveEl[id]?.classList.toggle('is-live', on);
@@ -1019,7 +1087,10 @@ function drawFrame() {
       if (moved) reveal(id);
     }
   }
-  leaderEl.hat1?.classList.toggle('is-live', hatLive);
+  // A label shared by several controls lights while any of them is pressed.
+  for (const c of layout?.callouts ?? []) {
+    if (c.group) leaderEl[c.id].classList.toggle('is-live', c.group.some((item) => live[item.id] === true));
+  }
   drawHud?.(input.axes);
   drawPad(output);
 }

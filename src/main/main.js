@@ -239,7 +239,7 @@ async function recenter({ onlyIfResting }) {
 function registerIpc() {
   ipcMain.handle('joymap:init', () => ({
     ...snapshot(),
-    presets: PRESETS.map(({ id, name, description }) => ({ id, name, description })),
+    presets: PRESETS.map(({ id, name, description, skin }) => ({ id, name, description, skin })),
     platform: process.platform,
   }));
 

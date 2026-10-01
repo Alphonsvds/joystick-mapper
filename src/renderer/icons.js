@@ -36,7 +36,7 @@ const DPAD_ARMS = {
   left: [3.5, 12.5, 9.5, 7],
   right: [19, 12.5, 9.5, 7],
 };
-function dpad(active) {
+function dpad(active, pushed = false) {
   const arms = Object.entries(DPAD_ARMS)
     .map(([dir, [x, y, w, h]]) =>
       active.includes(dir)
@@ -44,7 +44,12 @@ function dpad(active) {
         : `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="none" stroke="currentColor" stroke-opacity=".35"/>`,
     )
     .join('');
-  return svg(arms + '<rect x="12.5" y="12.5" width="7" height="7" fill="currentColor" fill-opacity=".35"/>');
+  return svg(arms + `<rect x="12.5" y="12.5" width="7" height="7" fill="currentColor" fill-opacity="${pushed ? 1 : 0.35}"/>`);
+}
+
+// A direction of a hat on the stick itself; `push` is its centre click.
+export function hatIcon(dir) {
+  return dir === 'push' ? dpad([], true) : dpad([dir]);
 }
 
 // Small triangles just inside the stick ring, pointing outward.
