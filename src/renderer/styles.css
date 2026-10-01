@@ -1850,6 +1850,87 @@ body.reference {
   color: var(--ink-dim);
 }
 
+/* ─── HOTAS: several devices at once ───────────────────────────────────── */
+
+/* The arrow only appears once there is another device to switch to. */
+.device-picker[data-several='true']::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  margin-left: 2px;
+  border-right: 1.3px solid currentColor;
+  border-bottom: 1.3px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  opacity: 0.6;
+}
+
+.device-picker.is-open {
+  border-color: #fff;
+}
+
+.menu-note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+.profile-role {
+  flex: none;
+  margin-left: auto;
+  padding: 4px 7px 3px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-dim);
+}
+
+.profile-item.is-active .profile-role {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.role-row {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.role-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.role-option {
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  background: transparent;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.role-option:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.role-option.is-selected {
+  border-color: #fff;
+  box-shadow: inset 0 0 0 1px #fff;
+  color: #fff;
+}
+
 .inv:disabled,
 .dz:disabled {
   opacity: 0.3;

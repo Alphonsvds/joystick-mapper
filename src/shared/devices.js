@@ -1,6 +1,7 @@
 // Turns a joystick's self-described layout (see src/main/hidp.js) into the controls the
 // app maps: axes, hat directions and numbered buttons, with sensible defaults per axis
 // type. Pure and shared, so it's unit-tested with layouts from sticks we don't own.
+import { ROLES } from './controls.js';
 
 const PAGE_GENERIC = 0x01;
 const PAGE_SIMULATION = 0x02;
@@ -109,6 +110,38 @@ export const deviceKey = (vendorId, productId) =>
 
 export const defaultDeadzone = (axis, centered) => axis.deadzone ?? (centered ? 0.04 : 0.02);
 
+// Windows calls throttles and pedals joysticks too, so the name is the only clue.
+const ROLE_HINTS = [
+  ['pedals', /pedal|rudder|tfrp|crosswind/i],
+  ['throttle', /throttle|twcs|quadrant|collective/i],
+];
+
+export const guessRole = (name) => ROLE_HINTS.find(([, hint]) => hint.test(name ?? ''))?.[0] ?? null;
+
+// Gives each plugged-in device a role (see shared/controls.js). `devices` is
+// [{ id, name }] in a stable order; `saved` is { [id]: role } as remembered or chosen
+// before. A device on its own is the stick unless it was given another role, so a
+// single stick maps exactly as it did before HOTAS support. With several, names decide
+// what they can and the rest fill the free roles in order.
+// Returns { [id]: role }; devices beyond the last role get none.
+export function assignRoles(devices, saved = {}) {
+  const roles = {};
+  const free = new Set(ROLES);
+  const give = (device, role) => {
+    roles[device.id] = role;
+    free.delete(role);
+  };
+  for (const d of devices) if (free.has(saved[d.id])) give(d, saved[d.id]);
+  if (devices.length > 1) {
+    for (const d of devices) {
+      const guess = guessRole(d.name);
+      if (!roles[d.id] && free.has(guess)) give(d, guess);
+    }
+  }
+  for (const d of devices) if (!roles[d.id] && free.size) give(d, ROLES.find((role) => free.has(role)));
+  return roles;
+}
+
 // layout: { values: [{ page, usage, min, max, … }], buttonCount } from HidParser.
 // Returns a serialisable model the main process and the UI share.
 // `ignoreSkin` shows a known stick with the generic layout (for testing that path).
@@ -184,12 +217,14 @@ const clamp = (v) => Math.min(1, Math.max(-1, v));
 export const isCentered = (axis, settings) => settings?.centered?.[axis.id] ?? axis.centered;
 
 // Decoded raw values -> { buttons: { btn1, hat1_up, … }, axes: { x: -1..1, … } }.
-export function normalizeInput(decoded, model, settings) {
+// `prefix` goes in front of every control ID: the device's role, when it isn't the stick.
+export function normalizeInput(decoded, model, settings, prefix = '') {
   const axes = {};
   for (const axis of model.axes) {
+    const id = prefix + axis.id;
     const raw = decoded.values[axis.index];
     if (raw === null || raw === undefined) {
-      axes[axis.id] = 0;
+      axes[id] = 0;
       continue;
     }
     let n;
@@ -200,17 +235,27 @@ export function normalizeInput(decoded, model, settings) {
       n = ((raw - axis.min) / (axis.max - axis.min)) * 2 - 1;
     }
     n = clamp(n);
-    axes[axis.id] = axis.invert ? -n || 0 : n; // `|| 0` avoids -0 at rest
+    axes[id] = axis.invert ? -n || 0 : n; // `|| 0` avoids -0 at rest
   }
 
   const buttons = {};
-  for (let b = 1; b <= model.buttons; b++) buttons[`btn${b}`] = decoded.buttons.has(b);
+  for (let b = 1; b <= model.buttons; b++) buttons[`${prefix}btn${b}`] = decoded.buttons.has(b);
   for (const hat of model.hats) {
     const [up, right, down, left] = hatDirections(decoded.values[hat.index], hat.min, hat.max);
-    buttons[`${hat.id}_up`] = up;
-    buttons[`${hat.id}_right`] = right;
-    buttons[`${hat.id}_down`] = down;
-    buttons[`${hat.id}_left`] = left;
+    buttons[`${prefix}${hat.id}_up`] = up;
+    buttons[`${prefix}${hat.id}_right`] = right;
+    buttons[`${prefix}${hat.id}_down`] = down;
+    buttons[`${prefix}${hat.id}_left`] = left;
   }
   return { buttons, axes };
+}
+
+// Several devices' states (each already carrying its role in the IDs) -> one input.
+export function mergeInputs(states) {
+  const merged = { buttons: {}, axes: {} };
+  for (const state of states) {
+    Object.assign(merged.buttons, state.buttons);
+    Object.assign(merged.axes, state.axes);
+  }
+  return merged;
 }

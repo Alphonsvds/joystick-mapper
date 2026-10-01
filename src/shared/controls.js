@@ -27,14 +27,31 @@ export const XUSB = Object.freeze({
 //   x, y, rz, slider, …     axes, named after their HID usage (see shared/devices.js)
 // Axis values are normalised to -1..1 with a "gamepad" sense: right, forward and
 // throttle-forward are positive.
+//
+// A HOTAS is several devices feeding one virtual pad, each with a role. The stick's
+// controls keep the plain IDs above, so profiles made for one stick are unchanged; the
+// other devices' controls carry their role: throttle.z, pedals.rz, extra.btn4.
+export const ROLES = Object.freeze(['stick', 'throttle', 'pedals', 'extra']);
+export const ROLE_NAMES = Object.freeze({ stick: 'Stick', throttle: 'Throttle', pedals: 'Pedals', extra: 'Extra' });
+
 const BUTTON_ID = /^btn\d{1,3}$/;
 const HAT_ID = /^hat\d_(up|right|down|left)$/;
 const AXIS_ID = /^[a-z][a-z0-9]{0,15}$/;
+const ROLE_ID = /^(throttle|pedals|extra)\.(.+)$/;
+
+export const rolePrefix = (role) => (role === 'stick' ? '' : `${role}.`);
+
+// "throttle.z" -> { role: 'throttle', local: 'z' }; "btn1" -> { role: 'stick', local: 'btn1' }.
+export function splitControlId(id) {
+  const match = ROLE_ID.exec(id);
+  return match ? { role: match[1], local: match[2] } : { role: 'stick', local: id };
+}
 
 export function controlKind(id) {
   if (typeof id !== 'string') return null;
-  if (BUTTON_ID.test(id) || HAT_ID.test(id)) return 'button';
-  if (AXIS_ID.test(id)) return 'axis';
+  const { local } = splitControlId(id);
+  if (BUTTON_ID.test(local) || HAT_ID.test(local)) return 'button';
+  if (AXIS_ID.test(local)) return 'axis';
   return null;
 }
 

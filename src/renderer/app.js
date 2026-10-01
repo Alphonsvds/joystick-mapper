@@ -1,4 +1,16 @@
-import { MAX_ANTI_DEADZONE, MAX_DEADZONE, TARGET_BY_ID, TARGET_MENUS, XUSB, bindingFor, controlKind } from '../shared/controls.js';
+import {
+  MAX_ANTI_DEADZONE,
+  MAX_DEADZONE,
+  ROLES,
+  ROLE_NAMES,
+  TARGET_BY_ID,
+  TARGET_MENUS,
+  XUSB,
+  bindingFor,
+  controlKind,
+  rolePrefix,
+  splitControlId,
+} from '../shared/controls.js';
 import { SUPPORT_LABELS, defaultDeadzone, isCentered } from '../shared/devices.js';
 import { MAX_NAME_LENGTH } from '../shared/profiles.js';
 import { LAYOUTS, STAGE, toStage } from './layout.js';
@@ -21,8 +33,10 @@ let profiles = [];
 let activeId = 'default';
 let presets = [];
 let status = null;
-let model = null; // the connected stick: { key, name, skin, support, axes, hats, buttons, buttonNames }
-let layout = null; // the connected stick's photo layout, when it has one and it's showing
+// The device on screen: { id, key, role, name, skin, support, axes, hats, buttons, buttonNames }.
+// With a HOTAS every plugged-in device is live; this is the one being looked at.
+let model = null;
+let layout = null; // that device's photo layout, when it has one and it's showing
 let layoutKey = null; // what the stage was last built for
 let focused = null; // callout / row id currently highlighted
 let openControl = null; // control id whose picker (or response popover) is open
@@ -31,6 +45,10 @@ let drawHud = null; // generic layout's live readout
 
 const isLocked = () => status?.profile.locked ?? true;
 const deviceSettings = () => status?.joystick.settings ?? {};
+const devices = () => status?.joystick.devices ?? [];
+// The stage works in the shown device's own control IDs (btn1, x, …). Bindings and live
+// input cover every device, where all but the stick carry their role (throttle.z).
+const full = (id) => rolePrefix(model?.role ?? 'stick') + id;
 
 // Element lookups, rebuilt with the stage.
 let calloutEl = {}; // callout / row id -> element
@@ -98,7 +116,17 @@ function axisDefaultDeadzone(id) {
 }
 
 function currentBinding(id) {
-  return bindingFor(bindings, id, axisDefaultDeadzone(id));
+  return bindingFor(bindings, full(id), axisDefaultDeadzone(id));
+}
+
+// Any bound control by name: the shown device's own names, "Throttle: Button 3" for the rest.
+function boundControlName(fullId) {
+  const { role, local } = splitControlId(fullId);
+  if (role === (model?.role ?? 'stick')) return controlInfo(local).name;
+  const button = /^btn(\d+)$/.exec(local);
+  const hat = /^hat\d_(\w+)$/.exec(local);
+  const name = button ? `Button ${button[1]}` : hat ? `Hat ${DIRECTION_NAMES[hat[1]]}` : `${local.toUpperCase()} axis`;
+  return `${ROLE_NAMES[role]}: ${name}`;
 }
 
 // ─── Photo or list ───────────────────────────────────────────────────────────
@@ -409,7 +437,7 @@ function applySnapshot(snap) {
 
 async function updateBinding(controlId, patch) {
   try {
-    applySnapshot(await api.setBinding(controlId, { ...currentBinding(controlId), ...patch }));
+    applySnapshot(await api.setBinding(full(controlId), { ...currentBinding(controlId), ...patch }));
   } catch (err) {
     showToast(errorText(err));
   }
@@ -422,11 +450,11 @@ function errorText(err) {
 
 // ─── Target picker ───────────────────────────────────────────────────────────
 
-// Other controls already mapped to each target, so doubles are visible.
+// Other controls already mapped to each target (on any device), so doubles are visible.
 function usedTargets(exceptId) {
   const used = {};
   for (const [id, binding] of Object.entries(bindings)) {
-    if (id !== exceptId && binding.target) (used[binding.target] ??= []).push(controlInfo(id).name);
+    if (id !== full(exceptId) && binding.target) (used[binding.target] ??= []).push(boundControlName(id));
   }
   return used;
 }
@@ -784,7 +812,8 @@ function renderNameForm(kind) {
 
   // A template is written for one stick's buttons, so it's only offered on that stick
   // (or before any stick is plugged in); every other stick starts blank.
-  const offered = presets.filter((p) => !p.skin || p.skin === (model ? model.skin : 'extreme3dpro'));
+  const stickSkin = devices().length ? (devices().find((d) => d.role === 'stick')?.skin ?? null) : 'extreme3dpro';
+  const offered = presets.filter((p) => !p.skin || p.skin === stickSkin);
   let presetId = 'blank';
   if (kind === 'new' && offered.some((p) => p.skin)) {
     presetId = offered.find((p) => p.skin).id;
@@ -831,24 +860,47 @@ function openDeviceMenu() {
   closePicker({ restoreFocus: false });
   closeMenus();
   deviceMenu.replaceChildren();
-  htmlEl('h3', 'pop-heading', deviceMenu).textContent = 'Joysticks';
+  htmlEl('h3', 'pop-heading', deviceMenu).textContent = 'Devices';
   const list = htmlEl('div', 'profile-list', deviceMenu);
-  const devices = status?.joystick.devices ?? [];
-  if (!devices.length) htmlEl('p', 'menu-empty', list).textContent = 'No joystick detected. Plug one in.';
-  for (const d of devices) {
-    const current = d.key === model?.key;
+  const plugged = devices();
+  const several = plugged.length > 1;
+  // Roles matter with several devices, or for one that was a throttle in a HOTAS and is
+  // now plugged in alone (it stays the throttle until it's made the stick here).
+  const roles = several || plugged.some((d) => d.role !== 'stick');
+  if (!plugged.length) htmlEl('p', 'menu-empty', list).textContent = 'No joystick detected. Plug one in.';
+  if (several) htmlEl('p', 'menu-note', list).textContent = 'All of these work together. Pick one to map its controls.';
+  for (const d of plugged) {
+    const current = d.id === model?.id;
     const item = htmlEl('button', 'profile-item', list);
     item.type = 'button';
     item.classList.toggle('is-active', current);
+    item.setAttribute('aria-pressed', String(current));
     htmlEl('span', 'profile-check', item).textContent = current ? '●' : '';
     const text = htmlEl('span', 'profile-text', item);
     htmlEl('span', 'profile-item-name', text).textContent = d.name;
     htmlEl('span', 'profile-item-note', text).textContent =
-      current && model ? `${SUPPORT_LABELS[model.support]} · ${d.key}` : d.key;
+      d.problem || [d.support && SUPPORT_LABELS[d.support], d.key].filter(Boolean).join(' · ');
+    if (roles) htmlEl('span', 'profile-role', item).textContent = d.role ? ROLE_NAMES[d.role] : 'Not in use';
     item.addEventListener('click', async () => {
       closeMenus();
-      if (!current) await api.selectDevice(d.key);
+      if (!current) await api.selectDevice(d.id);
     });
+  }
+  // What the device on screen is in the rig. Picking a role another device has swaps them.
+  if (model && roles) {
+    const row = htmlEl('div', 'role-row', deviceMenu);
+    htmlEl('h3', 'pop-heading', row).textContent = `Use ${model.name} as`;
+    const options = htmlEl('div', 'role-options', row);
+    for (const role of ROLES) {
+      const holder = plugged.find((d) => d.role === role && d.id !== model.id);
+      const option = button('role-option', ROLE_NAMES[role], options, async () => {
+        closeMenus();
+        if (role !== model.role) await api.setDeviceRole(model.id, role);
+      });
+      option.classList.toggle('is-selected', role === model.role);
+      option.setAttribute('aria-pressed', String(role === model.role));
+      if (holder) option.title = `Swaps with ${holder.name}`;
+    }
   }
   if (model) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
@@ -909,10 +961,10 @@ const SUPPORT_TIPS = {
   experimental: 'experimental support',
 };
 
-// A stick's layout signature; the stage is rebuilt only when it changes.
+// A device's layout signature; the stage is rebuilt only when it changes.
 const layoutSignature = (m, settings) =>
   m
-    ? JSON.stringify([m.key, m.skin, inListView(m.key), m.axes.map((a) => a.id), m.hats.length, m.buttons, settings.centered ?? {}])
+    ? JSON.stringify([m.id, m.role, m.skin, inListView(m.key), m.axes.map((a) => a.id), m.hats.length, m.buttons, settings.centered ?? {}])
     : 'none';
 
 function renderStatus(next) {
@@ -930,9 +982,19 @@ function renderStatus(next) {
 
   const stick = $('#device-picker');
   const connected = next.joystick.state === 'connected' && model;
+  // With more than one device the button names the one on screen by its role, and
+  // gains an arrow: the menu is where the others are.
+  const several = next.joystick.devices.length > 1;
   stick.dataset.state = connected ? 'connected' : next.joystick.state;
+  stick.dataset.several = String(several);
+  $('#device-key').textContent = connected && (several || model.role !== 'stick') ? ROLE_NAMES[model.role] : 'Joystick';
   $('#device-name').textContent = connected ? model.name : next.joystick.state === 'unsupported' ? 'Unsupported' : 'Not detected';
-  stick.title = next.joystick.message || (connected ? `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` : 'Plug in a joystick');
+  stick.title =
+    next.joystick.message ||
+    (!connected
+      ? 'Plug in a joystick'
+      : `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` +
+        (several ? ` · ${next.joystick.devices.length} devices working together, click to see another` : ''));
   $('#device-tag').hidden = !(connected && model.support === 'beta');
   $('#recenter').disabled = !connected;
 
@@ -1124,10 +1186,13 @@ function drawFrame() {
   const { input, output } = pendingFrame;
   const now = performance.now();
   const settings = deviceSettings();
+  // The frame carries every device; the stage shows this one's part of it.
+  const prefix = rolePrefix(model?.role ?? 'stick');
+  const axes = {};
 
   for (const id of controlIds()) {
     if (controlKind(id) === 'button') {
-      const on = input.buttons[id] === true;
+      const on = input.buttons[prefix + id] === true;
       if (live[id] === on) continue;
       live[id] = on;
       liveEl[id]?.classList.toggle('is-live', on);
@@ -1136,7 +1201,7 @@ function drawFrame() {
       continue;
     }
     const axis = model.axes.find((a) => a.id === id);
-    const v = input.axes[id] ?? 0;
+    const v = (axes[id] = input.axes[prefix + id] ?? 0);
     const centered = isCentered(axis, settings);
     drawMeter(id, v, centered);
     drawGuide(id, v, centered, now);
@@ -1152,7 +1217,7 @@ function drawFrame() {
   for (const c of layout?.callouts ?? []) {
     if (c.group) leaderEl[c.id].classList.toggle('is-live', c.group.some((item) => live[item.id] === true));
   }
-  drawHud?.(input.axes);
+  drawHud?.(axes);
   drawPad(output);
 }
 

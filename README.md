@@ -24,9 +24,8 @@ Map the stick once and fly with it in any game that only understands gamepads.
 | **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
 
 Experimental sticks are detected automatically. Windows describes each stick's axes, hats
-and buttons, and the app builds its screen from that, with a **Joystick** menu to switch
-if you have more than one plugged in. Press anything and its row lights up, so you can
-find "Button 7" without a picture.
+and buttons, and the app builds its screen from that. Press anything and its row lights
+up, so you can find "Button 7" without a picture.
 
 Beta sticks have a photo layout whose labels haven't all been checked on the real stick
 yet. If a line points at the wrong control, please say so in an issue.
@@ -39,6 +38,14 @@ instead, and **Photo view** switches back.
 paste it into a
 [Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml).
 Step by step: [Getting your joystick supported](docs/joystick-support.md).
+
+## HOTAS: stick, throttle and pedals together
+
+Plug in more than one device and they all work at once, as a single Xbox controller.
+The joystick button in the top bar gains an arrow: click it to pick which device you're
+mapping. Each one gets a role (**Stick**, **Throttle**, **Pedals** or **Extra**), guessed
+from its name; change it in the same menu if the guess is wrong. One profile holds the
+mapping for all of them, and unplugging a device only switches off its own controls.
 
 ## Download
 
@@ -94,9 +101,10 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   Microsoft Store, then turn off **Settings → Gaming → Xbox Game Bar → "Open Xbox Game Bar
   using this button on a controller"**.
 - Your settings live in `%APPDATA%\Joystick Mapper\` (`profiles.json`, and `devices.json`
-  for each stick's calibration).
+  for each device's calibration and role).
 - Profiles use each stick's own button numbers (on nearly every flight stick, button 1 is
-  the trigger), so a profile mostly carries over if you switch sticks.
+  the trigger), so a profile mostly carries over if you switch sticks. With a HOTAS, a
+  profile maps by role, so it carries over to a different throttle or pedals the same way.
 - Uninstalling the app leaves the ViGEmBus driver in place (other tools use it too). Remove
   it from **Settings → Apps** if you want.
 
@@ -161,7 +169,8 @@ git push origin main --tags
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
 a VKB Gladiator NXT EVO (add `?device=gladiator`) and a Thrustmaster T.16000M
-(`?device=t16000m`, the universal layout).
+(`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle
+and pedals together; the keyboard drives whichever one is on screen.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.
@@ -177,10 +186,10 @@ virtual Xbox controller needs ViGEmBus, which is Windows-only.
 
 ```
 src/main/main.js                 Electron main: window, profiles, IPC, wiring
-src/main/joystick.js             Finds and reads joysticks, reconnects on unplug
+src/main/joystick.js             Finds and reads every joystick plugged in, reconnects on unplug
 src/main/hidp.js                 Windows' HID parser: reads any stick from its self-description
 src/main/devices/extreme3dpro.js Hand-written Extreme 3D Pro reader (macOS / Linux fallback)
-src/shared/devices.js            Stick layout → controls (axes, hats, buttons), skins, calibration
+src/shared/devices.js            Stick layout → controls (axes, hats, buttons), skins, calibration, HOTAS roles
 src/main/vigem.js                Virtual Xbox 360 controller via ViGEmBus
 src/main/store.js                JSON persistence
 src/main/preload.cjs             The UI's only bridge to the main process
@@ -199,7 +208,6 @@ scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
 - Switch profiles automatically when a game starts
 - Tray icon / start with Windows
 - HidHide integration so games only see the virtual pad
-- HOTAS: combine a separate stick and throttle into one virtual pad
 - Photo skins for more sticks (contributions welcome)
 
 ## Contributing

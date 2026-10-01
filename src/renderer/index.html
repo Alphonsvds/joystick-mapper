@@ -34,7 +34,7 @@
           </div>
           <div class="controls">
             <button class="stat stat-switch device-picker" id="device-picker" type="button" aria-haspopup="dialog">
-              <span class="stat-key">Joystick</span>
+              <span class="stat-key" id="device-key">Joystick</span>
               <span class="stat-value" id="device-name">Searching</span>
               <span class="stat-tag" id="device-tag" hidden>Beta</span>
             </button>
@@ -61,7 +61,7 @@
 
     <div class="popover" id="popover" role="dialog" aria-modal="false" hidden></div>
     <div class="popover profile-menu" id="profile-menu" role="dialog" aria-label="Profiles" hidden></div>
-    <div class="popover profile-menu" id="device-menu" role="dialog" aria-label="Joysticks" hidden></div>
+    <div class="popover profile-menu" id="device-menu" role="dialog" aria-label="Devices" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script type="module" src="app.js"></script>

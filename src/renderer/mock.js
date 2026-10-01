@@ -1,13 +1,15 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
 // Three simulated sticks: the Extreme 3D Pro and the VKB Gladiator NXT EVO (photo layouts)
 // and a Thrustmaster T.16000M built from its published layout (universal layout). Add
-// ?device=gladiator or ?device=t16000m to start on one of the others.
+// ?device=gladiator or ?device=t16000m to plug in one of the others.
+// ?device=hotas plugs in a stick, a throttle and pedals together; any comma-separated
+// list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
-// The keyboard drives whichever is selected:
+// The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
-import { sanitizeBinding, emptyBindings } from '../shared/controls.js';
-import { describeDevice } from '../shared/devices.js';
+import { ROLES, sanitizeBinding, emptyBindings, rolePrefix } from '../shared/controls.js';
+import { assignRoles, describeDevice, mergeInputs } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -86,7 +88,47 @@ const SIMULATED = [
       buttonCount: 128,
     },
   },
-].map((d) => ({ ...d, model: describeDevice(d.layout, d) }));
+  // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
+  // not captured from the real devices.
+  {
+    vendorId: 0x044f,
+    productId: 0xb687,
+    name: 'Thrustmaster TWCS Throttle',
+    alias: 'twcs',
+    throttle: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 1023 },
+        { page: 1, usage: 0x31, min: 0, max: 1023 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 1023 },
+        hat,
+      ],
+      buttonCount: 14,
+    },
+  },
+  {
+    vendorId: 0x044f,
+    productId: 0xb679,
+    name: 'Thrustmaster T-Rudder',
+    alias: 'pedals',
+    throttle: null,
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 1023 },
+        { page: 1, usage: 0x31, min: 0, max: 1023 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+      ],
+      buttonCount: 0,
+    },
+  },
+].map((d) => {
+  const model = describeDevice(d.layout, d);
+  return { ...d, id: model.key, model: { ...model, id: model.key } };
+});
+
+const RIGS = { hotas: ['extreme3dpro', 'twcs', 'pedals'] };
 
 const KEY_BUTTONS = {
   Space: 'btn1',
@@ -143,11 +185,21 @@ export function createMockApi() {
   let update = /^\d+\.\d+\.\d+$/.test(query.get('update') ?? '')
     ? { version: query.get('update'), inApp: true, state: 'available', progress: 0 }
     : null;
-  let device = SIMULATED.find((d) => wanted && (d.model.key === wanted || d.alias === wanted)) ?? SIMULATED[0];
+  // What's plugged in. As in the app, every device is live and one of them is on screen.
+  const names = (RIGS[wanted] ?? (wanted ?? '').split(',')).map((name) => name.trim());
+  const found = names.map((name) => SIMULATED.find((d) => d.id === name || d.alias === name)).filter(Boolean);
+  const plugged = found.length ? [...new Set(found)] : [SIMULATED[0]];
+  let savedRoles = {};
+  let preferredId = null;
+  const roles = () => assignRoles(plugged, savedRoles);
+  const view = () => {
+    const assigned = roles();
+    return plugged.find((d) => d.id === preferredId) ?? ROLES.map((role) => plugged.find((d) => assigned[d.id] === role)).find(Boolean);
+  };
   const deviceSettings = {};
   const held = new Set();
-  let throttle = -1;
-  const axes = { x: 0, y: 0, rz: 0 };
+  // Each device's stick position and throttle, so the ones off screen stay where they were left.
+  const sims = new Map(plugged.map((d) => [d.id, { axes: { x: 0, y: 0, rz: 0 }, throttle: -1 }]));
   const frameListeners = new Set();
   const statusListeners = new Set();
 
@@ -163,13 +215,23 @@ export function createMockApi() {
   };
   const status = () => {
     const p = active();
+    const assigned = roles();
+    const device = view();
     return {
       joystick: {
         state: 'connected',
         message: '',
-        device: device.model,
-        devices: SIMULATED.map((d) => ({ key: d.model.key, name: `${d.name} (simulated)` })),
-        settings: deviceSettings[device.model.key] ?? {},
+        device: { ...device.model, role: assigned[device.id] },
+        devices: plugged.map(({ id, model }) => ({
+          id,
+          key: model.key,
+          name: model.name,
+          role: assigned[id] ?? null,
+          skin: model.skin,
+          support: model.support,
+          problem: '',
+        })),
+        settings: deviceSettings[device.id] ?? {},
       },
       pad: { state: emulating() ? 'connected' : 'off', message: '' },
       profile: { id: p.id, name: p.name, locked: p.locked },
@@ -211,20 +273,32 @@ export function createMockApi() {
   function tick(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    const target = { x: 0, y: 0, rz: 0 };
-    for (const code of held) {
-      const axis = KEY_AXES[code];
-      if (axis) target[axis[0]] += axis[1];
-    }
-    // Springy stick: ease toward the held direction, return to centre when released.
-    for (const id of ['x', 'y', 'rz']) axes[id] += (target[id] - axes[id]) * Math.min(1, dt * 10);
-    // Throttle stays where you leave it.
-    if (held.has('KeyR')) throttle = Math.min(1, throttle + dt * 1.2);
-    if (held.has('KeyF')) throttle = Math.max(-1, throttle - dt * 1.2);
+    const assigned = roles();
+    const shown = view();
+    const states = [];
+    for (const device of plugged) {
+      if (!assigned[device.id]) continue;
+      const sim = sims.get(device.id);
+      // Only the device on screen has hands on it; the others are let go.
+      const keys = device === shown ? [...held] : [];
+      const target = { x: 0, y: 0, rz: 0 };
+      for (const code of keys) {
+        const axis = KEY_AXES[code];
+        if (axis) target[axis[0]] += axis[1];
+      }
+      // Springy stick: ease toward the held direction, return to centre when released.
+      for (const id of ['x', 'y', 'rz']) sim.axes[id] += (target[id] - sim.axes[id]) * Math.min(1, dt * 10);
+      // Throttle stays where you leave it.
+      if (keys.includes('KeyR')) sim.throttle = Math.min(1, sim.throttle + dt * 1.2);
+      if (keys.includes('KeyF')) sim.throttle = Math.max(-1, sim.throttle - dt * 1.2);
 
-    const buttons = {};
-    for (const code of held) if (KEY_BUTTONS[code]) buttons[KEY_BUTTONS[code]] = true;
-    const input = { buttons, axes: { ...axes, [device.throttle]: throttle } };
+      const prefix = rolePrefix(assigned[device.id]);
+      const state = { buttons: {}, axes: {} };
+      for (const code of keys) if (KEY_BUTTONS[code]) state.buttons[prefix + KEY_BUTTONS[code]] = true;
+      for (const { id } of device.model.axes) state.axes[prefix + id] = id === device.throttle ? sim.throttle : (sim.axes[id] ?? 0);
+      states.push(state);
+    }
+    const input = mergeInputs(states);
     const output = mapInput(emulating() ? input : NEUTRAL_INPUT, working);
     frameListeners.forEach((cb) => cb({ input, output }));
     requestAnimationFrame(tick);
@@ -322,18 +396,28 @@ export function createMockApi() {
     async openControls() {
       window.open('controls.html', 'joymap-controls', 'width=560,height=700');
     },
-    async selectDevice(key) {
-      device = SIMULATED.find((d) => d.model.key === key) ?? device;
+    async selectDevice(id) {
+      preferredId = id;
+      emitStatus();
+      return true;
+    },
+    // Whichever device had the role takes this one's in exchange.
+    async setDeviceRole(id, role) {
+      const current = roles();
+      const next = { ...current, [id]: role };
+      for (const [other, held] of Object.entries(current)) if (held === role) next[other] = current[id];
+      savedRoles = next;
       emitStatus();
       return true;
     },
     async setAxisCentered(axisId, centered) {
-      const key = device.model.key;
-      deviceSettings[key] = { ...deviceSettings[key], centered: { ...deviceSettings[key]?.centered, [axisId]: centered } };
+      const { id } = view();
+      deviceSettings[id] = { ...deviceSettings[id], centered: { ...deviceSettings[id]?.centered, [axisId]: centered } };
       emitStatus();
       return true;
     },
     async copyDeviceInfo() {
+      const device = view();
       await navigator.clipboard?.writeText(JSON.stringify({ simulated: true, device: device.name, layout: device.layout }, null, 2));
       return true;
     },

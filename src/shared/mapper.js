@@ -1,7 +1,7 @@
 // Pure mapping engine: joystick state + bindings -> Xbox 360 (XUSB) report.
 import { TARGET_BY_ID, XUSB, controlKind } from './controls.js';
 
-// Nothing pressed, every axis centred (missing controls read as released / 0).
+// Nothing pressed and no axis reporting (missing controls read as released / at rest).
 export const NEUTRAL_INPUT = Object.freeze({ buttons: Object.freeze({}), axes: Object.freeze({}) });
 
 export const NEUTRAL_OUTPUT = Object.freeze({ buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 });
@@ -67,7 +67,11 @@ export function mapInput(input, bindings) {
       continue;
     }
 
-    let v = clamp(input.axes[controlId] ?? 0, -1, 1);
+    // An axis nothing is reporting (its device is unplugged, or the stick lacks it) is
+    // left out: read as 0 it would hold a trigger halfway.
+    const raw = input.axes[controlId];
+    if (raw === undefined) continue;
+    let v = clamp(raw, -1, 1);
     if (binding.invert) v = -v;
     const dz = binding.deadzone;
     const floor = binding.antiDeadzone ?? 0;

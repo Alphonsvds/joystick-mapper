@@ -1,9 +1,12 @@
 // Finds and reads joysticks over raw HID. Any stick is understood through Windows' HID
-// parser (hidp.js), so sticks we've never seen work without per-model code. Runs in the
-// main process so input keeps flowing while a game has focus.
+// parser (hidp.js), so sticks we've never seen work without per-model code. Every
+// joystick plugged in is read at once (a stick, a throttle, pedals…) and they are merged
+// into one input, each under its role. Runs in the main process so input keeps flowing
+// while a game has focus.
 import { EventEmitter } from 'node:events';
 import HID from 'node-hid';
-import { deviceKey, describeDevice, isCentered, normalizeInput } from '../shared/devices.js';
+import { ROLES, rolePrefix } from '../shared/controls.js';
+import { assignRoles, deviceKey, describeDevice, isCentered, mergeInputs, normalizeInput } from '../shared/devices.js';
 import { HidParser } from './hidp.js';
 import { EXTREME_3D_PRO_IDS, Extreme3DProParser } from './devices/extreme3dpro.js';
 
@@ -29,6 +32,22 @@ function displayName(d) {
   return name.trim() || deviceKey(d.vendorId, d.productId);
 }
 
+// The joysticks in a HID listing. `key` is vendor:product; `id` is unique among them: the
+// key, or key#2… for another device of the same model.
+function identify(listing) {
+  const seen = new Set();
+  const count = {};
+  const devices = [];
+  for (const d of listing) {
+    if (!isJoystick(d) || seen.has(d.path)) continue;
+    seen.add(d.path);
+    const key = deviceKey(d.vendorId, d.productId);
+    count[key] = (count[key] ?? 0) + 1;
+    devices.push({ ...d, key, id: count[key] === 1 ? key : `${key}#${count[key]}`, name: displayName(d) });
+  }
+  return devices;
+}
+
 // close() may throw or reject when the device has already vanished.
 const closeQuietly = (hid) => Promise.resolve().then(() => hid.close()).catch(() => {});
 
@@ -40,18 +59,31 @@ function createParser(info) {
   throw new Error('Only the Logitech Extreme 3D Pro is supported on this OS so far');
 }
 
+// How devices are listed, opened and understood. Tests swap in a fake.
+const hidBackend = {
+  list: () => HID.devicesAsync(),
+  open: (path) => HID.HIDAsync.open(path),
+  createParser,
+};
+
 export class JoystickManager extends EventEmitter {
-  constructor({ ignoreSkins = false } = {}) {
+  constructor({ ignoreSkins = false, backend = hidBackend } = {}) {
     super();
     this.ignoreSkins = ignoreSkins;
-    this.devices = []; // candidates currently plugged in
-    this.preferredKey = null;
+    this.backend = backend;
+    this.devices = []; // joysticks currently plugged in
+    this.roles = {}; // their roles: { [id]: role }
+    this.savedRoles = {}; // roles remembered or chosen before, owned by main.js
+    this.preferredId = null; // the device the UI shows, while it's plugged in
     this.settings = {}; // per-device { centered, calibration }, owned by main.js
-    this.current = null; // { info, hid, parser, model }
-    this.lastRaw = null;
-    this.lastReport = null;
+    // id -> { info, hid, parser, model, role, lastRaw, lastButtons, lastReport, state }
+    this.open = new Map();
+    this.problems = new Map(); // id -> { state, message } for devices that couldn't be opened
+    this.fault = null; // { state, message } when the devices couldn't even be listed
+    this.busy = Promise.resolve();
     this.timer = null;
     this.stopped = true;
+    this.published = '';
     this.status = { state: 'searching', message: '', device: null, devices: [] };
   }
 
@@ -63,28 +95,60 @@ export class JoystickManager extends EventEmitter {
   async stop() {
     this.stopped = true;
     clearTimeout(this.timer);
-    await this.closeCurrent();
+    await this.serial(() => Promise.all([...this.open.keys()].map((id) => this.close(id))));
+  }
+
+  // The device the UI shows: the chosen one while it's plugged in, otherwise the stick.
+  get view() {
+    const open = [...this.open.values()];
+    return this.open.get(this.preferredId) ?? ROLES.map((role) => open.find((d) => d.role === role)).find(Boolean) ?? null;
   }
 
   get model() {
-    return this.current?.model ?? null;
+    return this.view?.model ?? null;
   }
 
-  settingsFor(key) {
-    return this.settings[key] ?? {};
+  get models() {
+    return [...this.open.values()].map((d) => d.model);
+  }
+
+  settingsFor(id) {
+    return this.settings[id] ?? {};
   }
 
   setSettings(all) {
     this.settings = all;
   }
 
-  setStatus(state, message = '') {
+  // Every open device's state as one input (see mergeInputs).
+  input() {
+    return mergeInputs([...this.open.values()].map((d) => d.state).filter(Boolean));
+  }
+
+  // Tells main.js (and through it the UI) what is plugged in, whenever that changes.
+  publish() {
+    const view = this.view;
+    const problem = this.fault ?? this.problems.values().next().value;
     this.status = {
-      state,
-      message,
-      device: this.current?.model ?? null,
-      devices: this.devices.map(({ key, name }) => ({ key, name })),
+      state: this.open.size ? 'connected' : (problem?.state ?? 'searching'),
+      message: this.open.size ? '' : (problem?.message ?? ''),
+      device: view ? { ...view.model, role: view.role } : null,
+      devices: this.devices.map((d) => {
+        const model = this.open.get(d.id)?.model;
+        return {
+          id: d.id,
+          key: d.key,
+          name: model?.name ?? d.name,
+          role: this.roles[d.id] ?? null,
+          skin: model?.skin ?? null,
+          support: model?.support ?? null,
+          problem: this.problems.get(d.id)?.message ?? '',
+        };
+      }),
     };
+    const signature = JSON.stringify(this.status);
+    if (signature === this.published) return;
+    this.published = signature;
     this.emit('status', this.status);
   }
 
@@ -93,41 +157,67 @@ export class JoystickManager extends EventEmitter {
     if (!this.stopped) this.timer = setTimeout(() => this.scan(), RESCAN_MS);
   }
 
+  // Scans and role changes both open and close devices, so they take turns.
+  serial(task) {
+    const run = this.busy.then(task);
+    this.busy = run.catch(() => {});
+    return run;
+  }
+
   async scan() {
     if (this.stopped) return;
     try {
-      const seen = new Set();
-      const devices = [];
-      for (const d of await HID.devicesAsync()) {
-        if (!isJoystick(d) || seen.has(d.path)) continue;
-        seen.add(d.path);
-        devices.push({ ...d, key: deviceKey(d.vendorId, d.productId), name: displayName(d) });
-      }
-      const listChanged = devices.map((d) => d.path).join('|') !== this.devices.map((d) => d.path).join('|');
-      this.devices = devices;
-
-      if (!this.current) {
-        const pick = devices.find((d) => d.key === this.preferredKey) ?? devices[0];
-        if (pick) await this.open(pick);
-        else this.setStatus('searching');
-      } else if (listChanged) {
-        this.setStatus(this.status.state, this.status.message);
-      }
+      const devices = identify(await this.backend.list());
+      this.fault = null;
+      await this.serial(() => this.sync(devices));
     } catch (err) {
-      this.setStatus('error', err.message);
+      this.fault = { state: 'error', message: err.message };
+      this.publish();
     }
     this.scheduleScan();
   }
 
-  async open(info) {
+  // Brings the open devices in line with what is plugged in and the roles they have:
+  // opens every device with a role, closes the ones that were unplugged or lost theirs.
+  async sync(devices = this.devices) {
+    if (this.stopped) return;
+    this.devices = devices;
+    this.roles = assignRoles(devices, this.savedRoles);
+    let changed = false;
+    for (const [id, dev] of [...this.open]) {
+      const role = this.roles[id];
+      if (!role || devices.find((d) => d.id === id).path !== dev.info.path) {
+        await this.close(id);
+      } else if (role !== dev.role) {
+        dev.role = role;
+        dev.state = this.normalize(dev);
+      } else continue;
+      changed = true;
+    }
+    for (const info of devices) {
+      if (this.roles[info.id] && !this.open.has(info.id)) await this.openDevice(info, this.roles[info.id]);
+    }
+    for (const id of [...this.problems.keys()]) if (!this.roles[id]) this.problems.delete(id);
+    if (changed) this.emit('state', this.input());
+    this.publish();
+  }
+
+  // A device's last report as normalised input, under its current role and settings.
+  normalize(dev) {
+    if (!dev.lastRaw) return null;
+    const decoded = { values: dev.lastRaw, buttons: dev.lastButtons };
+    return normalizeInput(decoded, dev.model, this.settingsFor(dev.model.id), rolePrefix(dev.role));
+  }
+
+  async openDevice(info, role) {
     let parser;
     try {
-      parser = createParser(info);
+      parser = this.backend.createParser(info);
     } catch (err) {
-      this.setStatus('unsupported', `${info.name}: ${err.message}`);
+      this.problems.set(info.id, { state: 'unsupported', message: `${info.name}: ${err.message}` });
       return;
     }
-    const model = describeDevice(parser.layout, {
+    const described = describeDevice(parser.layout, {
       vendorId: info.vendorId,
       productId: info.productId,
       name: info.name,
@@ -135,10 +225,10 @@ export class JoystickManager extends EventEmitter {
     });
     let hid;
     try {
-      hid = await HID.HIDAsync.open(info.path);
+      hid = await this.backend.open(info.path);
     } catch (err) {
       parser.close();
-      this.setStatus('error', `${info.name}: ${err.message}`);
+      this.problems.set(info.id, { state: 'error', message: `${info.name}: ${err.message}` });
       return;
     }
     if (this.stopped) {
@@ -146,62 +236,65 @@ export class JoystickManager extends EventEmitter {
       await closeQuietly(hid);
       return;
     }
-    const current = { info, hid, parser, model };
-    this.current = current;
-    this.lastRaw = null;
+    const model = { ...described, id: info.id };
+    const dev = { info, hid, parser, model, role, lastRaw: null, lastButtons: null, lastReport: null, state: null };
+    this.open.set(info.id, dev);
+    this.problems.delete(info.id);
     hid.on('data', (report) => {
-      if (this.current !== current) return;
+      if (this.open.get(info.id) !== dev) return;
       const decoded = parser.decode(report);
-      this.lastReport = report;
-      this.lastRaw = decoded.values.slice();
-      this.emit('raw', this.lastRaw);
-      this.emit('state', normalizeInput(decoded, model, this.settingsFor(model.key)));
+      dev.lastReport = report;
+      dev.lastRaw = decoded.values.slice();
+      dev.lastButtons = decoded.buttons;
+      this.emit('raw', info.id, dev.lastRaw);
+      dev.state = this.normalize(dev);
+      this.emit('state', this.input());
     });
-    hid.on('error', (err) => this.lost(current, err));
-    this.setStatus('connected');
+    hid.on('error', () => this.lost(dev));
   }
 
-  async closeCurrent() {
-    const current = this.current;
-    this.current = null;
-    this.lastRaw = null;
-    if (!current) return;
-    current.parser.close();
-    await closeQuietly(current.hid);
+  async close(id) {
+    const dev = this.open.get(id);
+    if (!dev) return;
+    this.open.delete(id);
+    dev.parser.close();
+    await closeQuietly(dev.hid);
   }
 
-  lost(current, err) {
-    if (this.current !== current) return;
-    this.closeCurrent();
-    this.emit('lost');
-    this.setStatus('searching', err?.message ?? '');
+  // A device stopped answering (usually unplugged). The others carry on.
+  lost(dev) {
+    if (this.open.get(dev.info.id) !== dev) return;
+    this.close(dev.info.id);
+    this.emit('state', this.input());
+    this.publish();
     this.scheduleScan();
   }
 
-  // Switch to another plugged-in stick (by device key).
-  async select(key) {
-    this.preferredKey = key;
-    if (this.current?.model.key === key) return;
-    const info = this.devices.find((d) => d.key === key);
-    if (!info) return;
-    await this.closeCurrent();
-    this.emit('lost');
-    await this.open(info);
+  // Show another plugged-in device in the UI (by device id). They all stay live.
+  select(id) {
+    this.preferredId = id;
+    this.publish();
   }
 
-  // Averages the spring-centred axes over `ms`. A still stick may send no reports at
-  // all (they only arrive on change), so the last known position counts as a sample.
-  measureCenter(ms = 600) {
-    const model = this.model;
-    if (!model) return Promise.resolve(null);
-    const axes = model.axes.filter((a) => isCentered(a, this.settingsFor(model.key)));
-    const samples = this.lastRaw ? [this.lastRaw] : [];
-    const onRaw = (raw) => samples.push(raw);
+  // Apply the roles main.js remembers, after one was chosen in the UI.
+  setRoles(saved) {
+    this.savedRoles = saved;
+    return this.serial(() => this.sync());
+  }
+
+  // Averages a device's spring-centred axes over `ms`. A still stick may send no reports
+  // at all (they only arrive on change), so the last known position counts as a sample.
+  measureCenter(id, ms = 600) {
+    const dev = this.open.get(id);
+    if (!dev) return Promise.resolve(null);
+    const axes = dev.model.axes.filter((a) => isCentered(a, this.settingsFor(id)));
+    const samples = dev.lastRaw ? [dev.lastRaw] : [];
+    const onRaw = (from, raw) => from === id && samples.push(raw);
     this.on('raw', onRaw);
     return new Promise((resolve) => {
       setTimeout(() => {
         this.off('raw', onRaw);
-        if (samples.length === 0 || this.model !== model) return resolve(null);
+        if (samples.length === 0 || this.open.get(id) !== dev) return resolve(null);
         const result = {};
         for (const axis of axes) {
           const values = samples.map((s) => s[axis.index]).filter((v) => v !== null && v !== undefined);
@@ -218,11 +311,12 @@ export class JoystickManager extends EventEmitter {
     });
   }
 
-  // Everything needed to add support for this stick, for pasting into a GitHub issue.
+  // Everything needed to add support for the device on screen, for pasting into a GitHub
+  // issue, plus what is plugged in alongside it.
   deviceReport() {
-    const current = this.current;
-    if (!current) return null;
-    const { info, parser, model } = current;
+    const dev = this.view;
+    if (!dev) return null;
+    const { info, parser, model } = dev;
     return {
       device: {
         name: info.name,
@@ -233,6 +327,7 @@ export class JoystickManager extends EventEmitter {
         usagePage: info.usagePage,
         usage: info.usage,
         support: model.support,
+        role: dev.role,
       },
       layout: parser.layout,
       controls: {
@@ -240,7 +335,8 @@ export class JoystickManager extends EventEmitter {
         hats: model.hats.map(({ id, min, max }) => ({ id, min, max })),
         buttons: model.buttons,
       },
-      lastReport: this.lastReport ? Buffer.from(this.lastReport).toString('hex') : null,
+      lastReport: dev.lastReport ? Buffer.from(dev.lastReport).toString('hex') : null,
+      pluggedIn: this.devices.map((d) => ({ name: d.name, id: d.id, role: this.roles[d.id] ?? null })),
     };
   }
 }

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { JoystickManager } from './joystick.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
 import { readJson, writeJsonAtomic } from './store.js';
-import { emptyBindings, sanitizeBinding } from '../shared/controls.js';
+import { ROLES, emptyBindings, sanitizeBinding } from '../shared/controls.js';
 import { isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
@@ -56,8 +56,9 @@ const pad = createVirtualPad();
 let win = null;
 let library = emptyLibrary();
 let working = getProfile(library, library.active).bindings; // unsaved edits to the active profile
-// Per-stick settings: { selected, devices: { [key]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
-let deviceSettings = { selected: null, devices: {} };
+// Per-device settings, by device id:
+//   { selected, roles: { [id]: role }, devices: { [id]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
+let deviceSettings = { selected: null, roles: {}, devices: {} };
 let paused = false; // emulation switched off while a game profile is active
 // Once a newer release has been seen: { version, url, inApp, state, progress }.
 // inApp: it can be installed from here. state: available | downloading | installing.
@@ -77,13 +78,13 @@ const locked = () => isLocked(library.active);
 const dirty = () => !locked() && JSON.stringify(working) !== JSON.stringify(activeProfile().bindings);
 const emulating = () => !locked() && !paused;
 const windowAlive = () => win !== null && !win.isDestroyed();
-const settingsFor = (key) => deviceSettings.devices[key] ?? {};
+const settingsFor = (id) => deviceSettings.devices[id] ?? {};
 
 function status() {
   const profile = activeProfile();
-  const key = joystick.model?.key;
+  const id = joystick.model?.id;
   return {
-    joystick: { ...joystick.status, settings: key ? settingsFor(key) : {} },
+    joystick: { ...joystick.status, settings: id ? settingsFor(id) : {} },
     pad: pad.status,
     profile: { id: profile.id, name: profile.name, locked: profile.locked },
     emulation: emulating(),
@@ -244,11 +245,15 @@ function saveWorking() {
 // Reads devices.json, folding in the pre-universal calibration.json (Extreme 3D Pro only).
 function loadDeviceSettings() {
   const raw = readJson(devicesFile());
-  const settings = { selected: null, devices: {} };
+  const settings = { selected: null, roles: {}, devices: {} };
+  const isId = (id) => /^[0-9a-f]{4}:[0-9a-f]{4}(#\d)?$/.test(id);
   if (raw && typeof raw === 'object') {
     if (typeof raw.selected === 'string') settings.selected = raw.selected;
+    for (const [id, role] of Object.entries(raw.roles ?? {})) {
+      if (isId(id) && ROLES.includes(role)) settings.roles[id] = role;
+    }
     for (const [key, value] of Object.entries(raw.devices ?? {})) {
-      if (!/^[0-9a-f]{4}:[0-9a-f]{4}$/.test(key) || !value || typeof value !== 'object') continue;
+      if (!isId(key) || !value || typeof value !== 'object') continue;
       const clean = {};
       for (const field of ['calibration', 'centered']) {
         if (value[field] && typeof value[field] === 'object') {
@@ -270,35 +275,62 @@ function loadDeviceSettings() {
   return settings;
 }
 
-function updateDeviceSettings(key, change) {
+function updateDeviceSettings(id, change) {
   deviceSettings = {
     ...deviceSettings,
-    devices: { ...deviceSettings.devices, [key]: change(settingsFor(key)) },
+    devices: { ...deviceSettings.devices, [id]: change(settingsFor(id)) },
   };
   joystick.setSettings(deviceSettings.devices);
   writeJsonAtomic(devicesFile(), deviceSettings);
   sendStatus();
 }
 
-function applyCalibration(key, centres) {
-  updateDeviceSettings(key, (s) => ({ ...s, calibration: { ...s.calibration, ...centres } }));
+function applyCalibration(id, centres) {
+  updateDeviceSettings(id, (s) => ({ ...s, calibration: { ...s.calibration, ...centres } }));
 }
 
-// Spring-centred axes of the current stick that don't have a measured centre yet.
-function uncalibratedAxes() {
-  const model = joystick.model;
-  if (!model) return [];
-  const s = settingsFor(model.key);
-  return model.axes.filter((a) => isCentered(a, s) && !Number.isFinite(s.calibration?.[a.id]));
+// Roles hold once there is more than one device, so unplugging the stick doesn't turn
+// the throttle into one. A device on its own isn't remembered: it is simply the stick.
+function rememberRoles() {
+  const entries = Object.entries(joystick.roles);
+  if (entries.length < 2 || entries.every(([id, role]) => deviceSettings.roles[id] === role)) return;
+  deviceSettings = { ...deviceSettings, roles: { ...deviceSettings.roles, ...joystick.roles } };
+  joystick.savedRoles = deviceSettings.roles;
+  writeJsonAtomic(devicesFile(), deviceSettings);
 }
 
-// Until the stick's centred axes have a saved centre, keep trying whenever it's left at
+// Gives a plugged-in device a role. Whichever device had it takes this one's in exchange.
+async function setDeviceRole(id, role) {
+  const previous = joystick.roles[id];
+  if (!ROLES.includes(role) || !joystick.devices.some((d) => d.id === id) || previous === role) return false;
+  const roles = { ...deviceSettings.roles, ...joystick.roles };
+  for (const [other, held] of Object.entries(roles)) {
+    if (held !== role) continue;
+    if (previous && joystick.roles[other]) roles[other] = previous;
+    else delete roles[other];
+  }
+  roles[id] = role;
+  deviceSettings = { ...deviceSettings, roles };
+  writeJsonAtomic(devicesFile(), deviceSettings);
+  await joystick.setRoles(roles);
+  return true;
+}
+
+// Open devices with spring-centred axes that don't have a measured centre yet.
+function uncalibratedDevices() {
+  return joystick.models.filter((model) => {
+    const s = settingsFor(model.id);
+    return model.axes.some((a) => isCentered(a, s) && !Number.isFinite(s.calibration?.[a.id]));
+  });
+}
+
+// Until a device's centred axes have a saved centre, keep trying whenever it's left at
 // rest. Sticks only report changes (many ignore "send your current state" requests), so
 // right after connecting there may be nothing to measure yet, or someone may be holding it.
 let autoCenterTimer = null;
 let autoCentering = false;
 function autoCenter() {
-  if (autoCentering || uncalibratedAxes().length === 0 || joystick.status.state !== 'connected') return;
+  if (autoCentering || uncalibratedDevices().length === 0 || joystick.status.state !== 'connected') return;
   clearTimeout(autoCenterTimer);
   autoCentering = true;
   recenter({ onlyIfResting: true })
@@ -311,10 +343,17 @@ function autoCenter() {
     });
 }
 
+// Measures the resting centre of every device (or, automatically, of the ones that
+// still need it). Automatic: true once they are all done. By hand: true if any was.
 async function recenter({ onlyIfResting }) {
-  const key = joystick.model?.key;
-  const measured = await joystick.measureCenter(onlyIfResting ? 800 : 500);
-  if (!measured || !key || joystick.model?.key !== key || Object.keys(measured).length === 0) return false;
+  const models = onlyIfResting ? uncalibratedDevices() : joystick.models;
+  const done = await Promise.all(models.map((model) => recenterDevice(model.id, onlyIfResting)));
+  return onlyIfResting ? done.every(Boolean) : done.some(Boolean);
+}
+
+async function recenterDevice(id, onlyIfResting) {
+  const measured = await joystick.measureCenter(id, onlyIfResting ? 800 : 500);
+  if (!measured || Object.keys(measured).length === 0) return false;
   if (onlyIfResting) {
     for (const m of Object.values(measured)) {
       const [min, max] = m.range;
@@ -322,7 +361,7 @@ async function recenter({ onlyIfResting }) {
       if (Math.abs(m.mean - (min + max) / 2) / (max - min) > AUTO_CENTER_MAX_OFFSET) return false;
     }
   }
-  applyCalibration(key, Object.fromEntries(Object.entries(measured).map(([id, m]) => [id, m.mean])));
+  applyCalibration(id, Object.fromEntries(Object.entries(measured).map(([axisId, m]) => [axisId, m.mean])));
   return true;
 }
 
@@ -451,19 +490,23 @@ function registerIpc() {
 
   ipcMain.handle('joymap:open-controls', () => openControlsWindow());
 
-  ipcMain.handle('joymap:select-device', async (_event, key) => {
-    if (typeof key !== 'string') return false;
-    deviceSettings = { ...deviceSettings, selected: key };
+  // Which device the screen shows. Every plugged-in device keeps working either way.
+  ipcMain.handle('joymap:select-device', (_event, id) => {
+    if (typeof id !== 'string') return false;
+    deviceSettings = { ...deviceSettings, selected: id };
     writeJsonAtomic(devicesFile(), deviceSettings);
-    await joystick.select(key);
+    joystick.select(id);
     return true;
   });
 
+  ipcMain.handle('joymap:set-device-role', (_event, id, role) => setDeviceRole(id, role));
+
   // Throttle-style axes read end to end; spring-centred ones read from a calibrated middle.
+  // Applies to the device on screen; `axisId` is the axis's own ID, without a role.
   ipcMain.handle('joymap:set-axis-centered', (_event, axisId, centered) => {
-    const key = joystick.model?.key;
-    if (!key || !joystick.model.axes.some((a) => a.id === axisId)) return false;
-    updateDeviceSettings(key, (s) => ({ ...s, centered: { ...s.centered, [axisId]: centered === true } }));
+    const id = joystick.model?.id;
+    if (!id || !joystick.model.axes.some((a) => a.id === axisId)) return false;
+    updateDeviceSettings(id, (s) => ({ ...s, centered: { ...s.centered, [axisId]: centered === true } }));
     autoCenter();
     return true;
   });
@@ -589,18 +632,17 @@ if (!app.requestSingleInstanceLock()) {
     working = activeProfile().bindings;
     deviceSettings = loadDeviceSettings();
     joystick.setSettings(deviceSettings.devices);
-    joystick.preferredKey = deviceSettings.selected;
+    joystick.savedRoles = deviceSettings.roles;
+    joystick.preferredId = deviceSettings.selected;
 
+    // Every plugged-in device's controls, merged; an unplugged one simply drops out.
     joystick.on('state', (state) => {
       input = state;
       pump();
-      if (uncalibratedAxes().length) autoCenter(); // the first report is the first chance to measure
-    });
-    joystick.on('lost', () => {
-      input = NEUTRAL_INPUT;
-      pump();
+      if (uncalibratedDevices().length) autoCenter(); // the first report is the first chance to measure
     });
     joystick.on('status', (s) => {
+      rememberRoles();
       pump();
       sendStatus();
       if (s.state === 'connected') autoCenter();

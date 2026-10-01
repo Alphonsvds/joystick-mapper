@@ -1,8 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Extreme3DProParser } from '../src/main/devices/extreme3dpro.js';
-import { TARGET_BY_ID, XUSB, emptyBindings, normalizeBindings, sanitizeBinding } from '../src/shared/controls.js';
-import { SKINS, describeDevice, hatDirections, normalizeInput } from '../src/shared/devices.js';
+import {
+  TARGET_BY_ID,
+  XUSB,
+  controlKind,
+  emptyBindings,
+  normalizeBindings,
+  sanitizeBinding,
+  splitControlId,
+} from '../src/shared/controls.js';
+import { SKINS, assignRoles, describeDevice, guessRole, hatDirections, mergeInputs, normalizeInput } from '../src/shared/devices.js';
 import { GAMES } from '../src/shared/games.js';
 import { LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
@@ -489,6 +497,91 @@ test('damaged bindings fall back to unmapped, keeping valid entries', () => {
   assert.deepEqual(normalizeBindings('garbage'), emptyBindings());
   const b = normalizeBindings({ btn1: { target: 'a' }, btn2: { target: 'ls_x' }, 'no good': { target: 'a' } });
   assert.deepEqual(Object.keys(b), ['btn1']);
+});
+
+// ─── HOTAS: several devices ───────────────────────────────────────────────────
+
+test('controls on a throttle, pedals or extra device carry their role', () => {
+  assert.equal(controlKind('throttle.z'), 'axis');
+  assert.equal(controlKind('pedals.btn3'), 'button');
+  assert.equal(controlKind('extra.hat1_up'), 'button');
+  assert.deepEqual(splitControlId('throttle.z'), { role: 'throttle', local: 'z' });
+  // The stick's controls are the plain IDs, so older profiles are stick profiles.
+  assert.deepEqual(splitControlId('btn1'), { role: 'stick', local: 'btn1' });
+  assert.deepEqual(splitControlId('throttle'), { role: 'stick', local: 'throttle' }); // an axis called throttle
+  for (const bad of ['stick.btn1', 'throttle.', 'throttle.Bad Id', 'wheel.x', 'throttle.pedals.x']) {
+    assert.equal(controlKind(bad), null, bad);
+  }
+  // They bind like any other control and survive a save / export round trip.
+  assert.equal(sanitizeBinding('throttle.btn2', { target: 'ls_x' }), null);
+  const p = { name: 'HOTAS', bindings: bindingsWith({ x: { target: 'ls_x' }, 'throttle.z': { target: 'rt' }, 'pedals.rz': { target: 'lb_rb' } }) };
+  assert.deepEqual(Object.keys(fromExport(toExport(p)).bindings), ['x', 'throttle.z', 'pedals.rz']);
+});
+
+test('a stick and a throttle merge into one input and drive one pad', () => {
+  const stick = describeDevice(EXTREME_LAYOUT, EXTREME);
+  const throttle = describeDevice(T16000M_LAYOUT, T16000M);
+  const merged = mergeInputs([
+    normalizeInput(decoded([512, 1023, 8, 128, 255], [1]), stick, {}),
+    normalizeInput(decoded([8191.5, 8191.5, 127.5, 0, 8], [1, 4]), throttle, {}, 'throttle.'),
+  ]);
+  // Same control numbers on both devices, kept apart.
+  assert.equal(merged.axes.x, 1);
+  assert.equal(merged.axes['throttle.x'], 0);
+  assert.equal(merged.axes.slider, -1);
+  assert.equal(merged.axes['throttle.slider'], 1);
+  assert.equal(merged.buttons.btn4, false);
+  assert.equal(merged.buttons['throttle.btn4'], true);
+  assert.equal(merged.buttons['throttle.hat1_up'], false);
+
+  const p = bindingsWith({
+    x: { target: 'ls_x' },
+    btn1: { target: 'a' },
+    'throttle.slider': { target: 'rt', deadzone: 0 },
+    'throttle.btn4': { target: 'b' },
+  });
+  const out = mapInput(merged, p);
+  assert.equal(out.lx, 32767);
+  assert.equal(out.rt, 255);
+  assert.equal(out.buttons, XUSB.A | XUSB.B);
+});
+
+test('an axis nothing reports is left out, so an unplugged throttle lets go of its trigger', () => {
+  const p = bindingsWith({ 'throttle.z': { target: 'rt', deadzone: 0 }, slider: { target: 'lt', deadzone: 0 }, x: { target: 'ls_x' } });
+  const out = mapInput(input({}, { x: 1 }), p); // only the stick, and it has no slider
+  assert.deepEqual([out.lx, out.lt, out.rt], [32767, 0, 0]);
+  assert.equal(mapInput(input({}, { x: 1, 'throttle.z': 0 }), p).rt, 128);
+});
+
+test('a device on its own is the stick; with several, names and saved choices decide', () => {
+  const stick = { id: '046d:c215', name: 'Logitech Extreme 3D' };
+  const throttle = { id: '044f:b687', name: 'Thrustmaster TWCS Throttle' };
+  const pedals = { id: '044f:b679', name: 'T-Rudder' };
+  assert.equal(guessRole(throttle.name), 'throttle');
+  assert.equal(guessRole(pedals.name), 'pedals');
+  assert.equal(guessRole('Saitek Pro Flight Rudder Pedals'), 'pedals');
+  assert.equal(guessRole(stick.name), null);
+
+  assert.deepEqual(assignRoles([]), {});
+  // Alone, even a throttle maps as the stick, as it did before HOTAS support.
+  assert.deepEqual(assignRoles([throttle]), { [throttle.id]: 'stick' });
+  assert.deepEqual(assignRoles([throttle, stick, pedals]), {
+    [throttle.id]: 'throttle',
+    [stick.id]: 'stick',
+    [pedals.id]: 'pedals',
+  });
+  // Once remembered, unplugging the stick doesn't promote the throttle.
+  assert.deepEqual(assignRoles([throttle], { [throttle.id]: 'throttle', [stick.id]: 'stick' }), { [throttle.id]: 'throttle' });
+  // A saved choice beats the name.
+  assert.deepEqual(assignRoles([stick, throttle], { [throttle.id]: 'extra' }), { [stick.id]: 'stick', [throttle.id]: 'extra' });
+  // Two sticks: the second fills the next free role. A fifth device gets none.
+  const twin = (n) => ({ id: `231d:020${n}`, name: 'VKBsim Gladiator' });
+  assert.deepEqual(Object.values(assignRoles([1, 2, 3, 4, 5].map(twin))), ['stick', 'throttle', 'pedals', 'extra']);
+  // Two devices saved with the same role: the first keeps it, the other moves on.
+  assert.deepEqual(assignRoles([stick, twin(1)], { [stick.id]: 'stick', [twin(1).id]: 'stick' }), {
+    [stick.id]: 'stick',
+    [twin(1).id]: 'throttle',
+  });
 });
 
 // ─── Profiles ─────────────────────────────────────────────────────────────────
