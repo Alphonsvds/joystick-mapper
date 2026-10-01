@@ -35,5 +35,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Joystick-Mapper-Setup-*.exe
+          # latest.yml and the blockmap are what the in-app updater reads.
+          files: |
+            dist/Joystick-Mapper-Setup-*.exe
+            dist/Joystick-Mapper-Setup-*.exe.blockmap
+            dist/latest.yml
+          fail_on_unmatched_files: true
           generate_release_notes: true

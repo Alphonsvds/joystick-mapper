@@ -954,14 +954,25 @@ function renderStatus(next) {
   if (padError && padError !== lastPadError) showToast(padError);
   lastPadError = padError;
 
-  $('#update').hidden = !next.update;
-  if (next.update) $('#update').textContent = `Update available · v${next.update.version} ↗`;
+  renderUpdate(next.update);
 
   const save = $('#save');
   save.hidden = locked;
   save.disabled = !next.dirty;
   save.classList.toggle('is-dirty', next.dirty);
   save.textContent = next.dirty ? 'Save' : 'Saved';
+}
+
+// The update button: installs from here where it can, otherwise opens the release page (↗).
+function renderUpdate(update) {
+  const node = $('#update');
+  node.hidden = !update;
+  if (!update) return;
+  node.disabled = update.state !== 'available';
+  node.title = update.inApp ? 'Downloads the update, then restarts to install it' : 'Opens the download page';
+  if (update.state === 'downloading') node.textContent = `Downloading update · ${update.progress}%`;
+  else if (update.state === 'installing') node.textContent = 'Installing update';
+  else node.textContent = `Update available · v${update.version}${update.inApp ? '' : ' ↗'}`;
 }
 
 async function save() {
@@ -981,7 +992,7 @@ function showToast(message) {
 function wireTopbar() {
   $('#save').addEventListener('click', save);
   $('#open-controls').addEventListener('click', () => api.openControls());
-  $('#update').addEventListener('click', () => api.openUpdate());
+  $('#update').addEventListener('click', () => api.installUpdate().catch((err) => showToast(errorText(err))));
   $('#profile-picker').addEventListener('click', () => (profileMenu.hidden ? openProfileMenu('list') : closeMenus()));
   $('#device-picker').addEventListener('click', () => (deviceMenu.hidden ? openDeviceMenu() : closeMenus()));
   $('#stat-pad').addEventListener('click', async () => {

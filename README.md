@@ -70,9 +70,9 @@ driver it needs, so there's nothing else to set up. Windows asks for admin permi
 - **Throttle vs centred axes.** Each axis's dropdown has **Springs back to centre**. Leave it
   on for sticks, twists and pedals, and turn it off for throttles and sliders. Experimental
   sticks get a best guess from Windows' description.
-- **Updates.** **Update available** appears bottom-left when a newer release is out and
-  opens its download page. Profiles and calibration carry over. The app checks GitHub's
-  public release list when it starts.
+- **Updates.** **Update available** appears bottom-left when a newer release is out. Click
+  it to download and install; Windows asks for permission and the app restarts. Profiles
+  and calibration carry over. The app checks GitHub's public release list when it starts.
 
 Handy axis options for flying: **Throttle → LT / RT Split** (pull back = brake, push
 forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
@@ -164,6 +164,10 @@ a VKB Gladiator NXT EVO (add `?device=gladiator`) and a Thrustmaster T.16000M
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.
+
+**See the update button.** `JOYMAP_VERSION=0.1.0` makes the app think it's that version; in
+the browser preview, add `?update=9.9.9`. `JOYMAP_UPDATE_FEED=<url>` points the installed
+app's updater at a served `dist/` folder instead of GitHub.
 
 macOS: only the Extreme 3D Pro is read (Windows' HID parser isn't available), and the
 virtual Xbox controller needs ViGEmBus, which is Windows-only.

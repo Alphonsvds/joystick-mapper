@@ -16,6 +16,7 @@
     "dist": "npm run fetch-driver && electron-builder --win --publish never"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "koffi": "^3.3.2",
     "node-hid": "^3.4.0"
   },

@@ -2,6 +2,7 @@
 // Xbox controller, and streams live state to the UI. Everything that matters for
 // the game happens here, so it keeps working with the window in the background.
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, shell } from 'electron';
+import electronUpdater from 'electron-updater';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,6 +42,12 @@ const LEGACY_EXTREME_KEY = '046d:c215';
 const UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
 // JOYMAP_VERSION pretends to be another version, to see the update button (e.g. 0.1.0).
 const currentVersion = () => process.env.JOYMAP_VERSION || app.getVersion();
+// The installed Windows app can download a release's installer and run it. Anywhere else
+// (from source, macOS) the update button opens the release page instead.
+// JOYMAP_UPDATE_FEED points the updater at a folder of build output served over HTTP,
+// to try an update without publishing a release.
+const { autoUpdater } = electronUpdater;
+const canSelfUpdate = () => app.isPackaged && process.platform === 'win32';
 
 // JOYMAP_GENERIC=1 shows even known sticks with the generic layout (tests that path).
 const joystick = new JoystickManager({ ignoreSkins: process.env.JOYMAP_GENERIC === '1' });
@@ -52,7 +59,9 @@ let working = getProfile(library, library.active).bindings; // unsaved edits to 
 // Per-stick settings: { selected, devices: { [key]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
 let deviceSettings = { selected: null, devices: {} };
 let paused = false; // emulation switched off while a game profile is active
-let update = null; // { version, url } once a newer release has been seen
+// Once a newer release has been seen: { version, url, inApp, state, progress }.
+// inApp: it can be installed from here. state: available | downloading | installing.
+let update = null;
 let input = NEUTRAL_INPUT;
 let output = NEUTRAL_OUTPUT;
 let frameDirty = true;
@@ -79,7 +88,7 @@ function status() {
     profile: { id: profile.id, name: profile.name, locked: profile.locked },
     emulation: emulating(),
     dirty: dirty(),
-    update: update && { version: update.version },
+    update: update && { version: update.version, inApp: update.inApp, state: update.state, progress: update.progress },
   };
 }
 
@@ -91,18 +100,78 @@ function sendStatus() {
   if (windowAlive()) win.webContents.send('joymap:status', status());
 }
 
-// Asks GitHub for the latest release and tells the UI when it's newer than this copy.
-// Nothing is downloaded; being offline (or rate limited) just means no button.
-async function checkForUpdate() {
-  try {
-    const response = await net.fetch(LATEST_RELEASE_API, { headers: { Accept: 'application/vnd.github+json' } });
-    if (!response.ok) return;
-    const found = updateFromRelease(await response.json(), currentVersion());
-    if (found?.version === update?.version) return;
-    update = found;
+function setupUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  if (process.env.JOYMAP_UPDATE_FEED) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.JOYMAP_UPDATE_FEED });
+  autoUpdater.on('download-progress', ({ percent }) => {
+    const progress = Math.round(percent);
+    if (update?.state !== 'downloading' || update.progress === progress) return;
+    update = { ...update, progress };
     sendStatus();
+  });
+  // Failures are handled where the updater is called; this keeps them from being unhandled.
+  autoUpdater.on('error', () => {});
+}
+
+// The release the updater can install, if it's newer: it has the files the updater needs.
+async function findInstallableUpdate() {
+  const result = await autoUpdater.checkForUpdates();
+  if (!result?.isUpdateAvailable) return null;
+  const found = updateFromRelease({ tag_name: result.updateInfo.version }, app.getVersion());
+  return found && { ...found, inApp: true };
+}
+
+// GitHub's latest release, if it's newer. Only its page can be opened.
+async function findReleasePage() {
+  const response = await net.fetch(LATEST_RELEASE_API, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!response.ok) return null;
+  const found = updateFromRelease(await response.json(), currentVersion());
+  return found && { ...found, inApp: false };
+}
+
+// Looks for a newer release and tells the UI. Nothing is downloaded until the button is
+// clicked; being offline (or rate limited) just means no button.
+async function checkForUpdate() {
+  if (update && update.state !== 'available') return; // mid-download or installing
+  let found = null;
+  try {
+    // A release without the updater's files makes the first lookup throw; its page still works.
+    found = canSelfUpdate() ? await findInstallableUpdate().catch(findReleasePage) : await findReleasePage();
   } catch {
-    // Try again at the next check.
+    return; // Try again at the next check.
+  }
+  if (update && update.state !== 'available') return;
+  if (found?.version === update?.version && found?.inApp === update?.inApp) return;
+  update = found && { ...found, state: 'available', progress: 0 };
+  sendStatus();
+}
+
+function setUpdateState(state, progress = 0) {
+  update = { ...update, state, progress };
+  sendStatus();
+}
+
+// Downloads the release's installer, then quits and runs it (Windows asks for permission,
+// as it did on first install). Profiles and calibration are untouched. If anything goes
+// wrong the release page opens instead, which is also what happens when inApp is false.
+async function installUpdate() {
+  if (!update || update.state !== 'available') return;
+  if (!update.inApp) {
+    shell.openExternal(update.url);
+    return;
+  }
+  try {
+    setUpdateState('downloading');
+    await autoUpdater.downloadUpdate();
+    if (!(await settleUnsaved())) return setUpdateState('available');
+    setUpdateState('installing');
+    autoUpdater.quitAndInstall(true, true);
+  } catch {
+    update = { ...update, inApp: false, state: 'available', progress: 0 };
+    sendStatus();
+    shell.openExternal(update.url);
+    throw new Error('Couldn’t update from here, so the download page was opened');
   }
 }
 
@@ -421,10 +490,7 @@ function registerIpc() {
     return 'website';
   });
 
-  // The release page has the installer; installing over the top keeps profiles and calibration.
-  ipcMain.handle('joymap:open-update', () => {
-    if (update) shell.openExternal(update.url);
-  });
+  ipcMain.handle('joymap:install-update', () => installUpdate());
 }
 
 const webPreferences = () => ({
@@ -552,6 +618,7 @@ if (!app.requestSingleInstanceLock()) {
     if (emulating()) pad.connect();
     setInterval(sendFrame, FRAME_MS);
 
+    setupUpdater();
     checkForUpdate();
     setInterval(checkForUpdate, UPDATE_CHECK_MS);
   });

@@ -2,7 +2,7 @@
 // Three simulated sticks: the Extreme 3D Pro and the VKB Gladiator NXT EVO (photo layouts)
 // and a Thrustmaster T.16000M built from its published layout (universal layout). Add
 // ?device=gladiator or ?device=t16000m to start on one of the others.
-// Add ?update=9.9.9 to see the "Update available" button.
+// Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever is selected:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
@@ -140,7 +140,9 @@ export function createMockApi() {
   let paused = false;
   const query = new URLSearchParams(location.search);
   const wanted = query.get('device');
-  const update = /^\d+\.\d+\.\d+$/.test(query.get('update') ?? '') ? { version: query.get('update') } : null;
+  let update = /^\d+\.\d+\.\d+$/.test(query.get('update') ?? '')
+    ? { version: query.get('update'), inApp: true, state: 'available', progress: 0 }
+    : null;
   let device = SIMULATED.find((d) => wanted && (d.model.key === wanted || d.alias === wanted)) ?? SIMULATED[0];
   const deviceSettings = {};
   const held = new Set();
@@ -344,8 +346,18 @@ export function createMockApi() {
     async installDriver() {
       return 'website';
     },
-    async openUpdate() {
-      window.open('https://github.com/Alphonsvds/joystick-mapper/releases/latest', '_blank');
+    async installUpdate() {
+      if (!update || update.state !== 'available') return;
+      for (let progress = 0; progress <= 100; progress += 5) {
+        update = { ...update, state: 'downloading', progress };
+        emitStatus();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      update = { ...update, state: 'installing' };
+      emitStatus();
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      update = { ...update, state: 'available', progress: 0 };
+      emitStatus();
     },
     onFrame(cb) {
       frameListeners.add(cb);

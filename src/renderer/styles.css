@@ -755,7 +755,14 @@ body.is-intro * {
   bottom: 40px;
   border-color: rgba(255, 255, 255, 0.4);
   color: #fff;
+  font-variant-numeric: tabular-nums;
   animation: fade-in 1s ease both;
+}
+
+.update:disabled {
+  border-color: var(--hairline);
+  color: var(--ink-dim);
+  cursor: default;
 }
 
 .ghost-accent {
