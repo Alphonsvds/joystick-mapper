@@ -12,7 +12,8 @@ tests must pass.
 - **Bug fixes.** Please include the steps that reproduce the bug.
 - **Other joysticks.** Any USB stick already works through the universal layout. Owners can
   help by filing a "Joystick support" issue with the output of **Joystick → Copy device
-  info**; that becomes a test fixture in `test/`. Better names for a stick's controls go in
+  info** (see [Getting your joystick supported](docs/joystick-support.md)); that becomes a
+  test fixture in `test/`. Better names for a stick's controls go in
   `SKINS` in `src/shared/devices.js`. A full photo layout (like the ones in
   `src/renderer/layout.js`) is bigger, so open an issue first.
 

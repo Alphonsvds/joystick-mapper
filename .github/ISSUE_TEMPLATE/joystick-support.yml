@@ -6,8 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping add support for more sticks! In Joystick Mapper, open the
-        **Joystick** menu (top bar) and click **Copy device info**, then paste it below.
+        Thanks for helping add support for more sticks! In Joystick Mapper, click the
+        joystick's name (top bar), then **Copy device info**, and paste it below.
+        [Step by step](https://github.com/Alphonsvds/joystick-mapper/blob/main/docs/joystick-support.md)
   - type: input
     id: model
     attributes:

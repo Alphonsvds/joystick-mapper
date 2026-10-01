@@ -35,9 +35,10 @@ A photo layout labels the controls a stick ships with. If yours has been reprogr
 (VKB sticks often are), **Joystick ▾ → List view** shows every button and axis it reports
 instead, and **Photo view** switches back.
 
-**Help make your stick fully supported:** open **Joystick ▾ → Copy device info**, then
-[open a Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml)
-and paste it in. Say what worked and what didn't.
+**Want your stick supported?** Click its name in the top bar, **Copy device info**, and
+paste it into a
+[Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml).
+Step by step: [Getting your joystick supported](docs/joystick-support.md).
 
 ## Download
 
