@@ -480,6 +480,13 @@ body.is-intro * {
   border-color: #fff;
 }
 
+/* With an anti-deadzone set the label carries both numbers ("DZ 4% +20%"). */
+.dz.has-anti {
+  width: auto;
+  padding: 0 9px;
+  color: var(--ink);
+}
+
 .inv.is-on {
   background: #fff;
   border-color: #fff;
@@ -1220,13 +1227,41 @@ body.is-intro * {
   margin-top: 14px;
 }
 
-/* The deadzone-only popover is narrower and has no tile grid above its slider. */
+/* The response popover (behind DZ) is narrower and has no tile grid above its sliders. */
 .popover.is-compact {
-  width: 320px;
+  width: 360px;
 }
 
 .popover.is-compact .pop-options {
   margin-top: 0;
+}
+
+/* Names share a width so the sliders line up under each other. */
+.pop-option-name {
+  flex: none;
+  min-width: 116px;
+}
+
+.pop-option + .pop-option {
+  margin-top: 10px;
+}
+
+.slider:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* What a slider does, in a sentence under it. */
+.pop-note {
+  margin: 4px 0 14px;
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+
+.pop-note:last-child {
+  margin-bottom: 0;
 }
 
 .pop-option {
@@ -1593,7 +1628,19 @@ body.reference {
 }
 
 .gen-axis .gen-controls .chip {
-  width: 170px;
+  width: 164px;
+}
+
+.gen-axis .gen-controls .chip.is-mapped {
+  letter-spacing: 0.09em;
+}
+
+/* Wide enough for "DZ 10% +50%", so the rows stay lined up whichever axes use it. */
+.gen-axis .gen-controls .dz,
+.gen-axis .gen-controls .dz.has-anti {
+  width: 88px;
+  padding: 0;
+  letter-spacing: 0.08em;
 }
 
 .gen-axis .meter {

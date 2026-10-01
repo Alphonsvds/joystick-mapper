@@ -331,6 +331,49 @@ test('deadzone swallows drift and rescales the rest', () => {
   assert.equal(mapInput(input({}, { y: 0.55 }), p).ly, Math.round(0.5 * 32767));
 });
 
+test('anti-deadzone starts the output past a game deadzone and still reaches full travel', () => {
+  const p = bindingsWith({ y: { target: 'ls_y', deadzone: 0.1, antiDeadzone: 0.2 } });
+  const ly = (y) => mapInput(input({}, { y }), p).ly;
+  // At rest, and inside the stick's own deadzone, nothing is sent.
+  assert.equal(ly(0), 0);
+  assert.equal(ly(0.08), 0);
+  // The smallest real movement already clears 20%, in either direction.
+  assert.ok(ly(0.11) > 0.2 * 32767 && ly(0.11) < 0.22 * 32767, `${ly(0.11)}`);
+  assert.equal(ly(-0.11), -ly(0.11));
+  // Halfway through the remaining travel lands halfway between 20% and 100%.
+  assert.equal(ly(0.55), Math.round(0.6 * 32767));
+  assert.equal(ly(1), 32767);
+  assert.equal(ly(-1), -32767);
+});
+
+test('anti-deadzone also lifts triggers, and is off unless set', () => {
+  const single = bindingsWith({ slider: { target: 'rt', deadzone: 0, antiDeadzone: 0.2 } });
+  assert.equal(mapInput(input({}, { slider: -1 }), single).rt, 0);
+  assert.equal(mapInput(input({}, { slider: 0 }), single).rt, Math.round(0.6 * 255));
+  assert.equal(mapInput(input({}, { slider: 1 }), single).rt, 255);
+
+  const split = bindingsWith({ slider: { target: 'lt_rt', deadzone: 0, antiDeadzone: 0.2 } });
+  assert.deepEqual([mapInput(input({}, { slider: 0 }), split).lt, mapInput(input({}, { slider: 0 }), split).rt], [0, 0]);
+  assert.deepEqual([mapInput(input({}, { slider: 0.5 }), split).lt, mapInput(input({}, { slider: 0.5 }), split).rt], [0, Math.round(0.6 * 255)]);
+  assert.deepEqual([mapInput(input({}, { slider: -0.5 }), split).lt, mapInput(input({}, { slider: -0.5 }), split).rt], [Math.round(0.6 * 255), 0]);
+
+  // Without the setting an axis maps exactly as before.
+  const plain = bindingsWith({ y: { target: 'ls_y', deadzone: 0.1 } });
+  assert.equal(plain.y.antiDeadzone, undefined);
+  assert.equal(mapInput(input({}, { y: 0.55 }), plain).ly, Math.round(0.5 * 32767));
+});
+
+test('anti-deadzone is clamped, dropped at zero, and not kept for button-style outputs', () => {
+  assert.equal(sanitizeBinding('x', { target: 'ls_x', antiDeadzone: 0.9 }).antiDeadzone, 0.5);
+  assert.equal('antiDeadzone' in sanitizeBinding('x', { target: 'ls_x', antiDeadzone: 0 }), false);
+  assert.equal('antiDeadzone' in sanitizeBinding('x', { target: 'ls_x', antiDeadzone: 'lots' }), false);
+  assert.equal('antiDeadzone' in sanitizeBinding('rz', { target: 'lb_rb', antiDeadzone: 0.2 }), false);
+  assert.equal('antiDeadzone' in sanitizeBinding('x', { target: null, antiDeadzone: 0.2 }), false);
+  // It survives a save / export round trip.
+  const p = { name: 'P', bindings: bindingsWith({ x: { target: 'ls_x', antiDeadzone: 0.2 } }) };
+  assert.equal(fromExport(toExport(p)).bindings.x.antiDeadzone, 0.2);
+});
+
 test('invert flips an axis', () => {
   const p = bindingsWith({ y: { target: 'ls_y', invert: true } });
   assert.equal(mapInput(input({}, { y: 1 }), p).ly, -32767);

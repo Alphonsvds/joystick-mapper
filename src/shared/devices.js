@@ -15,7 +15,7 @@ const AXIS_USAGES = {
   [`${PAGE_GENERIC}:${0x33}`]: { id: 'rx', name: 'X Rotation', centered: true },
   [`${PAGE_GENERIC}:${0x34}`]: { id: 'ry', name: 'Y Rotation', centered: true, invert: true },
   [`${PAGE_GENERIC}:${0x35}`]: { id: 'rz', name: 'Twist (Rz)', hint: 'Usually yaw', centered: true, deadzone: 0.1 },
-  [`${PAGE_GENERIC}:${0x36}`]: { id: 'slider', name: 'Slider', hint: 'Usually the throttle', centered: false, invert: true },
+  [`${PAGE_GENERIC}:${0x36}`]: { id: 'slider', name: 'Slider', hint: 'Usually throttle', centered: false, invert: true },
   [`${PAGE_GENERIC}:${0x37}`]: { id: 'dial', name: 'Dial', centered: false, invert: true },
   [`${PAGE_GENERIC}:${0x38}`]: { id: 'wheel', name: 'Wheel', centered: false },
   [`${PAGE_SIMULATION}:${0xb0}`]: { id: 'aileron', name: 'Aileron', centered: true },

@@ -56,7 +56,14 @@ driver it needs, so there's nothing else to set up. Windows asks for admin permi
   running. Create a profile per game (**Profile ▾ → New profile**). **Ace Combat 8** is
   available as a starting point that matches the game's default gamepad layout.
 - **Mapping.** Hover a label or hotspot to highlight its line. Click **NOT MAPPED** to
-  pick an Xbox input. Axes also have **INV** (invert) and a **deadzone** slider.
+  pick an Xbox input. Axes also have **INV** (invert) and a **DZ** button with two sliders.
+- **Deadzone and anti-deadzone.** **Deadzone** is about your stick: movement smaller than
+  it is ignored, so raise it if an axis drifts. **Anti-deadzone** is about the game: many
+  games ignore the first part of an Xbox stick's travel, which makes a flight stick feel
+  sluggish around the centre. Set anti-deadzone to roughly the size of the game's deadzone
+  and the output starts there the moment you move, so small movements count. It's off (0%)
+  until you set it. Too high and the plane twitches as you leave centre, so raise it a
+  little at a time.
 - **AC8 controls.** Opens Ace Combat 8's own gamepad layout in a separate window (e.g.
   "Fire missile → B"), so you can decide where each action goes on the stick.
 - **Save.** Changes apply live so you can test right away. **Save** (or Ctrl+S) keeps them.

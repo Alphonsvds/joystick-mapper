@@ -42,6 +42,12 @@ function applyLowDeadzone(t, dz) {
   return Math.min(1, (t - dz) / (1 - dz));
 }
 
+// Anti-deadzone: any movement (a magnitude above 0) starts at `floor` instead of zero and
+// still reaches 1, so the output clears a deadzone the game applies on its side.
+export function applyAntiDeadzone(mag, floor) {
+  return mag > 0 ? floor + (1 - floor) * mag : 0;
+}
+
 export function mapInput(input, bindings) {
   const acc = { buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
 
@@ -64,15 +70,18 @@ export function mapInput(input, bindings) {
     let v = clamp(input.axes[controlId] ?? 0, -1, 1);
     if (binding.invert) v = -v;
     const dz = binding.deadzone;
+    const floor = binding.antiDeadzone ?? 0;
 
     if (STICK_AXIS[target.id]) {
-      acc[STICK_AXIS[target.id]] += applyDeadzone(v, dz);
+      const d = applyDeadzone(v, dz);
+      acc[STICK_AXIS[target.id]] += Math.sign(d) * applyAntiDeadzone(Math.abs(d), floor);
     } else if (target.id === 'lt' || target.id === 'rt') {
-      acc[target.id] = Math.max(acc[target.id], applyLowDeadzone((v + 1) / 2, dz));
+      acc[target.id] = Math.max(acc[target.id], applyAntiDeadzone(applyLowDeadzone((v + 1) / 2, dz), floor));
     } else if (target.id === 'lt_rt') {
       const d = applyDeadzone(v, dz);
-      if (d < 0) acc.lt = Math.max(acc.lt, -d);
-      else acc.rt = Math.max(acc.rt, d);
+      const pull = applyAntiDeadzone(Math.abs(d), floor);
+      if (d < 0) acc.lt = Math.max(acc.lt, pull);
+      else acc.rt = Math.max(acc.rt, pull);
     } else if (SPLIT_BUTTONS[target.id]) {
       const d = applyDeadzone(v, dz);
       const [neg, pos] = SPLIT_BUTTONS[target.id];

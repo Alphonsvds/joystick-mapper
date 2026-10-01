@@ -1,4 +1,4 @@
-import { MAX_DEADZONE, TARGET_BY_ID, TARGET_MENUS, XUSB, bindingFor, controlKind } from '../shared/controls.js';
+import { MAX_ANTI_DEADZONE, MAX_DEADZONE, TARGET_BY_ID, TARGET_MENUS, XUSB, bindingFor, controlKind } from '../shared/controls.js';
 import { SUPPORT_LABELS, defaultDeadzone, isCentered } from '../shared/devices.js';
 import { MAX_NAME_LENGTH } from '../shared/profiles.js';
 import { LAYOUTS, STAGE, toStage } from './layout.js';
@@ -25,8 +25,8 @@ let model = null; // the connected stick: { key, name, skin, support, axes, hats
 let layout = null; // the connected stick's photo layout, when it has one and it's showing
 let layoutKey = null; // what the stage was last built for
 let focused = null; // callout / row id currently highlighted
-let openControl = null; // control id whose picker (or deadzone popover) is open
-let openKind = 'picker'; // picker | deadzone
+let openControl = null; // control id whose picker (or response popover) is open
+let openKind = 'picker'; // picker | deadzone (the response popover, behind the DZ button)
 let drawHud = null; // generic layout's live readout
 
 const isLocked = () => status?.profile.locked ?? true;
@@ -255,7 +255,7 @@ function buildInv(axisId, parent) {
 
 function buildDz(axisId, parent) {
   const dz = button('dz', 'DZ', parent, () => openDeadzone(axisId));
-  dz.title = 'Deadzone: how far the axis must move before it counts';
+  dz.title = 'Deadzone and anti-deadzone: how the axis responds as it leaves its resting point';
   dz.setAttribute('aria-haspopup', 'dialog');
   dzEl[axisId] = dz;
   return dz;
@@ -384,9 +384,14 @@ function renderChip(controlId) {
   const dz = dzEl[controlId];
   if (dz) {
     const percent = Math.round((binding.deadzone ?? 0) * 100);
+    const anti = Math.round((binding.antiDeadzone ?? 0) * 100);
     dz.disabled = !target;
-    dz.textContent = `DZ ${percent}%`;
-    dz.setAttribute('aria-label', `${controlInfo(controlId).name} deadzone: ${percent}%`);
+    dz.textContent = anti ? `DZ ${percent}% +${anti}%` : `DZ ${percent}%`;
+    dz.classList.toggle('has-anti', anti > 0);
+    dz.setAttribute(
+      'aria-label',
+      `${controlInfo(controlId).name} deadzone: ${percent}%${anti ? `, anti-deadzone: ${anti}%` : ''}`,
+    );
   }
 }
 
@@ -485,7 +490,8 @@ function openPicker(controlId) {
 
   if (control.kind === 'axis') {
     const options = htmlEl('div', 'pop-options', popover);
-    deadzoneSlider(options, controlId);
+    responseSlider(options, controlId, DEADZONE);
+    if (antiDeadzoneApplies(controlId)) responseSlider(options, controlId, ANTI_DEADZONE);
 
     // Throttles read end to end; sticks, twists and pedals spring back to a calibrated middle.
     if (control.axis) {
@@ -517,17 +523,41 @@ function openPicker(controlId) {
   (popover.querySelector('.tile.is-selected') ?? popover.querySelector('.tile'))?.focus({ preventScroll: true });
 }
 
-// The deadzone slider, shared by the picker and the DZ popover. Returns a setter so the
-// popover's Reset button can move it. `onInput` gets the new deadzone (0–0.5) as it changes.
-function deadzoneSlider(parent, controlId, onInput) {
+// The two settings that shape how an axis responds as it leaves its resting point.
+// Deadzone is about the stick: it ignores small movement (drift, a worn sensor).
+// Anti-deadzone is about the game: output starts at this level the moment the axis
+// moves, which cancels a deadzone the game applies to the Xbox stick itself.
+const DEADZONE = {
+  key: 'deadzone',
+  name: 'Deadzone',
+  max: MAX_DEADZONE,
+  note: 'Movement smaller than this is ignored. Raise it if the axis drifts.',
+};
+const ANTI_DEADZONE = {
+  key: 'antiDeadzone',
+  name: 'Anti-deadzone',
+  max: MAX_ANTI_DEADZONE,
+  note: 'Output starts here the moment the axis moves. Set it to the size of the game’s own deadzone to make small movements count.',
+};
+
+// Anti-deadzone needs an analog output: it means nothing for an axis that presses buttons.
+function antiDeadzoneApplies(controlId) {
+  const target = TARGET_BY_ID[currentBinding(controlId).target];
+  return Boolean(target) && !target.digital;
+}
+
+// One response slider, shared by the picker and the DZ popover. Returns a setter so the
+// popover's Reset button can move it. `onInput` gets the new value (0–max) as it changes.
+function responseSlider(parent, controlId, { key, name, max, note }, onInput) {
   const label = htmlEl('label', 'pop-option', parent);
-  htmlEl('span', 'pop-option-name', label).textContent = 'Deadzone';
+  label.title = note;
+  htmlEl('span', 'pop-option-name', label).textContent = name;
   const slider = htmlEl('input', 'slider', label);
   slider.type = 'range';
   slider.min = '0';
-  slider.max = String(MAX_DEADZONE * 100);
+  slider.max = String(max * 100);
   slider.step = '1';
-  slider.value = String(Math.round(currentBinding(controlId).deadzone * 100));
+  slider.value = String(Math.round((currentBinding(controlId)[key] ?? 0) * 100));
   const value = htmlEl('output', 'pop-option-value', label);
   value.textContent = `${slider.value}%`;
   let timer = null;
@@ -535,25 +565,28 @@ function deadzoneSlider(parent, controlId, onInput) {
     value.textContent = `${slider.value}%`;
     onInput?.(Number(slider.value) / 100);
     clearTimeout(timer);
-    timer = setTimeout(() => updateBinding(controlId, { deadzone: Number(slider.value) / 100 }), 120);
+    timer = setTimeout(() => updateBinding(controlId, { [key]: Number(slider.value) / 100 }), 120);
   });
   return {
     slider,
-    set(deadzone) {
-      slider.value = String(Math.round(deadzone * 100));
+    set(fraction) {
+      clearTimeout(timer);
+      slider.value = String(Math.round(fraction * 100));
       value.textContent = `${slider.value}%`;
     },
   };
 }
 
-// A small popover with only the deadzone, opened from the DZ button beside an axis.
+// A small popover with the response sliders, opened from the DZ button beside an axis.
 function openDeadzone(controlId) {
   if (openControl === controlId && openKind === 'deadzone') return closePicker();
   if (isLocked()) return;
   closeMenus();
   closePicker({ restoreFocus: false });
   const control = controlInfo(controlId);
-  const fallback = axisDefaultDeadzone(controlId);
+  const binding = currentBinding(controlId);
+  const defaults = { deadzone: axisDefaultDeadzone(controlId), antiDeadzone: 0 };
+  const values = { deadzone: binding.deadzone, antiDeadzone: binding.antiDeadzone ?? 0 };
   openControl = controlId;
   openKind = 'deadzone';
   setFocus(calloutOf[controlId]);
@@ -561,34 +594,47 @@ function openDeadzone(controlId) {
 
   popover.classList.add('is-compact');
   popover.replaceChildren();
-  popover.setAttribute('aria-label', `Deadzone for ${control.name}`);
+  popover.setAttribute('aria-label', `Response of ${control.name}`);
   const head = htmlEl('div', 'pop-head', popover);
-  htmlEl('span', 'pop-kicker', head).textContent = 'Deadzone';
+  htmlEl('span', 'pop-kicker', head).textContent = 'Response';
   htmlEl('span', 'pop-title', head).textContent = control.name;
 
-  const sameAsDefault = (deadzone) => Math.round(deadzone * 100) === Math.round(fallback * 100);
   let reset = null;
+  const atDefaults = () => Object.keys(defaults).every((key) => Math.round(values[key] * 100) === Math.round(defaults[key] * 100));
   const options = htmlEl('div', 'pop-options', popover);
-  const field = deadzoneSlider(options, controlId, (deadzone) => (reset.disabled = sameAsDefault(deadzone)));
+  const fields = {};
+  for (const setting of [DEADZONE, ANTI_DEADZONE]) {
+    fields[setting.key] = responseSlider(options, controlId, setting, (fraction) => {
+      values[setting.key] = fraction;
+      reset.disabled = atDefaults();
+    });
+    htmlEl('p', 'pop-note', options).textContent = setting.note;
+  }
+  if (!antiDeadzoneApplies(controlId)) {
+    fields.antiDeadzone.slider.disabled = true;
+    const output = TARGET_BY_ID[binding.target]?.name ?? 'This output';
+    options.lastChild.textContent = `${output} only presses buttons, so there is no analog output to start higher.`;
+  }
 
   const foot = htmlEl('div', 'pop-foot', popover);
-  htmlEl('span', 'pop-hint', foot).textContent = 'Movement smaller than this is ignored. Raise it if the axis drifts.';
+  htmlEl('span', 'pop-hint', foot);
   reset = button('pop-clear', 'Reset', foot, async () => {
-    field.set(fallback);
+    Object.assign(values, defaults);
+    for (const key of Object.keys(defaults)) fields[key].set(defaults[key]);
     reset.disabled = true;
-    await updateBinding(controlId, { deadzone: fallback });
+    await updateBinding(controlId, defaults);
   });
-  reset.disabled = sameAsDefault(currentBinding(controlId).deadzone);
+  reset.disabled = atDefaults();
 
   popover.hidden = false;
   positionPicker(controlId);
-  field.slider.focus({ preventScroll: true });
+  fields.deadzone.slider.focus({ preventScroll: true });
 }
 
 // The button the open popover hangs off: the DZ button, or the mapping chip.
 const pickerAnchor = (controlId) => (openKind === 'deadzone' ? dzEl[controlId] : chipEl[controlId]);
 
-// Opens beside its button, on whichever side has more room. The deadzone popover clears
+// Opens beside its button, on whichever side has more room. The response popover clears
 // the whole row (chip, INV and DZ) so the axis it edits stays visible.
 function positionPicker(controlId) {
   const anchor = pickerAnchor(controlId);

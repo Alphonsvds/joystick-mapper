@@ -99,9 +99,10 @@ export const TARGETS = Object.freeze([
   { id: 'rs_x', name: 'Right Stick X', accepts: ['axis'], hint: 'Right stick, left ↔ right' },
   { id: 'rs_y', name: 'Right Stick Y', accepts: ['axis'], hint: 'Right stick, down ↔ up' },
   { id: 'lt_rt', name: 'LT / RT Split', accepts: ['axis'], hint: 'Back half → LT, forward half → RT' },
-  { id: 'lb_rb', name: 'LB / RB Split', accepts: ['axis'], hint: 'Past halfway: left → LB, right → RB' },
-  { id: 'dpad_x', name: 'D-Pad Left / Right', accepts: ['axis'], hint: 'Past halfway: left / right on the D-pad' },
-  { id: 'dpad_y', name: 'D-Pad Down / Up', accepts: ['axis'], hint: 'Past halfway: down / up on the D-pad' },
+  // `digital`: the axis only presses buttons, so there is no analog output to shape.
+  { id: 'lb_rb', name: 'LB / RB Split', accepts: ['axis'], digital: true, hint: 'Past halfway: left → LB, right → RB' },
+  { id: 'dpad_x', name: 'D-Pad Left / Right', accepts: ['axis'], digital: true, hint: 'Past halfway: left / right on the D-pad' },
+  { id: 'dpad_y', name: 'D-Pad Down / Up', accepts: ['axis'], digital: true, hint: 'Past halfway: down / up on the D-pad' },
 ]);
 
 export const TARGET_BY_ID = Object.freeze(Object.fromEntries(TARGETS.map((t) => [t.id, t])));
@@ -126,6 +127,9 @@ export const TARGET_MENUS = Object.freeze({
 
 export const MAX_DEADZONE = 0.5;
 export const DEFAULT_DEADZONE = 0.04;
+// Anti-deadzone: where an axis's output starts once it moves, to cancel a deadzone the
+// game applies to the Xbox stick or trigger itself. Off (0) unless the user sets it.
+export const MAX_ANTI_DEADZONE = 0.5;
 
 // Bindings are sparse ({ [controlId]: binding }): a stick's controls vary, and a
 // profile keeps working on another stick for the controls they share.
@@ -145,17 +149,19 @@ export function sanitizeBinding(controlId, raw) {
   const kind = controlKind(controlId);
   if (!kind || !raw || typeof raw !== 'object') return null;
   const target = raw.target ?? null;
-  if (target !== null) {
-    const def = TARGET_BY_ID[target];
-    if (!def || !def.accepts.includes(kind)) return null;
-  }
+  const def = target === null ? null : TARGET_BY_ID[target];
+  if (target !== null && (!def || !def.accepts.includes(kind))) return null;
   if (kind !== 'axis') return { target };
   const dz = Number(raw.deadzone);
-  return {
+  const clean = {
     target,
     invert: raw.invert === true,
     deadzone: Number.isFinite(dz) ? Math.min(MAX_DEADZONE, Math.max(0, dz)) : DEFAULT_DEADZONE,
   };
+  // Kept only when it's in use, so bindings saved before it existed are unchanged.
+  const anti = Number(raw.antiDeadzone);
+  if (def && !def.digital && anti > 0) clean.antiDeadzone = Math.min(MAX_ANTI_DEADZONE, anti);
+  return clean;
 }
 
 // Accepts anything (read from disk, imported, a preset) and returns valid bindings;
