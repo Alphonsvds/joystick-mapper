@@ -954,6 +954,9 @@ function renderStatus(next) {
   if (padError && padError !== lastPadError) showToast(padError);
   lastPadError = padError;
 
+  $('#update').hidden = !next.update;
+  if (next.update) $('#update').textContent = `Update available · v${next.update.version} ↗`;
+
   const save = $('#save');
   save.hidden = locked;
   save.disabled = !next.dirty;
@@ -978,6 +981,7 @@ function showToast(message) {
 function wireTopbar() {
   $('#save').addEventListener('click', save);
   $('#open-controls').addEventListener('click', () => api.openControls());
+  $('#update').addEventListener('click', () => api.openUpdate());
   $('#profile-picker').addEventListener('click', () => (profileMenu.hidden ? openProfileMenu('list') : closeMenus()));
   $('#device-picker').addEventListener('click', () => (deviceMenu.hidden ? openDeviceMenu() : closeMenus()));
   $('#stat-pad').addEventListener('click', async () => {

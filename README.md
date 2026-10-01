@@ -9,7 +9,7 @@ Map the stick once and fly with it in any game that only understands gamepads.
 <sub>**Fully supported sticks** get a photo layout, with a line to every control.</sub>
 
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
-<sub>The **VKB Gladiator NXT EVO** (beta): its hats, two-stage trigger and base controls each get their own label.</sub>
+<sub>The **VKB Gladiator NXT EVO** (beta).</sub>
 
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>**Every other stick** gets the universal layout: axes and hat on the left, buttons on the right, and a live readout in the middle.</sub>
@@ -57,13 +57,9 @@ driver it needs, so there's nothing else to set up. Windows asks for admin permi
   available as a starting point that matches the game's default gamepad layout.
 - **Mapping.** Hover a label or hotspot to highlight its line. Click **NOT MAPPED** to
   pick an Xbox input. Axes also have **INV** (invert) and a **DZ** button with two sliders.
-- **Deadzone and anti-deadzone.** **Deadzone** is about your stick: movement smaller than
-  it is ignored, so raise it if an axis drifts. **Anti-deadzone** is about the game: many
-  games ignore the first part of an Xbox stick's travel, which makes a flight stick feel
-  sluggish around the centre. Set anti-deadzone to roughly the size of the game's deadzone
-  and the output starts there the moment you move, so small movements count. It's off (0%)
-  until you set it. Too high and the plane twitches as you leave centre, so raise it a
-  little at a time.
+- **Deadzone and anti-deadzone.** **Deadzone** ignores small movement, for an axis that
+  drifts. **Anti-deadzone** starts the output at a set level the moment the axis moves, to
+  cancel a deadzone the game applies itself. Off until you set it.
 - **AC8 controls.** Opens Ace Combat 8's own gamepad layout in a separate window (e.g.
   "Fire missile → B"), so you can decide where each action goes on the stick.
 - **Save.** Changes apply live so you can test right away. **Save** (or Ctrl+S) keeps them.
@@ -74,6 +70,9 @@ driver it needs, so there's nothing else to set up. Windows asks for admin permi
 - **Throttle vs centred axes.** Each axis's dropdown has **Springs back to centre**. Leave it
   on for sticks, twists and pedals, and turn it off for throttles and sliders. Experimental
   sticks get a best guess from Windows' description.
+- **Updates.** **Update available** appears bottom-left when a newer release is out and
+  opens its download page. Profiles and calibration carry over. The app checks GitHub's
+  public release list when it starts.
 
 Handy axis options for flying: **Throttle → LT / RT Split** (pull back = brake, push
 forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).

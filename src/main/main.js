@@ -1,7 +1,7 @@
 // Electron main process: owns the joystick, the mapping engine and the virtual
 // Xbox controller, and streams live state to the UI. Everything that matters for
 // the game happens here, so it keeps working with the window in the background.
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, shell } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,6 +13,7 @@ import { emptyBindings, sanitizeBinding } from '../shared/controls.js';
 import { isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
+import { LATEST_RELEASE_API, updateFromRelease } from '../shared/updates.js';
 import {
   addProfile,
   emptyLibrary,
@@ -37,6 +38,9 @@ const AUTO_CENTER_MAX_OFFSET = 0.15;
 const FILE_FILTERS = [{ name: 'Joystick Mapper profile', extensions: ['json'] }];
 const NEW_ISSUE_URL = 'https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml';
 const LEGACY_EXTREME_KEY = '046d:c215';
+const UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
+// JOYMAP_VERSION pretends to be another version, to see the update button (e.g. 0.1.0).
+const currentVersion = () => process.env.JOYMAP_VERSION || app.getVersion();
 
 // JOYMAP_GENERIC=1 shows even known sticks with the generic layout (tests that path).
 const joystick = new JoystickManager({ ignoreSkins: process.env.JOYMAP_GENERIC === '1' });
@@ -48,6 +52,7 @@ let working = getProfile(library, library.active).bindings; // unsaved edits to 
 // Per-stick settings: { selected, devices: { [key]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
 let deviceSettings = { selected: null, devices: {} };
 let paused = false; // emulation switched off while a game profile is active
+let update = null; // { version, url } once a newer release has been seen
 let input = NEUTRAL_INPUT;
 let output = NEUTRAL_OUTPUT;
 let frameDirty = true;
@@ -74,6 +79,7 @@ function status() {
     profile: { id: profile.id, name: profile.name, locked: profile.locked },
     emulation: emulating(),
     dirty: dirty(),
+    update: update && { version: update.version },
   };
 }
 
@@ -83,6 +89,21 @@ function snapshot() {
 
 function sendStatus() {
   if (windowAlive()) win.webContents.send('joymap:status', status());
+}
+
+// Asks GitHub for the latest release and tells the UI when it's newer than this copy.
+// Nothing is downloaded; being offline (or rate limited) just means no button.
+async function checkForUpdate() {
+  try {
+    const response = await net.fetch(LATEST_RELEASE_API, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!response.ok) return;
+    const found = updateFromRelease(await response.json(), currentVersion());
+    if (found?.version === update?.version) return;
+    update = found;
+    sendStatus();
+  } catch {
+    // Try again at the next check.
+  }
 }
 
 // Recompute the Xbox report and send it to the driver only when it changes.
@@ -399,6 +420,11 @@ function registerIpc() {
     await shell.openExternal(VIGEM_DOWNLOAD_URL);
     return 'website';
   });
+
+  // The release page has the installer; installing over the top keeps profiles and calibration.
+  ipcMain.handle('joymap:open-update', () => {
+    if (update) shell.openExternal(update.url);
+  });
 }
 
 const webPreferences = () => ({
@@ -525,6 +551,9 @@ if (!app.requestSingleInstanceLock()) {
     joystick.start();
     if (emulating()) pad.connect();
     setInterval(sendFrame, FRAME_MS);
+
+    checkForUpdate();
+    setInterval(checkForUpdate, UPDATE_CHECK_MS);
   });
 
   app.on('window-all-closed', () => app.quit());

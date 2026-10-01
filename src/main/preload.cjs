@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('joymap', {
   reportDevice: () => ipcRenderer.invoke('joymap:report-device'),
   recenter: () => ipcRenderer.invoke('joymap:recenter'),
   installDriver: () => ipcRenderer.invoke('joymap:install-driver'),
+  openUpdate: () => ipcRenderer.invoke('joymap:open-update'),
   onFrame: subscribe('joymap:frame'),
   onStatus: subscribe('joymap:status'),
 });

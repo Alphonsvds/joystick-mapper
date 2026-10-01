@@ -748,6 +748,16 @@ body.is-intro * {
   opacity: 0.45;
 }
 
+/* Bottom left, only while a newer release exists. */
+.update {
+  position: absolute;
+  left: 56px;
+  bottom: 40px;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  animation: fade-in 1s ease both;
+}
+
 .ghost-accent {
   border-color: rgba(227, 166, 75, 0.5);
   color: var(--warn);

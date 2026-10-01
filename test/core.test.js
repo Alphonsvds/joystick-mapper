@@ -7,6 +7,7 @@ import { GAMES } from '../src/shared/games.js';
 import { LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
 import { PRESETS } from '../src/shared/presets.js';
+import { isNewer, parseVersion, updateFromRelease } from '../src/shared/updates.js';
 import {
   DEFAULT_PROFILE_ID,
   addProfile,
@@ -578,4 +579,36 @@ test('a damaged library on disk keeps the good profiles', () => {
     ['p-1'],
   );
   assert.equal(lib.active, DEFAULT_PROFILE_ID); // p-2 doesn't exist
+});
+
+// ─── Updates ──────────────────────────────────────────────────────────────────
+
+test('versions compare numerically, with or without the leading v', () => {
+  assert.deepEqual(parseVersion('v0.2.5'), [0, 2, 5]);
+  assert.deepEqual(parseVersion('1.10.0'), [1, 10, 0]);
+  assert.equal(parseVersion('0.2'), null);
+  assert.equal(parseVersion('v1.0.0-beta.1'), null);
+  assert.equal(isNewer('v0.2.6', '0.2.5'), true);
+  assert.equal(isNewer('0.10.0', '0.9.9'), true);
+  assert.equal(isNewer('1.0.0', '0.99.99'), true);
+  assert.equal(isNewer('0.2.5', '0.2.5'), false);
+  assert.equal(isNewer('0.2.4', '0.2.5'), false);
+  assert.equal(isNewer('nonsense', '0.2.5'), false);
+});
+
+test('an update is offered only for a newer, published release', () => {
+  assert.deepEqual(updateFromRelease({ tag_name: 'v0.2.6' }, '0.2.5'), {
+    version: '0.2.6',
+    url: 'https://github.com/Alphonsvds/joystick-mapper/releases/tag/v0.2.6',
+  });
+  assert.equal(updateFromRelease({ tag_name: 'v0.2.5' }, '0.2.5'), null);
+  assert.equal(updateFromRelease({ tag_name: 'v0.2.4' }, '0.2.5'), null);
+  assert.equal(updateFromRelease({ tag_name: 'v0.3.0', prerelease: true }, '0.2.5'), null);
+  assert.equal(updateFromRelease({ tag_name: 'v0.3.0', draft: true }, '0.2.5'), null);
+  // A rate-limit or error body, or no body at all, is simply "no update".
+  assert.equal(updateFromRelease({ message: 'API rate limit exceeded' }, '0.2.5'), null);
+  assert.equal(updateFromRelease(null, '0.2.5'), null);
+  // The link never comes from the response.
+  const odd = updateFromRelease({ tag_name: 'v0.2.6', html_url: 'https://example.com/evil' }, '0.2.5');
+  assert.equal(odd.url, 'https://github.com/Alphonsvds/joystick-mapper/releases/tag/v0.2.6');
 });
