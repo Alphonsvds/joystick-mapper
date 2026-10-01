@@ -537,7 +537,7 @@ const ANTI_DEADZONE = {
   key: 'antiDeadzone',
   name: 'Anti-deadzone',
   max: MAX_ANTI_DEADZONE,
-  note: 'Output starts here the moment the axis moves. Set it to the size of the game’s own deadzone to make small movements count.',
+  note: 'Output starts here the moment the axis moves.',
 };
 
 // Anti-deadzone needs an analog output: it means nothing for an axis that presses buttons.
