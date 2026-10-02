@@ -2,20 +2,20 @@
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
-So this app makes your **flight stick** show up to games as an **Xbox 360 controller**.
+So this app makes your flight stick show up to games as an Xbox 360 controller.
 Map the stick once and fly with it in any game that only understands gamepads.
 
-##How to install
+## How to install
 Click Releases on the right side —> click and download the .exe for the latest release
 
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
-<sub>**Logitech Extreme 3D Pro**</sub>
+<sub>Logitech Extreme 3D Pro</sub>
 
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
-<sub>**VKB Gladiator NXT EVO** (beta).</sub>
+<sub>**VKB Gladiator NXT EVO** (beta)</sub>
 
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
-<sub>**Every other stick** gets the universal layout.</sub>
+<sub>Every other stick gets the universal layout.</sub>
 
 
 ## Supported joysticks
