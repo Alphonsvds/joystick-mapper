@@ -9,13 +9,13 @@ Map the stick once and fly with it in any game that only understands gamepads.
 Click Releases on the right side —> click and download the .exe for the latest release
 
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
-<sub>**Fully supported sticks** get a photo layout, with a line to every control.</sub>
+<sub>**Logitech Extreme 3D Pro**</sub>
 
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
-<sub>The **VKB Gladiator NXT EVO** (beta).</sub>
+<sub>**VKB Gladiator NXT EVO** (beta).</sub>
 
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
-<sub>**Every other stick** gets the universal layout: axes and hat on the left, buttons on the right, and a live readout in the middle.</sub>
+<sub>**Every other stick** gets the universal layout.</sub>
 
 
 ## Supported joysticks
@@ -26,16 +26,10 @@ Click Releases on the right side —> click and download the .exe for the latest
 | **Beta** | VKB Gladiator NXT EVO (right hand): photo layout and named controls, still being confirmed by owners |
 | **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
 
-Experimental sticks are detected automatically. Windows describes each stick's axes, hats
-and buttons, and the app builds its screen from that. Press anything and its row lights
-up, so you can find "Button 7" without a picture.
+Experimental sticks are detected automatically.
 
 Beta sticks have a photo layout whose labels haven't all been checked on the real stick
 yet. If a line points at the wrong control, please say so in an issue.
-
-A photo layout labels the controls a stick ships with. If yours has been reprogrammed
-(VKB sticks often are), **Joystick ▾ → List view** shows every button and axis it reports
-instead, and **Photo view** switches back.
 
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and
 paste it into a
@@ -53,8 +47,7 @@ mapping for all of them, and unplugging a device only switches off its own contr
 ## Download
 
 **[Download the latest installer](https://github.com/Alphonsvds/joystick-mapper/releases/latest)**:
-`Joystick-Mapper-Setup-x.y.z.exe`. It installs the app **and** the ViGEmBus controller
-driver it needs, so there's nothing else to set up. Windows asks for admin permission once.
+`Joystick-Mapper-Setup-x.y.z.exe`. 
 
 > Windows may show **"Windows protected your PC"** because the installer isn't code-signed
 > (signing certificates cost money). Click **More info → Run anyway**.
@@ -96,13 +89,11 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   listen to player 1, and a real gamepad plugged in first takes that slot.
 - **Games still see the physical joystick too.** Games without joystick support ignore it.
   If one reacts to both, hiding the stick with HidHide is on the v2 list.
-- **Steam Input** can wrap the virtual pad. That's normally harmless; if inputs look doubled,
-  disable Steam Input for that game.
 - **A "pick an app to open this ms-gamebar link" popup?** Windows calls Xbox Game Bar
   whenever an Xbox controller (including the virtual one) connects. If Game Bar has been
   uninstalled, Windows asks what should open it instead. Reinstall **Xbox Game Bar** from the
   Microsoft Store, then turn off **Settings → Gaming → Xbox Game Bar → "Open Xbox Game Bar
-  using this button on a controller"**.
+  using this button on a controller"** or just leave it alone if it doesn’t bother you.
 - Your settings live in `%APPDATA%\Joystick Mapper\` (`profiles.json`, and `devices.json`
   for each device's calibration and role).
 - Profiles use each stick's own button numbers (on nearly every flight stick, button 1 is
