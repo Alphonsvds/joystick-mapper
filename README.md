@@ -12,7 +12,13 @@ Click Releases on the right side —> click and download the .exe for the latest
 <sub>Logitech Extreme 3D Pro</sub>
 
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
-<sub>**VKB Gladiator NXT EVO** (beta)</sub>
+<sub>**VKB Gladiator NXT EVO**</sub>
+
+![Photo layout: the VKB STECS Modern Throttle Standard with an Ace Combat 8 profile loaded](docs/screenshot-stecs.png)
+<sub>**VKB STECS Modern Throttle Standard** (beta)</sub>
+
+![Photo layout: the Turtle Beach VelocityOne Flightstick with an Ace Combat 8 profile loaded](docs/screenshot-flightstick.png)
+<sub>**Turtle Beach VelocityOne Flightstick** (beta)</sub>
 
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>Every other stick gets the universal layout.</sub>
@@ -22,8 +28,8 @@ Click Releases on the right side —> click and download the .exe for the latest
 
 | Support | Joysticks |
 | --- | --- |
-| **Fully supported** | Logitech Extreme 3D Pro: tested, with a photo layout and named controls |
-| **Beta** | VKB Gladiator NXT EVO (right hand): photo layout and named controls, still being confirmed by owners |
+| **Fully supported** | Logitech Extreme 3D Pro, VKB Gladiator NXT EVO (right hand): tested, with a photo layout and named controls |
+| **Beta** | VKB STECS Modern Throttle Standard, Turtle Beach VelocityOne Flightstick: photo layout and named controls, still being confirmed by owners |
 | **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
 
 Experimental sticks are detected automatically.
@@ -162,7 +168,8 @@ git push origin main --tags
 **Preview the UI without hardware.** Serve `src/` with any static server and open
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
-a VKB Gladiator NXT EVO (add `?device=gladiator`) and a Thrustmaster T.16000M
+a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
+a Turtle Beach VelocityOne Flightstick (`?device=flightstick`) and a Thrustmaster T.16000M
 (`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle
 and pedals together; the keyboard drives whichever one is on screen.
 

@@ -87,10 +87,12 @@ function buildHud(parent, model, settings) {
     }, root);
   }
 
+  // The crosshair is for axes that spring back to the middle; a lever on X or Y is a throttle.
   const centred = model.axes.filter((a) => isCentered(a, settings));
-  const xAxis = model.axes.find((a) => a.id === 'x') ?? centred[0];
-  const yAxis = model.axes.find((a) => a.id === 'y') ?? centred.find((a) => a !== xAxis);
-  const twist = model.axes.find((a) => a.id === 'rz' && a !== xAxis && a !== yAxis);
+  const xAxis = centred.find((a) => a.id === 'x') ?? centred[0];
+  const yAxis = centred.find((a) => a.id === 'y') ?? centred.find((a) => a !== xAxis);
+  // The twist is the centred Rz, or the centred Z on sticks that keep a lever on Rz.
+  const twist = ['rz', 'z'].map((id) => centred.find((a) => a.id === id && a !== xAxis && a !== yAxis)).find(Boolean);
   const throttle = model.axes.find((a) => !isCentered(a, settings));
 
   const stem = svg('line', { class: 'hud-stem', x1: c, y1: c, x2: c, y2: c }, root);

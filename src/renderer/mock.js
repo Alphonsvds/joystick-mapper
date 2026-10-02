@@ -1,7 +1,8 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
-// Three simulated sticks: the Extreme 3D Pro and the VKB Gladiator NXT EVO (photo layouts)
-// and a Thrustmaster T.16000M built from its published layout (universal layout). Add
-// ?device=gladiator or ?device=t16000m to plug in one of the others.
+// Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
+// throttle and the Turtle Beach VelocityOne Flightstick (photo layouts), and a Thrustmaster
+// T.16000M built from its published layout (universal layout). Add ?device=gladiator,
+// ?device=stecs, ?device=flightstick or ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together; any comma-separated
 // list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
@@ -86,6 +87,54 @@ const SIMULATED = [
         hat,
       ],
       buttonCount: 128,
+    },
+  },
+  // As reported by a real STECS Standard (GitHub issue #2): both throttle levers are
+  // 12-bit axes on X and Y. R / F move both.
+  {
+    vendorId: 0x231d,
+    productId: 0x012d,
+    name: 'VKB-Sim (C) Alex Oz 2023 S-TECS MODERN THROTTLE STANDARD STEM',
+    alias: 'stecs',
+    throttle: ['x', 'y'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x32, min: 0, max: 1023 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 1023 },
+        hat,
+      ],
+      buttonCount: 128,
+    },
+  },
+  // As reported by a real VelocityOne Flightstick (GitHub issue #3): the twist is on Z and
+  // the two levers are on Rz and Dial. R / F move both levers.
+  {
+    vendorId: 0x10f5,
+    productId: 0x7055,
+    name: 'Turtle Beach VelocityOne Flightstick',
+    alias: 'flightstick',
+    throttle: ['rz', 'dial'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 255, usage: 2, min: 0, max: 255 },
+      ],
+      buttonCount: 24,
     },
   },
   // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
@@ -295,7 +344,11 @@ export function createMockApi() {
       const prefix = rolePrefix(assigned[device.id]);
       const state = { buttons: {}, axes: {} };
       for (const code of keys) if (KEY_BUTTONS[code]) state.buttons[prefix + KEY_BUTTONS[code]] = true;
-      for (const { id } of device.model.axes) state.axes[prefix + id] = id === device.throttle ? sim.throttle : (sim.axes[id] ?? 0);
+      // Q / E twist whichever axis the device twists on (Rz unless it says otherwise).
+      const twist = device.twist ?? 'rz';
+      for (const { id } of device.model.axes) {
+        state.axes[prefix + id] = [device.throttle].flat().includes(id) ? sim.throttle : (sim.axes[id === twist ? 'rz' : id] ?? 0);
+      }
       states.push(state);
     }
     const input = mergeInputs(states);

@@ -32,23 +32,152 @@ const AXIS_USAGES = {
 const buttonHat = (name, first) =>
   Object.fromEntries(['Up', 'Right', 'Down', 'Left', 'Push'].map((dir, i) => [`btn${first + i}`, `${name} ${dir}`]));
 
+// `count` buttons in a row from `first`, named by their place in it: numbered(3, 5, (n) => `Rotary ${n}`).
+const numbered = (first, count, name) => Object.fromEntries(Array.from({ length: count }, (_, i) => [`btn${first + i}`, name(i + 1)]));
+
 // How well a stick is known, shown next to its name:
 //   full          photo layout and names, checked against the real stick
 //   beta          photo layout and names that owners are still confirming
 //   experimental  everything else: the generic layout, built from what the stick reports
 export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Beta', experimental: 'Experimental' });
 
-// Sticks with a photo layout and friendly names. Everything else gets the generic
-// layout and is marked experimental until someone confirms it.
+// Sticks with a photo layout (see renderer/layout.js) and friendly names. `axes` says how
+// an axis behaves when the descriptor can't: { [id]: { centered, invert, deadzone } }.
+// Everything else gets the generic layout and is marked experimental until someone
+// confirms it.
 export const SKINS = Object.freeze({
+  // VKB STECS Modern Throttle Mk.II Standard: twin grips, base and STEM module (reports as
+  // "S-TECS MODERN THROTTLE STANDARD STEM"). Its two throttle levers are the 12-bit X and
+  // Y axes, which would read as a stick (GitHub issue #2): Y reversed next to X, drawn as
+  // a crosshair, and Recenter would take the idle position as the middle.
+  // Button numbers are from an owner's filled-in VKB template. It left out 19, 55 and 56,
+  // the ministick and the analog wheel, so those keep their generic names. Beta until an
+  // owner has confirmed every label against the throttle.
+  '231d:012d': {
+    id: 'stecsstandard',
+    name: 'VKB STECS Standard',
+    support: 'beta',
+    names: {
+      btn1: 'Dot Button',
+      btn2: 'Red Start',
+      ...numbered(3, 5, (n) => `Rotary ${n}`),
+      btn8: 'Left Trigger Rear',
+      btn9: 'Left Trigger Front',
+      btn10: 'Red Button',
+      btn11: 'RST Button',
+      btn12: 'Centre Wheel Back',
+      btn13: 'Centre Wheel Forward',
+      btn14: 'End Wheel Forward',
+      btn15: 'End Wheel Back',
+      btn16: 'Right Trigger Rear',
+      btn17: 'Right Trigger Front',
+      btn18: 'ENT Button',
+      btn20: 'Thumb Hat Push',
+      btn21: 'Front Hat Push',
+      btn22: 'Rocker Push',
+      btn23: 'Front Grey Button',
+      btn24: 'Thumb Grey Button',
+      btn25: 'Thumb Hat Up',
+      btn26: 'Thumb Hat Down',
+      btn27: 'Thumb Hat Forward',
+      btn28: 'Thumb Hat Back',
+      btn29: 'Front Hat Left',
+      btn30: 'Front Hat Right',
+      btn31: 'Front Hat Down',
+      btn32: 'Front Hat Up',
+      btn33: 'Rocker Down',
+      btn34: 'Rocker Up',
+      btn35: 'A1 Button',
+      btn36: 'A2 Button',
+      btn37: 'C1 Button',
+      ...numbered(38, 5, (n) => `B${n} Button`),
+      btn43: 'SW1 Up',
+      btn44: 'SW1 Push',
+      btn45: 'SW1 Down',
+      btn46: 'SW2 Up',
+      btn47: 'SW2 Push',
+      btn48: 'SW2 Down',
+      btn49: 'Toggle Up',
+      btn50: 'Toggle Down',
+      btn51: 'EN1 Left',
+      btn52: 'EN1 Right',
+      btn53: 'EN2 Left',
+      btn54: 'EN2 Right',
+      btn57: 'Flip Switch Up',
+      btn58: 'Flip Switch Down',
+      x: 'Throttle 1',
+      y: 'Throttle 2',
+    },
+    hints: { x: 'Throttle lever', y: 'Throttle lever' },
+    axes: { x: { centered: false, invert: false }, y: { centered: false, invert: false } },
+  },
+  // Turtle Beach VelocityOne Flightstick, in its default right-hand orientation (the
+  // left-hand setting swaps the two button columns and the levers). Its axes aren't where
+  // the generic defaults expect them (GitHub issue #3): the twist is on Z, which would
+  // read as a reversed throttle, the left lever is on Rz, which would read as a twist,
+  // and the right lever on Dial would run the opposite way to the left one.
+  // Axis roles and button numbers are from the game defaults for this stick and Turtle
+  // Beach's control list. Those leave out 15, 20, 22 and 24, so the touchpad click and the
+  // Xbox and Share buttons keep their generic names. 13 and 14 are the trim wheel when it
+  // is set to "Digital Buttons". Beta until an owner has confirmed every label.
+  '10f5:7055': {
+    id: 'velocityoneflightstick',
+    name: 'VelocityOne Flightstick',
+    support: 'beta',
+    names: {
+      btn1: 'Left A Button',
+      btn2: 'Left B Button',
+      btn3: 'Left X Button',
+      btn4: 'Left Y Button',
+      btn5: 'Right A Button',
+      btn6: 'Right B Button',
+      btn7: 'Right X Button',
+      btn8: 'Right Y Button',
+      btn9: 'Left Lever Top',
+      btn10: 'Left Lever Bottom',
+      btn11: 'Right Lever Top',
+      btn12: 'Right Lever Bottom',
+      btn13: 'Trim Wheel Down',
+      btn14: 'Trim Wheel Up',
+      btn16: 'B16 Button',
+      btn17: 'B17 Button',
+      btn18: 'Trigger',
+      btn19: 'H2 Push',
+      btn21: 'View Button',
+      btn23: 'Menu Button',
+      hat1: 'H1 Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      z: 'Yaw',
+      rx: 'H2 Stick X',
+      ry: 'H2 Stick Y',
+      rz: 'Left Lever',
+      dial: 'Right Lever',
+      slider: 'Trim Wheel',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      z: 'Twist the stick',
+      rx: 'H2 ministick',
+      ry: 'H2 ministick',
+      rz: 'Lever on the left of the base',
+      dial: 'Lever on the right of the base',
+      slider: 'Wheel under the touchpad',
+    },
+    axes: {
+      z: { centered: true, invert: false, deadzone: 0.1 },
+      rz: { centered: false, invert: false, deadzone: 0.02 },
+      dial: { invert: false },
+    },
+  },
   // VKB Gladiator NXT EVO, right hand (reports as "VKBsim Gladiator EVO R"), with the
   // Premium / Space Combat grip. Button numbers are VKB's factory profile; the stick
   // advertises 128 buttons and two spare axes (Slider, Dial) that it doesn't use.
-  // Beta until an owner has confirmed every label against the stick.
+  // An owner has confirmed the labels against the stick (GitHub issue #1).
   '231d:0200': {
     id: 'gladiatorevo',
     name: 'VKB Gladiator NXT EVO',
-    support: 'beta',
     names: {
       btn1: 'Trigger Stage 1',
       btn2: 'Trigger Stage 2',
@@ -167,6 +296,7 @@ export function describeDevice(layout, { vendorId, productId, name, ignoreSkin =
       label = `${known.name} ${n}`;
     }
     taken.add(id);
+    const quirk = skin?.axes?.[id];
     axes.push({
       id,
       name: skin?.names[id] ?? label,
@@ -174,9 +304,9 @@ export function describeDevice(layout, { vendorId, productId, name, ignoreSkin =
       index,
       min: field.min,
       max: field.max,
-      centered: known.centered,
-      invert: known.invert === true,
-      deadzone: known.deadzone,
+      centered: quirk?.centered ?? known.centered,
+      invert: quirk?.invert ?? known.invert === true,
+      deadzone: quirk?.deadzone ?? known.deadzone,
     });
   });
 

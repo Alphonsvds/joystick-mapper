@@ -255,7 +255,336 @@ const GLADIATOR_EVO = {
   },
 };
 
+// ─── VKB STECS Modern Throttle Mk.II Standard (twin grips, base and STEM) ────
+
+// Controls that share a label, each with its own short text.
+const labelled = (...pairs) => pairs.map(([id, label]) => ({ id, label }));
+
+// The left column mirrors each pair so its first control sits nearest the stick. Where
+// the order is the point (L before R, A1 before A2), this lists them to read left to right.
+const leftToRight = (items) => items.flatMap((item, i) => (i % 2 ? [] : [items[i + 1], item].filter(Boolean)));
+
+// Seen from behind and to the right: the pilot sits bottom left and forward is to the
+// right. The grips' front faces are out of sight, so their controls point at the top edge
+// of the grip, as near to where they sit as the photo allows. The ministick, the analog
+// wheel and both encoder pushes aren't labelled: the owner's button map left them blank.
+const STECS_STANDARD = {
+  alt: 'VKB STECS Modern Throttle Standard with its STEM module, seen from behind',
+  dense: true,
+  image: { src: 'assets/stecs-standard.png', width: 998, height: 784, x: 471, y: 212, scale: 0.66 },
+  columns: {
+    left: { edge: 450, anchor: 464, elbow: 520 },
+    right: { edge: 1150, anchor: 1136, elbow: 1080 },
+  },
+  callouts: [
+    ...stack('left', 92, [
+      { id: 'centrewheel', name: 'Centre Wheel', tag: 'FRONT', at: [527, 74], columns: 2, group: labelled(['btn13', 'Fwd'], ['btn12', 'Back']) },
+      { id: 'endwheel', name: 'End Wheel', tag: 'FRONT', at: [432, 84], columns: 2, group: labelled(['btn14', 'Fwd'], ['btn15', 'Back']) },
+      { id: 'reartriggers', name: 'Rear Triggers', at: [512, 206], columns: 2, group: leftToRight(labelled(['btn8', 'L'], ['btn16', 'R'])) },
+      {
+        id: 'toggle',
+        name: 'Toggle',
+        tag: 'TGL',
+        at: [309, 412],
+        columns: 2,
+        group: [
+          { id: 'btn49', dir: 'up' },
+          { id: 'btn50', dir: 'down' },
+        ],
+      },
+      {
+        id: 'en1',
+        name: 'EN1',
+        tag: 'ENCODER',
+        at: [323, 454],
+        columns: 2,
+        group: [
+          { id: 'btn51', dir: 'left' },
+          { id: 'btn52', dir: 'right' },
+        ],
+      },
+      {
+        id: 'flip',
+        name: 'Flip Switch',
+        at: [178, 432],
+        columns: 2,
+        group: [
+          { id: 'btn57', dir: 'up' },
+          { id: 'btn58', dir: 'down' },
+        ],
+      },
+      {
+        id: 'en2',
+        name: 'EN2',
+        tag: 'ENCODER',
+        at: [192, 492],
+        columns: 2,
+        group: [
+          { id: 'btn53', dir: 'left' },
+          { id: 'btn54', dir: 'right' },
+        ],
+      },
+      {
+        id: 'sw',
+        name: 'SW1 · SW2',
+        tag: 'ROCKERS',
+        at: [404, 506],
+        columns: 2,
+        group: leftToRight(
+          labelled(['btn43', '1 Up'], ['btn46', '2 Up'], ['btn44', '1 In'], ['btn47', '2 In'], ['btn45', '1 Dn'], ['btn48', '2 Dn']),
+        ),
+      },
+      {
+        id: 'stembuttons',
+        name: 'STEM Buttons',
+        at: [362, 552],
+        columns: 2,
+        group: leftToRight(
+          labelled(
+            ['btn35', 'A1'],
+            ['btn36', 'A2'],
+            ['btn37', 'C1'],
+            ['btn38', 'B1'],
+            ['btn39', 'B2'],
+            ['btn40', 'B3'],
+            ['btn41', 'B4'],
+            ['btn42', 'B5'],
+          ),
+        ),
+      },
+    ]),
+    ...stack('right', 92, [
+      { id: 'fronttriggers', name: 'Front Triggers', at: [565, 62], columns: 2, group: labelled(['btn9', 'L'], ['btn17', 'R']) },
+      {
+        id: 'frontbuttons',
+        name: 'Front Buttons',
+        at: [640, 43],
+        columns: 2,
+        group: labelled(['btn10', 'Red'], ['btn11', 'RST'], ['btn18', 'ENT'], ['btn23', 'Grey']),
+      },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        at: [826, 100],
+        columns: 2,
+        group: [
+          { id: 'btn32', dir: 'up' },
+          { id: 'btn30', dir: 'right' },
+          { id: 'btn31', dir: 'down' },
+          { id: 'btn29', dir: 'left' },
+          { id: 'btn21', dir: 'push' },
+        ],
+      },
+      {
+        id: 'rocker',
+        name: 'Rocker',
+        tag: 'THUMB',
+        at: [704, 116],
+        columns: 2,
+        group: [
+          { id: 'btn34', dir: 'up' },
+          { id: 'btn33', dir: 'down' },
+          { id: 'btn22', dir: 'push' },
+        ],
+      },
+      {
+        id: 'thumbhat',
+        name: 'Thumb Hat',
+        at: [756, 176],
+        columns: 2,
+        group: labelled(['btn25', 'Up'], ['btn26', 'Down'], ['btn27', 'Fwd'], ['btn28', 'Back'], ['btn20', 'Push']),
+      },
+      { id: 'btn24', at: [711, 238] },
+      {
+        id: 'base',
+        name: 'Base',
+        tag: 'ROTARY 1–5',
+        at: [770, 420],
+        columns: 2,
+        group: labelled(['btn1', 'Dot'], ['btn2', 'Red'], ['btn3', '1'], ['btn4', '2'], ['btn5', '3'], ['btn6', '4'], ['btn7', '5']),
+      },
+      {
+        id: 'throttle',
+        name: 'Throttle',
+        tag: 'LEVERS',
+        at: [660, 372],
+        columns: 2,
+        group: [
+          { id: 'x', label: '1', wide: true },
+          { id: 'y', label: '2', wide: true },
+        ],
+      },
+    ]),
+  ],
+  // Along the scales beside each lever's slot; forward is up and to the right.
+  guides: {
+    x: {
+      path: 'M 781 486 L 817 455',
+      arrows: [
+        [781, 486, 139],
+        [817, 455, -41],
+      ],
+      point: (v) => [799 + v * 18, 470.5 - v * 15.5],
+    },
+    y: {
+      path: 'M 838 492 L 874 461',
+      arrows: [
+        [838, 492, 139],
+        [874, 461, -41],
+      ],
+      point: (v) => [856 + v * 18, 476.5 - v * 15.5],
+    },
+  },
+};
+
+// ─── Turtle Beach VelocityOne Flightstick ────────────────────────────────────
+
+// Seen from straight above, so everything on the base is in view. The trigger is on the
+// far side of the grip's head: its line stops at the head's top edge. The touchpad click
+// and the Xbox and Share buttons aren't labelled, their button numbers aren't known yet.
+const VELOCITYONE_FLIGHTSTICK = {
+  alt: 'Turtle Beach VelocityOne Flightstick, seen from above',
+  dense: true,
+  image: { src: 'assets/velocityone-flightstick.png', width: 972, height: 744, x: 489, y: 237, scale: 0.64 },
+  columns: {
+    left: { edge: 450, anchor: 464, elbow: 480 },
+    right: { edge: 1150, anchor: 1136, elbow: 1120 },
+  },
+  callouts: [
+    ...stack('left', 136, [
+      { id: 'btn18', at: [430, 12], tag: 'REAR' },
+      { id: 'hat1', at: [436, 193], tag: 'POV', columns: 2, group: HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })) },
+      { id: 'btn16', at: [438, 258] },
+      {
+        id: 'leftlever',
+        name: 'Left Lever',
+        tag: 'B9 · B10',
+        at: [107, 212],
+        columns: 2,
+        group: [
+          { id: 'rz', wide: true },
+          { id: 'btn9', dir: 'up' },
+          { id: 'btn10', dir: 'down' },
+        ],
+      },
+      { id: 'y', at: [452, 320], tag: 'Y AXIS' },
+      { id: 'x', at: [460, 385], tag: 'X AXIS' },
+      {
+        id: 'leftbuttons',
+        name: 'Left Buttons',
+        tag: 'B1–B4',
+        at: [141, 546],
+        columns: 2,
+        group: leftToRight(labelled(['btn1', 'A'], ['btn2', 'B'], ['btn3', 'X'], ['btn4', 'Y'])),
+      },
+      { id: 'btn21', at: [438, 695] },
+    ]),
+    ...stack('right', 136, [
+      {
+        id: 'h2',
+        name: 'H2 Ministick',
+        tag: 'ANALOG',
+        at: [533, 197],
+        columns: 2,
+        group: [
+          { id: 'rx', label: 'X', wide: true },
+          { id: 'ry', label: 'Y', wide: true },
+          { id: 'btn19', dir: 'push' },
+        ],
+      },
+      { id: 'btn17', at: [537, 258] },
+      {
+        id: 'rightlever',
+        name: 'Right Lever',
+        tag: 'B11 · B12',
+        at: [852, 212],
+        columns: 2,
+        group: [
+          { id: 'dial', wide: true },
+          { id: 'btn11', dir: 'up' },
+          { id: 'btn12', dir: 'down' },
+        ],
+      },
+      // Buttons 13 and 14 only fire with the wheel set to "Digital Buttons" on the stick.
+      {
+        id: 'trim',
+        name: 'Trim Wheel',
+        tag: 'AXIS OR BUTTONS',
+        at: [487, 282],
+        columns: 2,
+        group: [
+          { id: 'slider', wide: true },
+          { id: 'btn14', dir: 'up' },
+          { id: 'btn13', dir: 'down' },
+        ],
+      },
+      { id: 'z', at: [505, 400], tag: 'TWIST' },
+      {
+        id: 'rightbuttons',
+        name: 'Right Buttons',
+        tag: 'B5–B8',
+        at: [831, 546],
+        columns: 2,
+        group: labelled(['btn5', 'A'], ['btn6', 'B'], ['btn7', 'X'], ['btn8', 'Y']),
+      },
+      { id: 'btn23', at: [534, 695] },
+    ]),
+  ],
+  guides: {
+    x: {
+      path: 'M 715 202 L 885 202',
+      arrows: [
+        [715, 202, 180],
+        [885, 202, 0],
+      ],
+      point: (v) => [800 + v * 85, 202],
+    },
+    y: {
+      path: 'M 902 262 L 902 382',
+      arrows: [
+        [902, 262, -90],
+        [902, 382, 90],
+      ],
+      point: (v) => [902, 322 - v * 60],
+    },
+    // An arc under the ring around the stick's base.
+    z: {
+      path: 'M 707.5 567.6 A 132 132 0 0 0 887.5 567.6',
+      arrows: [
+        [707.5, 567.6, -137],
+        [887.5, 567.6, -43],
+      ],
+      point: (v) => {
+        const a = Math.PI / 2 - v * 0.75;
+        return [797.5 + 132 * Math.cos(a), 471 + 132 * Math.sin(a)];
+      },
+    },
+    // Along the scale printed beside each lever's slot; forward is up.
+    rz: {
+      path: 'M 613 334 L 613 412',
+      arrows: [
+        [613, 334, -90],
+        [613, 412, 90],
+      ],
+      point: (v) => [613, 373 - v * 39],
+    },
+    dial: {
+      path: 'M 988 334 L 988 412',
+      arrows: [
+        [988, 334, -90],
+        [988, 412, 90],
+      ],
+      point: (v) => [988, 373 - v * 39],
+    },
+  },
+};
+
 // Keyed by skin id (see SKINS in shared/devices.js).
-export const LAYOUTS = { extreme3dpro: EXTREME_3D_PRO, gladiatorevo: GLADIATOR_EVO };
+export const LAYOUTS = {
+  extreme3dpro: EXTREME_3D_PRO,
+  gladiatorevo: GLADIATOR_EVO,
+  stecsstandard: STECS_STANDARD,
+  velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
+};
 
 export const toStage = (layout, [x, y]) => [layout.image.x + x * layout.image.scale, layout.image.y + y * layout.image.scale];

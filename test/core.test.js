@@ -79,6 +79,49 @@ const GLADIATOR_LAYOUT = {
 const GLADIATOR = { vendorId: 0x231d, productId: 0x0200, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO R' };
 const GLADIATOR_REST = [2048, 2048, 1024, 1010, 512, 512, 1024, 1024, null];
 
+// VKB STECS Modern Throttle Standard (STEM), from an owner's "Copy device info" on
+// 2026-10-02 (GitHub issue #2). The two throttle levers are the 12-bit X and Y axes.
+// STECS_REST is the axis part of its last report, both levers at idle.
+const STECS_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 4095 },
+    { page: 1, usage: 0x31, min: 0, max: 4095 },
+    { page: 1, usage: 0x32, min: 0, max: 1023 },
+    { page: 1, usage: 0x33, min: 0, max: 1023 },
+    { page: 1, usage: 0x34, min: 0, max: 1023 },
+    { page: 1, usage: 0x35, min: 0, max: 1023 },
+    { page: 1, usage: 0x36, min: 0, max: 1023 },
+    { page: 1, usage: 0x36, min: 0, max: 1023 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+  ],
+  buttonCount: 128,
+};
+const STECS = { vendorId: 0x231d, productId: 0x012d, name: 'VKB-Sim (C) Alex Oz 2023 S-TECS MODERN THROTTLE STANDARD STEM' };
+const STECS_REST = [0, 0, 0, 512, 512, 512, 512, 511, null];
+
+// Turtle Beach VelocityOne Flightstick, from an owner's "Copy device info" on 2026-10-02
+// (GitHub issue #3). The twist is on Z; the levers are on Rz (left) and Dial (right).
+// FLIGHTSTICK_REST is the axis part of its last report, taking the report to pack them
+// X, Y, Z, Rx, Ry, Rz, Slider, Dial: stick and ministick centred, left lever part way up.
+const FLIGHTSTICK_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 1, usage: 0x39, min: 1, max: 8 },
+    { page: 255, usage: 2, min: 0, max: 255 },
+  ],
+  buttonCount: 24,
+};
+const FLIGHTSTICK = { vendorId: 0x10f5, productId: 0x7055, name: 'Turtle Beach VelocityOne Flightstick' };
+// x, y, dial, slider, rz, ry, rx, z, hat, vendor byte
+const FLIGHTSTICK_REST = [0x8000, 0x8000, 0, 0, 0x98c0, 0x7fff, 0x7fff, 0x8000, 0, 0];
+
 // Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
 function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
   const b = Buffer.alloc(8);
@@ -140,7 +183,7 @@ test('the Gladiator NXT EVO gets its skin, with names for the controls it ships 
   const model = describeDevice(GLADIATOR_LAYOUT, GLADIATOR);
   assert.equal(model.key, '231d:0200');
   assert.equal(model.skin, 'gladiatorevo');
-  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.support, 'full'); // an owner confirmed every label (GitHub issue #1)
   assert.equal(model.name, 'VKB Gladiator NXT EVO');
   assert.deepEqual(
     model.axes.map((a) => [a.id, a.name]),
@@ -173,8 +216,84 @@ test('a Gladiator at rest reads centred, including its two spare axes', () => {
   assert.equal(Object.values(buttons).some(Boolean), false);
 });
 
+test('the STECS Standard reads its throttle levers on X and Y as levers, not as a stick', () => {
+  const model = describeDevice(STECS_LAYOUT, STECS);
+  assert.equal(model.key, '231d:012d');
+  assert.equal(model.skin, 'stecsstandard');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'VKB STECS Standard');
+  const [x, y] = model.axes;
+  assert.deepEqual([x.name, x.centered, x.invert], ['Throttle 1', false, false]);
+  assert.deepEqual([y.name, y.centered, y.invert], ['Throttle 2', false, false]);
+  assert.equal(model.buttonNames.btn2, 'Red Start');
+  assert.equal(model.buttonNames.btn7, 'Rotary 5');
+  assert.equal(model.buttonNames.btn42, 'B5 Button');
+  assert.equal(model.buttonNames.btn58, 'Flip Switch Down');
+  assert.equal(model.buttonNames.btn19, 'Button 19'); // not on the owner’s button map
+  // The other axes keep the generic defaults, including the two sliders.
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'slider2']);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['rx', 'ry', 'rz']);
+});
+
+test('STECS levers read end to end, both the same way, even after a Recenter at idle', () => {
+  const model = describeDevice(STECS_LAYOUT, STECS);
+  const read = (x, y, settings = {}) => normalizeInput(decoded([x, y, 0, 512, 512, 512, 512, 511, null]), model, settings).axes;
+  assert.deepEqual([read(0, 0).x, read(0, 0).y], [-1, -1]); // idle
+  assert.ok(Math.abs(read(2047.5, 2047.5).x) < 1e-9); // halfway
+  assert.deepEqual([read(4095, 4095).x, read(4095, 4095).y], [1, 1]); // full forward
+  // A centre measured at idle (what the Recenter button saves) no longer matters...
+  assert.equal(read(0, 0, { calibration: { x: 0, y: 0 } }).x, -1);
+  // ...where it used to leave the lever with half its travel, idle reading as the middle.
+  assert.equal(read(0, 0, { calibration: { x: 0, y: 0 }, centered: { x: true } }).x, 0);
+  const { axes } = normalizeInput({ values: STECS_REST, buttons: new Set() }, model);
+  for (const id of ['rx', 'ry', 'rz']) assert.ok(Math.abs(axes[id]) < 0.01, `${id} = ${axes[id]}`);
+});
+
+test('the VelocityOne Flightstick twists on Z and reads its levers on Rz and Dial', () => {
+  const model = describeDevice(FLIGHTSTICK_LAYOUT, FLIGHTSTICK);
+  assert.equal(model.key, '10f5:7055');
+  assert.equal(model.skin, 'velocityoneflightstick');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.z, ['Yaw', true, false, 0.1]);
+  assert.deepEqual(axis.rz, ['Left Lever', false, false, 0.02]);
+  assert.deepEqual(axis.dial, ['Right Lever', false, false, undefined]);
+  assert.deepEqual(axis.slider, ['Trim Wheel', false, true, undefined]); // generic defaults
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'ry', 'rx', 'z']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['H1 Hat']);
+  assert.equal(model.buttons, 24);
+  assert.equal(model.buttonNames.btn18, 'Trigger');
+  assert.equal(model.buttonNames.btn15, 'Button 15'); // not on any published button list
+  // Without the skin, Z read as a reversed throttle: what the owner reported.
+  const generic = describeDevice(FLIGHTSTICK_LAYOUT, { ...FLIGHTSTICK, ignoreSkin: true }).axes.find((a) => a.id === 'z');
+  assert.deepEqual([generic.centered, generic.invert], [false, true]);
+});
+
+test('a Flightstick at rest reads centred; twisting right and pushing a lever forward read positive', () => {
+  const model = describeDevice(FLIGHTSTICK_LAYOUT, FLIGHTSTICK);
+  const rest = normalizeInput(decoded(FLIGHTSTICK_REST), model, {});
+  for (const id of ['x', 'y', 'rx', 'ry', 'z']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.equal(Object.values(rest.buttons).some(Boolean), false); // the hat rests at 0, outside 1–8
+  // x, y, dial, slider, rz, ry, rx, z
+  const read = (values) => normalizeInput(decoded([...values, 0, 0]), model, {}).axes;
+  const low = read([0x8000, 0x8000, 0, 0, 0, 0x7fff, 0x7fff, 0]);
+  const high = read([0x8000, 0x8000, 65535, 0, 65535, 0x7fff, 0x7fff, 65535]);
+  assert.deepEqual([low.z, low.rz, low.dial], [-1, -1, -1]);
+  assert.deepEqual([high.z, high.rz, high.dial], [1, 1, 1]);
+  // The left lever keeps its whole travel whatever centre a Recenter saved for it.
+  assert.equal(normalizeInput(decoded(FLIGHTSTICK_REST), model, { calibration: { rz: 0x98c0 } }).axes.rz, rest.axes.rz);
+  const up = normalizeInput(decoded([0x8000, 0x8000, 0, 0, 0, 0x7fff, 0x7fff, 0x8000, 1, 0]), model, {}).buttons;
+  assert.deepEqual([up.hat1_up, up.hat1_right, up.hat1_down, up.hat1_left], [true, false, false, false]);
+});
+
 test('every photo layout points only at controls its stick has, each one once', () => {
-  const sticks = { extreme3dpro: [EXTREME_LAYOUT, EXTREME], gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR] };
+  const sticks = {
+    extreme3dpro: [EXTREME_LAYOUT, EXTREME],
+    gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR],
+    stecsstandard: [STECS_LAYOUT, STECS],
+    velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
+  };
   assert.deepEqual(Object.keys(LAYOUTS).sort(), Object.values(SKINS).map((s) => s.id).sort());
   for (const [skin, layout] of Object.entries(LAYOUTS)) {
     const model = describeDevice(...sticks[skin]);
@@ -191,6 +310,18 @@ test('every photo layout points only at controls its stick has, each one once', 
   // The Gladiator's photo covers everything the factory profile sends.
   const gladiator = LAYOUTS.gladiatorevo.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
   for (let b = 1; b <= 29; b++) assert.ok(gladiator.includes(`btn${b}`), `btn${b}`);
+  // The STECS photo covers every button on its owner’s map, and names each one.
+  const stecs = LAYOUTS.stecsstandard.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  const mapped = Array.from({ length: 58 }, (_, i) => i + 1).filter((b) => ![19, 55, 56].includes(b));
+  for (const b of mapped) {
+    assert.ok(stecs.includes(`btn${b}`), `btn${b}`);
+    assert.ok(SKINS['231d:012d'].names[`btn${b}`], `btn${b} has a name`);
+  }
+  // The Flightstick photo shows every control its skin names.
+  const flightstick = LAYOUTS.velocityoneflightstick.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  for (const id of Object.keys(SKINS['10f5:7055'].names)) {
+    assert.ok(id === 'hat1' ? flightstick.includes('hat1_up') : flightstick.includes(id), id);
+  }
 });
 
 test('a template is only offered on the stick it was written for', () => {
