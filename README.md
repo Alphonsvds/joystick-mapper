@@ -5,6 +5,9 @@
 So this app makes your **flight stick** show up to games as an **Xbox 360 controller**.
 Map the stick once and fly with it in any game that only understands gamepads.
 
+##How to install
+Click Releases on the right side —> click and download the .exe for the latest release
+
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
 <sub>**Fully supported sticks** get a photo layout, with a line to every control.</sub>
 
