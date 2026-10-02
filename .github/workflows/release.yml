@@ -10,6 +10,12 @@ on:
 permissions:
   contents: write
 
+# One build per tag at a time. The updater's latest.yml must describe the installer
+# uploaded beside it, so two runs must never publish their files interleaved.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   windows-installer:
     runs-on: windows-latest
