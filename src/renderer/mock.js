@@ -1,12 +1,14 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
 // Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
 // throttle, the Turtle Beach VelocityOne Flightstick and the WINWING Orion 2 stick and
-// throttle (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a
-// Thrustmaster T.16000M built from its published layout (universal layout). Add
-// ?device=gladiator, ?device=stecs, ?device=flightstick, ?device=orionstick,
-// ?device=orionthrottle, ?device=acetorq or ?device=t16000m to plug in one of the others.
+// throttle and the Thrustmaster Sol-R right and left sticks (photo layouts), the Virpil
+// ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its published
+// layout (universal layout). Add ?device=gladiator, ?device=stecs, ?device=flightstick,
+// ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
+// ?device=acetorq or ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
-// from GitHub issue #7; any comma-separated list works too (?device=gladiator,twcs).
+// from GitHub issue #7, ?device=solr the pair from issue #8; any comma-separated list works
+// too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
@@ -33,6 +35,23 @@ import {
 const STORAGE_KEY = 'joymap.preview.library';
 
 const hat = { page: 1, usage: 0x39, min: 0, max: 7 };
+// A Sol-R stick as reported by a real pair (GitHub issue #8): the thrust lever is on Rx,
+// and every other axis rests at its midpoint.
+const SOL_R_LAYOUT = {
+  values: [
+    hat,
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x50, min: 0, max: 255 },
+  ],
+  buttonCount: 44,
+};
 const SIMULATED = [
   {
     vendorId: 0x046d,
@@ -200,6 +219,25 @@ const SIMULATED = [
       buttonCount: 0,
     },
   },
+  // The Thrustmaster Sol-R pair from GitHub issue #8: R / F move the thrust lever, Q / E the twist.
+  {
+    vendorId: 0x044f,
+    productId: 0x0422,
+    name: 'Thrustmaster Sol-R [R] Flightstick',
+    alias: 'solrright',
+    throttle: 'rx',
+    twist: 'z',
+    layout: SOL_R_LAYOUT,
+  },
+  {
+    vendorId: 0x044f,
+    productId: 0x042a,
+    name: 'Thrustmaster Sol-R [L] Flightstick',
+    alias: 'solrleft',
+    throttle: 'rx',
+    twist: 'z',
+    layout: SOL_R_LAYOUT,
+  },
   // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
   // not captured from the real devices.
   {
@@ -240,7 +278,11 @@ const SIMULATED = [
   return { ...d, id: model.key, model: { ...model, id: model.key } };
 });
 
-const RIGS = { hotas: ['extreme3dpro', 'twcs', 'pedals'], winwing: ['orionstick', 'orionthrottle', 'acetorq'] };
+const RIGS = {
+  hotas: ['extreme3dpro', 'twcs', 'pedals'],
+  winwing: ['orionstick', 'orionthrottle', 'acetorq'],
+  solr: ['solrright', 'solrleft'],
+};
 
 const KEY_BUTTONS = {
   Space: 'btn1',

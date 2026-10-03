@@ -891,6 +891,180 @@ const ORION2_THROTTLE = {
   },
 };
 
+// ─── Thrustmaster Sol-R (right and left sticks) ──────────────────────────────
+
+// The two sticks have the same controls, so one set of labels serves both. Each photo
+// says where every label points and in what order they stack down the sides; the order
+// keeps the lines from crossing or running over another dot. The photo is the pilot's
+// view, so the trigger and the grip button are on the front of the grip, out of sight:
+// their dot sits on the grip's edge, on the side the lever sticks out. The left column
+// lists each pair of controls the other way round (see leftToRight above).
+const solrLabels = (side) => {
+  const pairs = (items) => (side === 'left' ? leftToRight(items) : items);
+  return {
+    hat: { name: 'Left Hat', tag: 'POV', columns: 2, group: [...HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })), { id: 'btn30', dir: 'push' }] },
+    righthat: { name: 'Right Hat', columns: 2, group: pushHat(40) },
+    ministick: {
+      name: 'Ministick',
+      columns: 2,
+      group: [{ id: 'ry', label: 'X', wide: true }, { id: 'rz', label: 'Y', wide: true }, { id: 'btn29', dir: 'push' }],
+    },
+    scroll: { name: 'Scroll', columns: 2, group: [{ id: 'btn37', dir: 'up' }, { id: 'btn38', dir: 'down' }, { id: 'btn36', dir: 'push' }] },
+    lever: { name: 'Lever', columns: 2, group: pairs([{ id: 'btn26', dir: 'left' }, { id: 'btn27', dir: 'right' }]) },
+    trigger: { name: 'Trigger', tag: 'FRONT', columns: 2, group: pairs(labelled(['btn24', '1st'], ['btn25', '2nd'])).concat(labelled(['btn28', 'Grip'])) },
+    stick: {
+      name: 'Stick',
+      columns: 2,
+      group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'z', label: 'Twist', wide: true }],
+    },
+    leftswitches: {
+      name: 'Left Switches',
+      columns: 2,
+      group: pairs(labelled(['btn1', '1 Up'], ['btn3', '2 Up'], ['btn2', '1 Dn'], ['btn4', '2 Dn'])),
+    },
+    leftpads: { name: 'Left Pads', columns: 2, group: pairs(labelled(['btn5', '5'], ['btn6', '6'], ['btn7', '7'], ['btn8', '8'])) },
+    knob: { name: 'Left Knob', columns: 2, group: [{ id: 'btn9', dir: 'right' }, { id: 'btn10', dir: 'left' }, { id: 'btn11', dir: 'push' }] },
+    rightswitches: {
+      name: 'Right Switches',
+      columns: 2,
+      group: pairs(labelled(['btn14', '1 Up'], ['btn12', '2 Up'], ['btn15', '1 Dn'], ['btn13', '2 Dn'])),
+    },
+    rightpads: { name: 'Right Pads', columns: 2, group: pairs(labelled(['btn17', '17'], ['btn16', '16'], ['btn19', '19'], ['btn18', '18'])) },
+    rotary: { name: 'Rotary', columns: 2, group: labelled(['btn20', '1'], ['btn21', '2'], ['btn22', '3'], ['btn23', '4']) },
+    rx: {},
+  };
+};
+
+// Labels stacked down one side from `top`, each as [id, where it points on the photo].
+const solr = (side, top, entries) => stack(side, top, entries.map(([id, at]) => ({ id, ...solrLabels(side)[id], at })));
+
+const SOL_R_COLUMNS = {
+  left: { edge: 470, anchor: 484, elbow: 520 },
+  right: { edge: 1130, anchor: 1116, elbow: 1080 },
+};
+
+// Motion guides over a Sol-R stick, from where its head, collar and thrust slot are on
+// the photo: the stick's two axes beside the head, the twist as an arc around the collar,
+// and the thrust lever along the arrows printed beside its slot.
+const solrGuides = (image, { head: [left, right, top], collar, slot: [slotX, slotTop, slotBottom] }) => {
+  const stage = ([x, y]) => [image.x + x * image.scale, image.y + y * image.scale];
+  const [cx0] = stage([(left + right) / 2, 0]);
+  const [, headTop] = stage([0, top]);
+  const [headRight] = stage([right, 0]);
+  const round = (n) => Math.round(n * 10) / 10;
+
+  const [cx, cy] = stage(collar);
+  const [rx, ry, a] = [72, 32, 0.25];
+  const [ex, ey] = [rx * Math.cos(a), cy + ry * Math.sin(a)];
+  const tilt = (Math.atan2(-ry * Math.cos(a), rx * Math.sin(a)) * 180) / Math.PI;
+  const [tx, t0] = stage([slotX, slotTop]);
+  const [, t1] = stage([slotX, slotBottom]);
+  const [x0, x1, hy] = [cx0 - 86, cx0 + 86, headTop - 16];
+  const [vx, v0, v1] = [headRight + 36, headTop + 45, headTop + 175];
+  return {
+    x: {
+      path: `M ${round(x0)} ${round(hy)} L ${round(x1)} ${round(hy)}`,
+      arrows: [
+        [round(x0), round(hy), 180],
+        [round(x1), round(hy), 0],
+      ],
+      point: (v) => [cx0 + v * 86, hy],
+    },
+    y: {
+      path: `M ${round(vx)} ${round(v0)} L ${round(vx)} ${round(v1)}`,
+      arrows: [
+        [round(vx), round(v0), -90],
+        [round(vx), round(v1), 90],
+      ],
+      point: (v) => [vx, (v0 + v1) / 2 - (v * (v1 - v0)) / 2],
+    },
+    z: {
+      path: `M ${round(cx - ex)} ${round(ey)} A ${rx} ${ry} 0 0 0 ${round(cx + ex)} ${round(ey)}`,
+      arrows: [
+        [round(cx - ex), round(ey), round(-180 - tilt)],
+        [round(cx + ex), round(ey), round(tilt)],
+      ],
+      point: (v) => {
+        const t = Math.PI / 2 - v * (Math.PI / 2 - a);
+        return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)];
+      },
+    },
+    rx: {
+      path: `M ${round(tx)} ${round(t1)} L ${round(tx)} ${round(t0)}`,
+      arrows: [
+        [round(tx), round(t1), 90],
+        [round(tx), round(t0), -90],
+      ],
+      point: (v) => [tx, (t0 + t1) / 2 - (v * (t1 - t0)) / 2],
+    },
+  };
+};
+
+const SOLR_LEFT_IMAGE = { src: 'assets/solr-left.png', width: 666, height: 948, x: 539, y: 100, scale: 0.78 };
+const SOLR_LEFT = {
+  alt: 'Thrustmaster Sol-R left stick, seen from behind',
+  dense: true,
+  image: SOLR_LEFT_IMAGE,
+  columns: SOL_R_COLUMNS,
+  callouts: [
+    ...solr('left', 88, [
+      ['ministick', [335, 52]],
+      ['hat', [267, 74]],
+      ['btn35', [275, 134]],
+      ['scroll', [335, 181]],
+      ['leftswitches', [123, 630]],
+      ['leftpads', [121, 702]],
+      ['knob', [113, 744]],
+      ['rx', [338, 761]],
+    ]),
+    ...solr('right', 88, [
+      ['righthat', [421, 74]],
+      ['btn39', [390, 134]],
+      ['lever', [421, 276]],
+      ['stick', [315, 356]],
+      ['trigger', [392, 375]],
+      ['rightswitches', [552, 633]],
+      ['rightpads', [556, 704]],
+      ['rotary', [564, 753]],
+    ]),
+  ],
+  guides: solrGuides(SOLR_LEFT_IMAGE, { head: [207, 454.5, 10.5], collar: [335.3, 622.5], slot: [214.5, 745.5, 835.5] }),
+};
+
+// Its grip is the left stick's the other way round. The lower left of its base is hidden
+// behind the left stick in the photo, so the cut-out borrows that corner from the left
+// stick's base, which is the same.
+const SOLR_RIGHT_IMAGE = { src: 'assets/solr-right.png', width: 672, height: 963, x: 538, y: 104, scale: 0.78 };
+const SOLR_RIGHT = {
+  alt: 'Thrustmaster Sol-R right stick, seen from behind',
+  dense: true,
+  image: SOLR_RIGHT_IMAGE,
+  columns: SOL_R_COLUMNS,
+  callouts: [
+    ...solr('left', 88, [
+      ['ministick', [333, 60]],
+      ['hat', [247, 75]],
+      ['btn35', [273, 131]],
+      ['lever', [250, 278]],
+      ['trigger', [276, 375]],
+      ['leftswitches', [120, 630]],
+      ['leftpads', [116, 702]],
+      ['knob', [109, 747]],
+    ]),
+    ...solr('right', 88, [
+      ['righthat', [413, 75]],
+      ['btn39', [387, 131]],
+      ['scroll', [331, 174]],
+      ['stick', [311, 353]],
+      ['rightswitches', [549, 631]],
+      ['rightpads', [554, 704]],
+      ['rotary', [560, 758]],
+      ['rx', [335, 762]],
+    ]),
+  ],
+  guides: solrGuides(SOLR_RIGHT_IMAGE, { head: [213, 453, 3], collar: [336, 624], slot: [207, 745.5, 835.5] }),
+};
+
 // Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
 export const LAYOUTS = {
   extreme3dpro: EXTREME_3D_PRO,
@@ -899,6 +1073,8 @@ export const LAYOUTS = {
   velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
   orion2f16ex: ORION2_F16EX,
   orion2throttle: ORION2_THROTTLE,
+  solrright: SOLR_RIGHT,
+  solrleft: SOLR_LEFT,
 };
 
 export const toStage = (layout, [x, y]) => [layout.image.x + x * layout.image.scale, layout.image.y + y * layout.image.scale];

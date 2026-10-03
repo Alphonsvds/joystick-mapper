@@ -30,6 +30,12 @@ Click Releases on the right side —> click and download the .exe for the latest
 ![Photo layout: the WINWING Orion 2 throttle with an Ace Combat 8 profile loaded](docs/screenshot-orion-throttle.png)
 <sub>**WINWING Orion 2 Throttle** (beta)</sub>
 
+![Photo layout: the Thrustmaster Sol-R right stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-right.png)
+<sub>**Thrustmaster Sol-R Right Stick** (experimental)</sub>
+
+![Photo layout: the Thrustmaster Sol-R left stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-left.png)
+<sub>**Thrustmaster Sol-R Left Stick** (experimental)</sub>
+
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>Every other stick gets the universal layout.</sub>
 
@@ -40,7 +46,7 @@ Click Releases on the right side —> click and download the .exe for the latest
 | --- | --- |
 | **Fully supported** | Logitech Extreme 3D Pro, VKB Gladiator NXT EVO (right hand): tested, with a photo layout and named controls |
 | **Beta** | VKB STECS Modern Throttle Standard, Turtle Beach VelocityOne Flightstick, WINWING Orion 2 (F-16EX grip, and the throttle with F-15EX handles): photo layout and named controls, still being confirmed by owners. Virpil ACE-Torq pedals: named controls, no photo yet |
-| **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
+| **Experimental** | Thrustmaster Sol-R (right and left sticks): photo layout and named controls, axes not confirmed yet. Any other USB flight stick, throttle or pedals on Windows |
 
 Experimental sticks are detected automatically.
 
@@ -182,10 +188,12 @@ git push origin main --tags
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
 a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
 a Turtle Beach VelocityOne Flightstick (`?device=flightstick`), a WINWING Orion 2 stick
-and throttle (`?device=orionstick`, `?device=orionthrottle`), Virpil ACE-Torq pedals
+and throttle (`?device=orionstick`, `?device=orionthrottle`), a Thrustmaster Sol-R right and
+left stick (`?device=solrright`, `?device=solrleft`), Virpil ACE-Torq pedals
 (`?device=acetorq`) and a Thrustmaster T.16000M (`?device=t16000m`, the universal layout).
 `?device=hotas` plugs in a stick, a throttle and pedals together, `?device=winwing` the
-WINWING and Virpil rig; the keyboard drives whichever one is on screen.
+WINWING and Virpil rig, `?device=solr` the Sol-R pair; the keyboard drives whichever one is on
+screen.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.

@@ -42,10 +42,81 @@ const numbered = (first, count, name) => Object.fromEntries(Array.from({ length:
 // A switch or knob whose positions are buttons in a row from `first`: positions(86, 'Roll Switch', 'Up', 'Middle', 'Down').
 const positions = (first, name, ...places) => Object.fromEntries(places.map((place, i) => [`btn${first + i}`, `${name} ${place}`]));
 
+// The Thrustmaster Sol-R's two sticks (reporting as "Sol-R [R] Flightstick" and "Sol-R [L]
+// Flightstick", GitHub issue #8) are the same hardware apart from the grip, so they share
+// one set of names. Button numbers are from a community Star Citizen chart for the pair and
+// the numbers printed on the sticks. The chart leaves out 25 and 31–34: 25 is taken to be
+// the trigger's second stage, and 31–34 keep their generic names. The right hat is read
+// push first, from the "40" printed beside its push symbol.
+// The thrust lever is the one axis off the middle in an owner's rest report, and Windows
+// lists it on Rx, which would read as a centred axis halfway over and stop the stick
+// centring itself. Which axes are the twist (Z), the ministick (Ry, Rz) and the two spares
+// is inferred from the order Windows lists them in, and which way the lever and the
+// ministick read is guessed.
+const SOL_R = {
+  names: {
+    ...positions(1, 'Left Switch 1', 'Up', 'Down'),
+    ...positions(3, 'Left Switch 2', 'Up', 'Down'),
+    btn5: 'Left Pad Top Left',
+    btn6: 'Left Pad Top Right',
+    btn7: 'Left Pad Bottom Left',
+    btn8: 'Left Pad Bottom Right',
+    btn9: 'Left Knob Clockwise',
+    btn10: 'Left Knob Counter-clockwise',
+    btn11: 'Left Knob Push',
+    btn12: 'Right Switch 2 Up',
+    btn13: 'Right Switch 2 Down',
+    btn14: 'Right Switch 1 Up',
+    btn15: 'Right Switch 1 Down',
+    btn16: 'Right Pad Top Right',
+    btn17: 'Right Pad Top Left',
+    btn18: 'Right Pad Bottom Right',
+    btn19: 'Right Pad Bottom Left',
+    ...numbered(20, 4, (n) => `Rotary ${n}`),
+    btn24: 'Trigger Stage 1',
+    btn25: 'Trigger Stage 2',
+    btn26: 'Lever Left',
+    btn27: 'Lever Right',
+    btn28: 'Grip Button',
+    btn29: 'Ministick Push',
+    btn30: 'Left Hat Push',
+    btn35: 'Left Orange Button',
+    btn36: 'Scroll Push',
+    btn37: 'Scroll Up',
+    btn38: 'Scroll Down',
+    btn39: 'Right Orange Button',
+    ...pushHat('Right Hat', 40),
+    hat1: 'Left Hat',
+    x: 'Stick X',
+    y: 'Stick Y',
+    z: 'Twist',
+    rx: 'Thrust',
+    ry: 'Ministick X',
+    rz: 'Ministick Y',
+  },
+  hints: {
+    x: 'Stick left / right',
+    y: 'Stick forward / back',
+    z: 'Twist the stick',
+    rx: 'Lever on the base',
+    ry: 'Ministick',
+    rz: 'Ministick',
+    slider: '',
+    dial: '',
+  },
+  axes: {
+    z: { centered: true, invert: false, deadzone: 0.1 },
+    rx: { centered: false, invert: false },
+    ry: { invert: false },
+    rz: { invert: true, deadzone: 0.04 },
+  },
+};
+
 // How well a stick is known, shown next to its name:
 //   full          photo layout and names, checked against the real stick
 //   beta          photo layout and names that owners are still confirming
-//   experimental  everything else: the generic layout, built from what the stick reports
+//   experimental  everything else: the generic layout, built from what the stick reports,
+//                 or a photo layout whose axes and buttons are still partly guessed
 export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Beta', experimental: 'Experimental' });
 
 // Sticks with a photo layout (see renderer/layout.js) and friendly names. `axes` says how
@@ -54,6 +125,11 @@ export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Be
 // Everything else gets the generic layout and is marked experimental until someone
 // confirms it.
 export const SKINS = Object.freeze({
+  // Thrustmaster Sol-R right stick (GitHub issue #8), see SOL_R above. Experimental until an
+  // owner has confirmed which axis is which.
+  '044f:0422': { id: 'solrright', name: 'Sol-R Right Stick', support: 'experimental', ...SOL_R },
+  // Thrustmaster Sol-R left stick: the same, with its grip the other way round.
+  '044f:042a': { id: 'solrleft', name: 'Sol-R Left Stick', support: 'experimental', ...SOL_R },
   // WINWING Orion 2 joystick base with the F-16EX grip and its left extension (reports as
   // "WINWING Orion Joystick Base 2 + JGRIP-F16"). The grip's two levers rest at the bottom
   // of their axes (GitHub issue #7): the one beside the trigger is on Rz, which would read
@@ -414,7 +490,7 @@ export const defaultDeadzone = (axis, centered) => axis.deadzone ?? (centered ? 
 // Windows calls throttles and pedals joysticks too, so the name is the only clue.
 const ROLE_HINTS = [
   ['pedals', /pedal|rudder|tfrp|crosswind/i],
-  ['throttle', /throttle|twcs|quadrant|collective/i],
+  ['throttle', /throttle|twcs|quadrant|collective|sol-r \[l\]/i], // the left stick of a Sol-R pair
 ];
 
 export const guessRole = (name) => ROLE_HINTS.find(([, hint]) => hint.test(name ?? ''))?.[0] ?? null;

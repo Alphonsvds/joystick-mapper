@@ -10,7 +10,7 @@ import {
   sanitizeBinding,
   splitControlId,
 } from '../src/shared/controls.js';
-import { SKINS, assignRoles, describeDevice, guessRole, hatDirections, mergeInputs, normalizeInput } from '../src/shared/devices.js';
+import { SKINS, assignRoles, describeDevice, deviceKey, guessRole, hatDirections, mergeInputs, normalizeInput } from '../src/shared/devices.js';
 import { GAMES } from '../src/shared/games.js';
 import { LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
@@ -174,6 +174,31 @@ const ACE_TORQ_LAYOUT = {
 };
 const ACE_TORQ = { vendorId: 0x3344, productId: 0x01f9, name: 'VIRPIL Controls 20220720 VPC ACE-Torq Rudder' };
 const ACE_TORQ_REST = [0x7656, 0, 0];
+
+// A Thrustmaster Sol-R pair, from one owner's "Copy device info" (GitHub issue #8): two
+// sticks with the same 44 buttons and the same axes, in this order: hat, dial, slider, rx,
+// ry, rz, z, y, x, vendor byte. SOL_R_REST is the right stick's last report: everything on
+// the middle but the thrust lever on Rx, part way up (the left stick's lever was at 0), and
+// the base's rotary on its first position (button 20).
+const SOL_R_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x50, min: 0, max: 255 },
+  ],
+  buttonCount: 44,
+};
+const SOL_R_RIGHT = { vendorId: 0x044f, productId: 0x0422, name: 'Thrustmaster Sol-R [R] Flightstick' };
+const SOL_R_LEFT = { vendorId: 0x044f, productId: 0x042a, name: 'Thrustmaster Sol-R [L] Flightstick' };
+const SOL_R_REST = [8, 0x8000, 0x8000, 0x9653, 0x8000, 0x8000, 0x8000, 0x7fff, 0x8000, 0];
+const SOL_R_HELD = [20];
 
 // Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
 function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
@@ -461,8 +486,61 @@ test('ACE-Torq pedals read the rudder on Z, centred, with the two unused axes pa
   assert.deepEqual(guessRole(ORION_THROTTLE.name), 'throttle');
 });
 
+test('the Sol-R sticks read their thrust lever as a lever and everything else from the middle', () => {
+  for (const [stick, skin, name] of [
+    [SOL_R_RIGHT, 'solrright', 'Sol-R Right Stick'],
+    [SOL_R_LEFT, 'solrleft', 'Sol-R Left Stick'],
+  ]) {
+    const model = describeDevice(SOL_R_LAYOUT, stick);
+    assert.equal(model.skin, skin);
+    assert.equal(model.support, 'experimental'); // until an owner has confirmed which axis is which
+    assert.equal(model.name, name);
+    assert.equal(model.buttons, 44);
+    assert.deepEqual(model.axes.map((a) => a.id), ['dial', 'slider', 'rx', 'ry', 'rz', 'z', 'y', 'x']); // the vendor byte isn't one
+    const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+    assert.deepEqual(axis.rx, ['Thrust', false, false, undefined]);
+    assert.deepEqual(axis.z, ['Twist', true, false, 0.1]);
+    assert.deepEqual(axis.ry, ['Ministick X', true, false, undefined]);
+    assert.deepEqual(axis.rz, ['Ministick Y', true, true, 0.04]);
+    assert.deepEqual(axis.slider, ['Slider', false, true, undefined]); // the two spares keep their generic ones
+    assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['ry', 'rz', 'z', 'y', 'x']);
+    assert.equal(model.axes.find((a) => a.id === 'slider').hint, '');
+    assert.deepEqual(model.hats.map((h) => h.name), ['Left Hat']);
+    assert.equal(model.buttonNames.btn20, 'Rotary 1');
+    assert.equal(model.buttonNames.btn25, 'Trigger Stage 2');
+    assert.equal(model.buttonNames.btn30, 'Left Hat Push');
+    assert.equal(model.buttonNames.btn40, 'Right Hat Push'); // push first, from the "40" printed beside its push symbol
+    assert.equal(model.buttonNames.btn44, 'Right Hat Left');
+    assert.equal(model.buttonNames.btn17, 'Right Pad Top Left'); // 17 is above 19, and left of 16
+    assert.equal(model.buttonNames.btn31, 'Button 31'); // the chart leaves out 31–34
+
+    // At rest only the thrust lever and the rotary's first position stand out.
+    const rest = normalizeInput(decoded(SOL_R_REST, SOL_R_HELD), model, {});
+    for (const id of ['x', 'y', 'z', 'ry', 'rz', 'slider', 'dial']) assert.ok(Math.abs(rest.axes[id]) < 0.01, `${id} = ${rest.axes[id]}`);
+    assert.ok(rest.axes.rx > 0.17 && rest.axes.rx < 0.18, `rx = ${rest.axes.rx}`);
+    assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), ['btn20']);
+    const idle = normalizeInput(decoded([8, 0x8000, 0x8000, 0, 0x8000, 0x8000, 0x8000, 0x7fff, 0x8000, 0]), model, {});
+    assert.equal(idle.axes.rx, -1);
+    // Without the skin the lever read as a centred axis half way over, which is more than
+    // the stick will accept as at rest, so it never centred itself.
+    const generic = describeDevice(SOL_R_LAYOUT, { ...stick, ignoreSkin: true });
+    assert.equal(generic.axes.find((a) => a.id === 'rx').centered, true);
+    assert.ok(Math.abs(normalizeInput(decoded(SOL_R_REST), generic, {}).axes.rx) > 0.1);
+  }
+});
+
+test('the two Sol-R sticks take the stick and throttle roles whichever order they are found in', () => {
+  const [right, left] = [SOL_R_RIGHT, SOL_R_LEFT].map((d) => ({ id: deviceKey(d.vendorId, d.productId), name: d.name }));
+  assert.equal(guessRole(left.name), 'throttle');
+  assert.equal(guessRole(right.name), null);
+  const roles = { [right.id]: 'stick', [left.id]: 'throttle' };
+  assert.deepEqual(assignRoles([right, left]), roles);
+  assert.deepEqual(assignRoles([left, right]), roles);
+  assert.deepEqual(assignRoles([left]), { [left.id]: 'stick' }); // on its own it is the stick, as for any other
+});
+
 // first..last, inclusive.
-const range = (first, last) => Array.from({ length: last - first + 1 }, (_, i) => first + i);
+const range =(first, last) => Array.from({ length: last - first + 1 }, (_, i) => first + i);
 
 // The control IDs a set of labels points at.
 const shownBy = (callouts) => callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
@@ -475,6 +553,8 @@ test('every photo layout points only at controls its stick has, each one once', 
     velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
     orion2f16ex: [ORION_STICK_LAYOUT, ORION_STICK],
     orion2throttle: [ORION_THROTTLE_LAYOUT, ORION_THROTTLE],
+    solrright: [SOL_R_LAYOUT, SOL_R_RIGHT],
+    solrleft: [SOL_R_LAYOUT, SOL_R_LEFT],
   };
   // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
   const skins = Object.values(SKINS).map((s) => s.id);
@@ -533,6 +613,26 @@ test('every photo layout points only at controls its stick has, each one once', 
   const dots = LAYOUTS.orion2throttle.callouts.map((c) => c.at);
   for (const [i, a] of dots.entries()) {
     for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS.orion2throttle.image.scale >= 24, `${a} and ${b}`);
+  }
+  // Both Sol-R photos show every button on the chart and every axis the stick has, on labels
+  // that all fit above the bottom of the stage, with a dot each clear of the others.
+  for (const skin of ['solrright', 'solrleft']) {
+    const layout = LAYOUTS[skin];
+    const shown = shownBy(layout.callouts);
+    for (const id of ['x', 'y', 'z', 'rx', 'ry', 'rz']) assert.ok(shown.includes(id), `${skin}: ${id}`);
+    for (const id of ['hat1_up', 'hat1_right', 'hat1_down', 'hat1_left']) assert.ok(shown.includes(id), `${skin}: ${id}`);
+    const buttons = shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((x, y) => x - y);
+    assert.deepEqual(buttons, [...range(1, 30), ...range(35, 44)], skin); // 31–34 aren't on the chart
+    assert.equal(layout.folded, undefined);
+    const rows = (c) => Math.ceil(c.group ? c.group.reduce((n, item) => n + (item.wide ? 1 : 1 / (c.columns ?? 1)), 0) : 1);
+    for (const side of ['left', 'right']) {
+      const last = layout.callouts.filter((c) => c.side === side).at(-1);
+      assert.ok(last.y + 23 + rows(last) * 32 <= (side === 'left' ? 915 : 985), `${skin}: the ${side} labels run off the stage`);
+    }
+    const spots = layout.callouts.map((c) => c.at);
+    for (const [i, a] of spots.entries()) {
+      for (const b of spots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * layout.image.scale >= 24, `${skin}: ${a} and ${b}`);
+    }
   }
 });
 
