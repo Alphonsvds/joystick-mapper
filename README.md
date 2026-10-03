@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/1000-downloads.svg" alt="Thank you for 1,000 downloads" width="100%">
+</p>
+
 # Joystick Mapper
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
