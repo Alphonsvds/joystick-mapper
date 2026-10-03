@@ -32,8 +32,15 @@ const AXIS_USAGES = {
 const buttonHat = (name, first) =>
   Object.fromEntries(['Up', 'Right', 'Down', 'Left', 'Push'].map((dir, i) => [`btn${first + i}`, `${name} ${dir}`]));
 
+// The same hat with its push first: `push`, then up, right, down, left.
+const pushHat = (name, push) =>
+  Object.fromEntries(['Push', 'Up', 'Right', 'Down', 'Left'].map((dir, i) => [`btn${push + i}`, `${name} ${dir}`]));
+
 // `count` buttons in a row from `first`, named by their place in it: numbered(3, 5, (n) => `Rotary ${n}`).
 const numbered = (first, count, name) => Object.fromEntries(Array.from({ length: count }, (_, i) => [`btn${first + i}`, name(i + 1)]));
+
+// A switch or knob whose positions are buttons in a row from `first`: positions(86, 'Roll Switch', 'Up', 'Middle', 'Down').
+const positions = (first, name, ...places) => Object.fromEntries(places.map((place, i) => [`btn${first + i}`, `${name} ${place}`]));
 
 // How well a stick is known, shown next to its name:
 //   full          photo layout and names, checked against the real stick
@@ -43,9 +50,174 @@ export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Be
 
 // Sticks with a photo layout (see renderer/layout.js) and friendly names. `axes` says how
 // an axis behaves when the descriptor can't: { [id]: { centered, invert, deadzone } }.
+// A skin without a photo layout still fixes its names and axes, and shows as the list.
 // Everything else gets the generic layout and is marked experimental until someone
 // confirms it.
 export const SKINS = Object.freeze({
+  // WINWING Orion 2 joystick base with the F-16EX grip and its left extension (reports as
+  // "WINWING Orion Joystick Base 2 + JGRIP-F16"). The grip's two levers rest at the bottom
+  // of their axes (GitHub issue #7): the one beside the trigger is on Rz, which would read
+  // as a twist held hard over, and the paddle is on Slider, which would read as squeezed.
+  // Button numbers are from the Joystick Diagrams template for this grip. Each lever also
+  // presses buttons along its travel, one of them while it rests; the order of the top
+  // lever's five is inferred from that template, and so is which way the side hat points.
+  // Beta until an owner has confirmed every label.
+  '4098:bea8': {
+    id: 'orion2f16ex',
+    name: 'WINWING Orion 2 F-16EX',
+    support: 'beta',
+    names: {
+      btn1: 'Top Lever Forward',
+      btn2: 'Top Lever Rest',
+      btn3: 'Top Lever Full',
+      btn4: 'Trigger Stage 1',
+      btn5: 'Trigger Stage 2',
+      btn6: 'Pinky Button',
+      btn7: 'Paddle Rest',
+      btn8: 'Paddle Full',
+      ...pushHat('Thumb Hat', 9),
+      btn14: 'Side Hat Push',
+      btn15: 'Side Hat Right',
+      btn16: 'Side Hat Down',
+      btn17: 'Side Hat Left',
+      btn18: 'Side Hat Up',
+      btn19: 'Trim Hat Push',
+      btn20: 'Weapon Release',
+      ...pushHat('Left Hat', 21),
+      ...pushHat('Ministick', 26),
+      ...pushHat('Centre Hat', 31),
+      ...pushHat('Right Hat', 36),
+      btn41: 'Top Lever Stage 1',
+      btn42: 'Top Lever Stage 2',
+      hat1: 'Trim Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      rx: 'Ministick X',
+      ry: 'Ministick Y',
+      rz: 'Top Lever',
+      slider: 'Paddle',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      rx: 'Ministick in analog mode',
+      ry: 'Ministick in analog mode',
+      rz: 'Lever beside the trigger',
+      slider: 'Lever at the foot of the grip',
+    },
+    axes: {
+      rz: { centered: false, invert: false, deadzone: 0.02 },
+      slider: { invert: false },
+    },
+  },
+  // WINWING Orion 2 throttle base with the F-15EX handles (reports as "WINWING Orion
+  // Throttle Base II + F15EX HANDLE L + F15EX HANDLE R"). Its throttle levers are the Rx
+  // (right) and Ry (left) axes, which would read as a second stick (GitHub issue #7): Ry
+  // reversed next to Rx, and wherever the levers sat at startup taken as their middle. The
+  // sprung wheel on Z would read as a lever, and the antenna knob on Rz as a twist.
+  // Button numbers are from the Joystick Diagrams template for this base and these
+  // handles. The base's numbers are the same whichever handles are fitted; the handles'
+  // are not (an F/A-18 map doesn't apply). The handle controls are named for how they look,
+  // not for what they do in an F-15. Two buttons on the left handle, and the buttons the
+  // wheel and the knob can also send, keep their generic names.
+  // Not confirmed: which way the levers run (forward reads low, as for Slider and Dial),
+  // and which end of each three-way switch is up; their middles are, from an owner's report.
+  // Beta until an owner has confirmed every label.
+  '4098:bd64': {
+    id: 'orion2throttle',
+    name: 'WINWING Orion 2 Throttle',
+    support: 'beta',
+    names: {
+      btn1: 'Right Throttle Off',
+      btn2: 'Left Throttle Off',
+      ...positions(3, 'Paddle Switch', 'Up', 'Middle', 'Down'),
+      ...buttonHat('Ribbed Hat', 6),
+      btn11: 'Side Button',
+      ...buttonHat('Cone Hat', 12),
+      ...buttonHat('Inner Hat', 17),
+      ...positions(22, 'Slide Switch', 'Up', 'Middle', 'Down'),
+      btn25: 'Encoder Up',
+      btn26: 'Encoder Push',
+      btn27: 'Encoder Down',
+      btn28: 'Front Hat Up',
+      btn29: 'Front Hat Right',
+      btn30: 'Right Throttle Idle',
+      btn31: 'Left Throttle Idle',
+      btn32: 'Front Hat Down',
+      btn33: 'Front Hat Left',
+      btn34: 'Front Hat Push',
+      ...pushHat('TDC', 35),
+      btn43: 'Encoder Far Up',
+      btn44: 'Encoder Far Down',
+      ...buttonHat('Left Hat', 51),
+      ...positions(57, 'Lever Switch', 'Up', 'Middle', 'Down'),
+      ...positions(65, 'Launch Bar', 'Retract', 'Extend'),
+      ...positions(67, 'Hook', 'Up', 'Down'),
+      ...positions(69, 'Wing', 'Fold', 'Hold', 'Spread'),
+      btn72: 'Wing Fold Push',
+      ...positions(73, 'Gear', 'Up', 'Down'),
+      ...positions(75, 'Park Brake', 'On', 'Off'),
+      ...positions(77, 'Flap', 'Auto', 'Half', 'Full'),
+      btn80: 'Red Button',
+      btn81: 'A/G Button',
+      btn82: 'A/A Button',
+      ...positions(83, 'HMD Knob', 'Left', 'Right', 'Push'),
+      ...positions(86, 'Roll Switch', 'Up', 'Middle', 'Down'),
+      ...positions(89, 'Pitch Switch', 'Up', 'Middle', 'Down'),
+      btn92: 'ADV Mode Button',
+      ...positions(93, 'Master', 'Arm', 'Safe', 'Sim'),
+      btn96: 'Jettison Button',
+      ...positions(97, 'HDG Knob', 'Left', 'Right', 'Push'),
+      ...positions(100, 'CRS Knob', 'Left', 'Right', 'Push'),
+      ...positions(103, 'Lights Knob', 'Left', 'Right', 'Push'),
+      ...positions(106, 'Slider Lever', 'Forward', 'Middle', 'Back'),
+      ...positions(109, 'Dial Lever', 'Forward', 'Middle', 'Back'),
+      btn112: 'Right Finger Lift',
+      btn113: 'Left Finger Lift',
+      x: 'TDC X',
+      y: 'TDC Y',
+      z: 'Slew Wheel',
+      rx: 'Right Throttle',
+      ry: 'Left Throttle',
+      rz: 'Antenna Knob',
+      slider: 'Slider Lever',
+      dial: 'Dial Lever',
+    },
+    hints: {
+      x: 'Ministick on the right handle',
+      y: 'Ministick on the right handle',
+      z: 'Wheel on the right handle',
+      rx: 'Throttle lever',
+      ry: 'Throttle lever',
+      rz: 'Knob on the left handle',
+      slider: 'Lever marked Slider',
+      dial: 'Lever marked Dial',
+    },
+    axes: {
+      z: { centered: true },
+      rx: { centered: false, invert: true },
+      ry: { centered: false, invert: true },
+      rz: { centered: false, deadzone: 0.02 },
+    },
+  },
+  // Virpil ACE-Torq rudder pedals (reports as "VPC ACE-Torq Rudder"). The rudder is on Z,
+  // which would read as a reversed throttle lever (GitHub issue #7). The pedals have no
+  // toe brakes but still report an X and a Y, parked at the bottom of their range: read as
+  // a stick they would be held hard over, and keep the rudder from centring itself.
+  // No photo layout yet, so it shows as the list. Beta until an owner has confirmed that
+  // the right pedal reads right.
+  '3344:01f9': {
+    id: 'acetorq',
+    name: 'Virpil ACE-Torq Rudder',
+    support: 'beta',
+    names: { z: 'Rudder', x: 'Spare X', y: 'Spare Y' },
+    hints: { z: 'Push a pedal forward', x: 'Unused', y: 'Unused' },
+    axes: {
+      z: { centered: true, invert: false },
+      x: { centered: false, invert: false },
+      y: { centered: false, invert: false },
+    },
+  },
   // VKB STECS Modern Throttle Mk.II Standard: twin grips, base and STEM module (reports as
   // "S-TECS MODERN THROTTLE STANDARD STEM"). Its two throttle levers are the 12-bit X and
   // Y axes, which would read as a stick (GitHub issue #2): Y reversed next to X, drawn as

@@ -157,6 +157,48 @@ function setListView(key, on) {
   if (status) renderStatus(status);
 }
 
+// ─── Folded labels ───────────────────────────────────────────────────────────
+
+// A stick with more controls than there is room to show dropdowns for (see `folded` in
+// layout.js) shows each label as its heading alone, with the outputs it is mapped to
+// beside it. Clicking a label, or its dot, opens its dropdowns over the labels below.
+let openCallout = null; // id of the label that is open
+let summaryEl = {}; // callout id -> the icons beside its heading
+
+function setOpenCallout(id) {
+  if (openCallout === id) return;
+  if (openControl && calloutOf[openControl] !== id) closePicker({ restoreFocus: false });
+  if (openCallout) {
+    calloutEl[openCallout]?.classList.remove('is-open');
+    calloutEl[openCallout]?.querySelector('.callout-head')?.setAttribute('aria-expanded', 'false');
+  }
+  openCallout = id;
+  stage.classList.toggle('has-open', id !== null);
+  if (id) {
+    calloutEl[id].classList.add('is-open');
+    calloutEl[id].querySelector('.callout-head').setAttribute('aria-expanded', 'true');
+  }
+  setFocus(id);
+}
+
+const toggleCallout = (id) => setOpenCallout(openCallout === id ? null : id);
+
+const calloutControls = (c) => (c.group ? c.group.map((item) => item.id) : [c.id]);
+
+// The outputs a folded label's controls are mapped to, as icons beside its heading.
+function renderSummary(c) {
+  const el = summaryEl[c.id];
+  if (!el) return;
+  const targets = calloutControls(c)
+    .map((id) => TARGET_BY_ID[currentBinding(id).target])
+    .filter(Boolean);
+  el.innerHTML = targets
+    .slice(0, 6)
+    .map((target) => targetIcon(target.id))
+    .join('');
+  el.title = targets.map((target) => target.name).join(', ');
+}
+
 // ─── Stage ────────────────────────────────────────────────────────────────────
 
 function fitStage() {
@@ -188,11 +230,15 @@ function buildStage() {
   resetRegistries();
   for (const id of ['#leaders', '#guides', '#callouts', '#generic']) $(id).replaceChildren();
   stage.classList.remove('has-focus');
+  stage.classList.remove('has-open');
+  openCallout = null;
+  summaryEl = {};
   layout = (model && !inListView(model.key) && LAYOUTS[model.skin]) || null;
   const mode = !model ? 'empty' : layout ? 'photo' : 'generic';
   stage.dataset.mode = mode;
   stage.dataset.skin = layout ? model.skin : '';
   stage.dataset.density = layout?.dense ? 'dense' : '';
+  stage.dataset.fold = layout?.folded ? 'folded' : '';
 
   if (mode === 'photo') {
     buildImage();
@@ -200,8 +246,7 @@ function buildStage() {
     buildLeaders();
     buildCallouts();
   } else if (mode === 'generic') {
-    const photo = Boolean(LAYOUTS[model.skin]);
-    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks, { photo }));
+    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks, { photo: Boolean(LAYOUTS[model.skin]) }));
     endIntro();
   } else {
     const empty = htmlEl('div', 'gen-empty', $('#generic'));
@@ -246,9 +291,18 @@ function buildLeaders() {
 
     ring.addEventListener('pointerenter', () => setFocus(c.id));
     ring.addEventListener('pointerleave', () => setFocus(null));
-    ring.addEventListener('click', () => openPicker(c.group ? c.group[0].id : c.id));
+    ring.addEventListener('click', () => (layout.folded ? toggleCallout(c.id) : openPicker(c.group ? c.group[0].id : c.id)));
     leaderEl[c.id] = g;
   });
+}
+
+// A label's heading: its own name, else the hat's or the control's.
+const calloutName = (c) => c.name ?? (c.group ? (model.hats.find((h) => h.id === c.id)?.name ?? 'Hat Switch') : controlInfo(c.id).name);
+
+function buildMeter(axisId, head) {
+  const axis = model.axes.find((a) => a.id === axisId);
+  const meter = htmlEl('span', `meter${isCentered(axis, deviceSettings()) ? '' : ' meter-full'}`, head);
+  meterEl[axisId] = htmlEl('span', 'meter-fill', meter);
 }
 
 function buildGuides() {
@@ -292,7 +346,8 @@ function buildDz(axisId, parent) {
 function buildCallouts() {
   const layer = $('#callouts');
   layout.callouts.forEach((c, i) => {
-    const node = htmlEl('div', `callout side-${c.side}`, layer);
+    const folded = layout.folded === true;
+    const node = htmlEl('div', `callout side-${c.side}${folded ? ' is-folded' : ''}`, layer);
     node.dataset.callout = c.id;
     node.style.setProperty('--i', i);
     node.style.top = `${c.y - 11}px`;
@@ -300,14 +355,29 @@ function buildCallouts() {
     else node.style.left = `${layout.columns.right.edge}px`;
 
     const head = htmlEl('div', 'callout-head', node);
-    const name = c.name ?? (c.group ? model.hats.find((h) => h.id === c.id)?.name ?? 'Hat Switch' : controlInfo(c.id).name);
-    htmlEl('span', 'callout-name', head).textContent = name;
+    htmlEl('span', 'callout-name', head).textContent = calloutName(c);
     if (c.tag) htmlEl('span', 'callout-tag', head).textContent = c.tag;
+    // A folded label's dropdowns sit in a panel that opens under its heading.
+    const body = folded ? htmlEl('div', 'callout-body', node) : node;
+    if (folded) {
+      head.setAttribute('role', 'button');
+      head.tabIndex = 0;
+      head.setAttribute('aria-expanded', 'false');
+      head.addEventListener('click', () => toggleCallout(c.id));
+      head.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        toggleCallout(c.id);
+      });
+    }
 
     if (c.group) {
+      // With its dropdowns folded away, a lever's own meter goes beside the heading.
+      const axes = c.group.filter((item) => controlKind(item.id) === 'axis');
+      if (folded && axes.length === 1) buildMeter(axes[0].id, head);
       // Paired rows are narrow, so their chips abbreviate; a `wide` row spans the pair.
       const paired = c.columns === 2;
-      const rows = paired ? htmlEl('div', `callout-grid${c.group.some((item) => item.dir) ? ' has-icons' : ''}`, node) : node;
+      const rows = paired ? htmlEl('div', `callout-grid${c.group.some((item) => item.dir) ? ' has-icons' : ''}`, body) : body;
       for (const item of c.group) {
         const row = htmlEl('div', `callout-row hat-row${item.wide ? ' is-wide' : ''}`, rows);
         if (item.dir) htmlEl('span', 'hat-icon', row).innerHTML = hatIcon(item.dir);
@@ -323,11 +393,8 @@ function buildCallouts() {
       }
     } else {
       const axis = model.axes.find((a) => a.id === c.id);
-      if (axis) {
-        const meter = htmlEl('span', `meter${isCentered(axis, deviceSettings()) ? '' : ' meter-full'}`, head);
-        meterEl[c.id] = htmlEl('span', 'meter-fill', meter);
-      }
-      const row = htmlEl('div', 'callout-row', node);
+      if (axis) buildMeter(c.id, head);
+      const row = htmlEl('div', 'callout-row', body);
       buildChip(c.id, row);
       if (axis) {
         buildInv(c.id, row);
@@ -337,6 +404,7 @@ function buildCallouts() {
       calloutOf[c.id] = c.id;
     }
 
+    if (folded) summaryEl[c.id] = htmlEl('span', 'callout-sum', head);
     node.addEventListener('pointerenter', () => setFocus(c.id));
     node.addEventListener('pointerleave', () => setFocus(null));
     calloutEl[c.id] = node;
@@ -366,6 +434,7 @@ const genericHooks = {
 
 function setFocus(id) {
   if (openControl) id = calloutOf[openControl];
+  else if (id === null) id = openCallout;
   if (focused === id) return;
   if (focused) {
     calloutEl[focused]?.classList.remove('is-focus');
@@ -425,6 +494,7 @@ function renderChip(controlId) {
 
 function renderAllChips() {
   for (const id of Object.keys(chipEl)) renderChip(id);
+  for (const c of layout?.folded ? layout.callouts : []) renderSummary(c);
 }
 
 function applySnapshot(snap) {
@@ -693,6 +763,7 @@ function closePicker({ restoreFocus = true } = {}) {
 
 popover.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    event.stopPropagation(); // one Escape closes the picker, the next the label it opened from
     closePicker();
     return;
   }
@@ -941,6 +1012,11 @@ document.addEventListener('pointerdown', (event) => {
   }
   const inMenus = [profileMenu, deviceMenu, $('#profile-picker'), $('#device-picker')].some((n) => n.contains(event.target));
   if (!inMenus) closeMenus();
+  if (openCallout && ![calloutEl[openCallout], leaderEl[openCallout], popover].some((n) => n?.contains(event.target))) setOpenCallout(null);
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && openCallout && !openControl) setOpenCallout(null);
 });
 
 // ─── Status bar ──────────────────────────────────────────────────────────────
@@ -964,7 +1040,16 @@ const SUPPORT_TIPS = {
 // A device's layout signature; the stage is rebuilt only when it changes.
 const layoutSignature = (m, settings) =>
   m
-    ? JSON.stringify([m.id, m.role, m.skin, inListView(m.key), m.axes.map((a) => a.id), m.hats.length, m.buttons, settings.centered ?? {}])
+    ? JSON.stringify([
+        m.id,
+        m.role,
+        m.skin,
+        inListView(m.key),
+        m.axes.map((a) => a.id),
+        m.hats.length,
+        m.buttons,
+        settings.centered ?? {},
+      ])
     : 'none';
 
 function renderStatus(next) {
@@ -1215,7 +1300,10 @@ function drawFrame() {
   }
   // A label shared by several controls lights while any of them is pressed.
   for (const c of layout?.callouts ?? []) {
-    if (c.group) leaderEl[c.id].classList.toggle('is-live', c.group.some((item) => live[item.id] === true));
+    if (!c.group) continue;
+    const any = c.group.some((item) => live[item.id] === true);
+    leaderEl[c.id].classList.toggle('is-live', any);
+    if (layout.folded) calloutEl[c.id].classList.toggle('has-live', any);
   }
   drawHud?.(axes);
   drawPad(output);

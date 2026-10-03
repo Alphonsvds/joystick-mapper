@@ -1,10 +1,12 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
 // Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
-// throttle and the Turtle Beach VelocityOne Flightstick (photo layouts), and a Thrustmaster
-// T.16000M built from its published layout (universal layout). Add ?device=gladiator,
-// ?device=stecs, ?device=flightstick or ?device=t16000m to plug in one of the others.
-// ?device=hotas plugs in a stick, a throttle and pedals together; any comma-separated
-// list works too (?device=gladiator,twcs).
+// throttle, the Turtle Beach VelocityOne Flightstick and the WINWING Orion 2 stick and
+// throttle (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a
+// Thrustmaster T.16000M built from its published layout (universal layout). Add
+// ?device=gladiator, ?device=stecs, ?device=flightstick, ?device=orionstick,
+// ?device=orionthrottle, ?device=acetorq or ?device=t16000m to plug in one of the others.
+// ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
+// from GitHub issue #7; any comma-separated list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
@@ -137,6 +139,67 @@ const SIMULATED = [
       buttonCount: 24,
     },
   },
+  // As reported by a real rig (GitHub issue #7): a WINWING Orion 2 stick with the F-16EX
+  // grip, whose two levers are on Rz and Slider; the Orion 2 throttle, whose throttle
+  // levers are on Rx and Ry; and Virpil ACE-Torq pedals, whose rudder is on Z beside two
+  // unused axes. R / F move the levers, Q / E the rudder.
+  {
+    vendorId: 0x4098,
+    productId: 0xbea8,
+    name: 'WINWING Orion Joystick Base 2 + JGRIP-F16',
+    alias: 'orionstick',
+    throttle: ['rz', 'slider'],
+    layout: {
+      values: [
+        hat,
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 4095 },
+        { page: 1, usage: 0x34, min: 0, max: 4095 },
+        { page: 1, usage: 0x35, min: 0, max: 4095 },
+        { page: 1, usage: 0x36, min: 0, max: 4095 },
+        { page: 255, usage: 1, min: 0, max: 255 },
+      ],
+      buttonCount: 42,
+    },
+  },
+  {
+    vendorId: 0x4098,
+    productId: 0xbd64,
+    name: 'WINWING Orion Throttle Base II + F15EX HANDLE L + F15EX HANDLE R',
+    alias: 'orionthrottle',
+    throttle: ['rx', 'ry', 'slider', 'dial'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x32, min: 0, max: 4095 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 255, usage: 1, min: 0, max: 255 },
+      ],
+      buttonCount: 128,
+    },
+  },
+  {
+    vendorId: 0x3344,
+    productId: 0x01f9,
+    name: 'VIRPIL Controls 20220720 VPC ACE-Torq Rudder',
+    alias: 'acetorq',
+    throttle: ['x', 'y'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x32, min: 0, max: 60000 },
+        { page: 1, usage: 0x30, min: 0, max: 60000 },
+        { page: 1, usage: 0x31, min: 0, max: 60000 },
+      ],
+      buttonCount: 0,
+    },
+  },
   // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
   // not captured from the real devices.
   {
@@ -177,7 +240,7 @@ const SIMULATED = [
   return { ...d, id: model.key, model: { ...model, id: model.key } };
 });
 
-const RIGS = { hotas: ['extreme3dpro', 'twcs', 'pedals'] };
+const RIGS = { hotas: ['extreme3dpro', 'twcs', 'pedals'], winwing: ['orionstick', 'orionthrottle', 'acetorq'] };
 
 const KEY_BUTTONS = {
   Space: 'btn1',

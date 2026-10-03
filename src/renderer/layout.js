@@ -16,6 +16,8 @@ export const STAGE = { width: 1600, height: 1000 };
 //   dense     true to pack the labels tighter (see DENSE below)
 //   guides    motion guides drawn over the stick for each axis. A dot rides along the
 //             guide to show the live value; `point(v)` maps -1..1 to a stage position
+//   folded    true for a stick with more controls than there is room to show dropdowns
+//             for: each label is its heading alone, and opens when clicked (see FOLDED)
 
 const HAT_DIRECTIONS = ['up', 'right', 'down', 'left'];
 
@@ -579,12 +581,324 @@ const VELOCITYONE_FLIGHTSTICK = {
   },
 };
 
-// Keyed by skin id (see SKINS in shared/devices.js).
+// ─── WINWING Orion 2 with the F-16EX grip ────────────────────────────────────
+
+// A hat that reports as five buttons with its push first: `push`, then up, right, down, left.
+const pushHat = (push) => [...HAT_DIRECTIONS.map((dir, i) => ({ id: `btn${push + 1 + i}`, dir })), { id: `btn${push}`, dir: 'push' }];
+
+// Seen from behind and to the left, so forward is to the left. The top lever sits beside
+// the trigger under the head, and the side hat is on the far side of it: both are out of
+// sight, so their lines stop at the nearest edge. The photo is cut off below the gimbal.
+const ORION2_F16EX = {
+  alt: 'WINWING Orion 2 joystick with the F-16EX grip, seen from behind',
+  dense: true,
+  image: { src: 'assets/orion2-f16ex.png', width: 720, height: 1083, x: 545, y: 108, scale: 0.74 },
+  columns: {
+    left: { edge: 450, anchor: 464, elbow: 520 },
+    right: { edge: 1150, anchor: 1136, elbow: 1080 },
+  },
+  callouts: [
+    ...stack('left', 92, [
+      { id: 'btn20', at: [267, 98] },
+      { id: 'lefthat', name: 'Left Hat', tag: 'EXTENSION', at: [192, 125], columns: 2, group: pushHat(21) },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'ANALOG OR BUTTONS',
+        at: [229, 250],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, ...pushHat(26)],
+      },
+      {
+        id: 'toplever',
+        name: 'Top Lever',
+        tag: 'BESIDE THE TRIGGER',
+        at: [167, 324],
+        columns: 2,
+        group: [{ id: 'rz', wide: true }, ...labelled(['btn1', 'Fwd'], ['btn2', 'Rest'], ['btn41', '1st'], ['btn42', '2nd'], ['btn3', 'Full'])],
+      },
+      { id: 'trigger', name: 'Trigger', tag: 'TWO STAGE', at: [231, 315], columns: 2, group: labelled(['btn4', '1st'], ['btn5', '2nd']) },
+      {
+        id: 'paddle',
+        name: 'Paddle',
+        at: [188, 530],
+        columns: 2,
+        group: [{ id: 'slider', wide: true }, ...labelled(['btn7', 'Rest'], ['btn8', 'Full'])],
+      },
+    ]),
+    ...stack('right', 92, [
+      {
+        id: 'hat1',
+        tag: 'POV',
+        at: [350, 50],
+        columns: 2,
+        group: [...HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })), { id: 'btn19', dir: 'push' }],
+      },
+      {
+        id: 'sidehat',
+        name: 'Side Hat',
+        tag: 'RIGHT OF THE HEAD',
+        at: [392, 119],
+        columns: 2,
+        group: [
+          { id: 'btn18', dir: 'up' },
+          { id: 'btn15', dir: 'right' },
+          { id: 'btn16', dir: 'down' },
+          { id: 'btn17', dir: 'left' },
+          { id: 'btn14', dir: 'push' },
+        ],
+      },
+      { id: 'righthat', name: 'Right Hat', at: [396, 167], columns: 2, group: pushHat(36) },
+      { id: 'centrehat', name: 'Centre Hat', at: [310, 183], columns: 2, group: pushHat(31) },
+      { id: 'thumbhat', name: 'Thumb Hat', at: [302, 379], columns: 2, group: pushHat(9) },
+      {
+        id: 'stick',
+        name: 'Stick',
+        at: [417, 479],
+        columns: 2,
+        group: [
+          { id: 'x', label: 'X', wide: true },
+          { id: 'y', label: 'Y', wide: true },
+        ],
+      },
+      { id: 'btn6', at: [306, 583] },
+    ]),
+  ],
+  guides: {
+    x: {
+      path: 'M 630 92 L 790 92',
+      arrows: [
+        [630, 92, 180],
+        [790, 92, 0],
+      ],
+      point: (v) => [710 + v * 80, 92],
+    },
+    y: {
+      path: 'M 905 150 L 905 310',
+      arrows: [
+        [905, 150, -90],
+        [905, 310, 90],
+      ],
+      point: (v) => [905, 230 - v * 80],
+    },
+    // Above the paddle's tip, which swings in towards the grip.
+    slider: {
+      path: 'M 650 452 L 712 452',
+      arrows: [
+        [650, 452, 180],
+        [712, 452, 0],
+      ],
+      point: (v) => [681 + v * 31, 452],
+    },
+  },
+};
+
+// ─── WINWING Orion 2 throttle (F-15EX handles) ───────────────────────────────
+
+// Folded labels are a heading each, so they stack at a fixed pitch from `top`.
+const FOLDED = { pitch: 34 };
+const fold = (side, top, callouts) => callouts.map((c, i) => ({ ...c, side, y: top + i * FOLDED.pitch }));
+
+// A switch with a button for each of three positions, `first` being up and the next its middle.
+const threeWay = (first) => [
+  { id: `btn${first}`, dir: 'up' },
+  { id: `btn${first + 2}`, dir: 'down' },
+  { id: `btn${first + 1}`, dir: 'push' },
+];
+
+// A knob that sends a button each way it turns, and one when pushed: `first` is left.
+const knob = (first) => [
+  { id: `btn${first}`, dir: 'left' },
+  { id: `btn${first + 1}`, dir: 'right' },
+  { id: `btn${first + 2}`, dir: 'push' },
+];
+
+// Seen from the pilot's left: the pilot sits bottom left and forward is up and to the
+// right. It has 37 controls, so every one gets its own line and a folded label; the labels
+// are in the order that keeps the lines from crossing or running over another dot.
+// The right handle's thumb side faces the camera, with four of its controls in view. A
+// second hat and a button on that side, the launch bar switch (behind the handle), the A/G
+// button (behind the Dial lever) and everything on the front of both handles are out of
+// sight: their dots sit on the nearest edge, the front ones along the handles' tops.
+const ORION2_THROTTLE = {
+  alt: 'WINWING Orion 2 throttle, seen from the left',
+  dense: true,
+  folded: true,
+  image: { src: 'assets/orion2-throttle.png', width: 1026, height: 943, x: 410, y: 128, scale: 0.76 },
+  columns: {
+    left: { edge: 330, anchor: 344, elbow: 400 },
+    right: { edge: 1270, anchor: 1256, elbow: 1200 },
+  },
+  callouts: [
+    ...fold('left', 136, [
+      { id: 'lefthat', name: 'Left Hat', tag: 'FRONT', at: [240, 16], columns: 2, group: buttonHat(51) },
+      {
+        id: 'antenna',
+        name: 'Antenna Knob',
+        at: [186, 34],
+        columns: 2,
+        group: [{ id: 'rz', wide: true }, ...labelled(['btn60', 'B60'], ['btn61', 'B61'], ['btn62', 'B62'])],
+      },
+      { id: 'btn56', at: [312, 22], tag: 'FRONT' },
+      { id: 'btn50', at: [274, 50], tag: 'FRONT' },
+      {
+        id: 'slew',
+        name: 'Slew Wheel',
+        tag: 'FRONT',
+        at: [392, 30],
+        columns: 2,
+        group: [{ id: 'z', wide: true }, ...labelled(['btn40', 'B40'], ['btn41', 'B41'], ['btn42', 'B42'])],
+      },
+      { id: 'lever', name: 'Lever Switch', at: [146, 148], columns: 2, group: threeWay(57) },
+      {
+        id: 'tdc',
+        name: 'TDC',
+        tag: 'FRONT',
+        at: [440, 30],
+        columns: 2,
+        group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, ...pushHat(35)],
+      },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        at: [490, 30],
+        columns: 2,
+        group: [
+          { id: 'btn28', dir: 'up' },
+          { id: 'btn29', dir: 'right' },
+          { id: 'btn32', dir: 'down' },
+          { id: 'btn33', dir: 'left' },
+          { id: 'btn34', dir: 'push' },
+        ],
+      },
+      { id: 'btn11', at: [518, 236], tag: 'OUT OF VIEW' },
+      {
+        id: 'leftthrottle',
+        name: 'Left Throttle',
+        at: [332, 444],
+        columns: 2,
+        group: [{ id: 'ry', wide: true }, ...labelled(['btn2', 'Off'], ['btn31', 'Idle'], ['btn113', 'Lift'])],
+      },
+      {
+        id: 'rightthrottle',
+        name: 'Right Throttle',
+        at: [400, 486],
+        columns: 2,
+        group: [{ id: 'rx', wide: true }, ...labelled(['btn1', 'Off'], ['btn30', 'Idle'], ['btn112', 'Lift'])],
+      },
+      { id: 'roll', name: 'Roll Switch', at: [157, 520], columns: 2, group: threeWay(86) },
+      { id: 'btn92', at: [328, 540] },
+      { id: 'pitch', name: 'Pitch Switch', at: [232, 560], columns: 2, group: threeWay(89) },
+      { id: 'hdg', name: 'HDG Knob', at: [274, 624], columns: 2, group: knob(97) },
+      { id: 'masterarm', name: 'Master Arm', at: [468, 615], columns: 2, group: labelled(['btn93', 'Arm'], ['btn94', 'Safe'], ['btn95', 'Sim']) },
+      { id: 'crs', name: 'CRS Knob', at: [341, 659], columns: 2, group: knob(100) },
+      { id: 'btn96', at: [521, 654] },
+      { id: 'lights', name: 'Lights Knob', at: [431, 692], columns: 2, group: knob(103) },
+    ]),
+    ...fold('right', 150, [
+      {
+        id: 'encoder',
+        name: 'Encoder',
+        tag: 'FRONT',
+        at: [540, 30],
+        columns: 2,
+        group: labelled(['btn25', 'Up'], ['btn27', 'Down'], ['btn43', 'Up 2'], ['btn44', 'Dn 2'], ['btn26', 'Push']),
+      },
+      { id: 'slide', name: 'Slide Switch', at: [587, 129], columns: 2, group: threeWay(22) },
+      { id: 'conehat', name: 'Cone Hat', at: [552, 212], columns: 2, group: buttonHat(12) },
+      { id: 'innerhat', name: 'Inner Hat', tag: 'OUT OF VIEW', at: [610, 232], columns: 2, group: buttonHat(17) },
+      { id: 'ribbedhat', name: 'Ribbed Hat', at: [588, 271], columns: 2, group: buttonHat(6) },
+      {
+        id: 'hook',
+        name: 'Hook',
+        at: [645, 286],
+        columns: 2,
+        group: [
+          { id: 'btn67', dir: 'up' },
+          { id: 'btn68', dir: 'down' },
+        ],
+      },
+      {
+        id: 'gear',
+        name: 'Gear',
+        at: [791, 312],
+        columns: 2,
+        group: [
+          { id: 'btn73', dir: 'up' },
+          { id: 'btn74', dir: 'down' },
+        ],
+      },
+      { id: 'park', name: 'Park Brake', at: [853, 345], columns: 2, group: labelled(['btn75', 'Park'], ['btn76', 'Off']) },
+      { id: 'flap', name: 'Flap', at: [932, 372], columns: 2, group: labelled(['btn77', 'Auto'], ['btn78', 'Half'], ['btn79', 'Full']) },
+      { id: 'wingfold', name: 'Wing Fold', at: [701, 309], columns: 2, group: labelled(['btn69', 'Fold'], ['btn70', 'Hold'], ['btn71', 'Sprd'], ['btn72', 'Push']) },
+      { id: 'launchbar', name: 'Launch Bar', tag: 'OUT OF VIEW', at: [612, 305], columns: 2, group: labelled(['btn65', 'Retr'], ['btn66', 'Ext']) },
+      {
+        id: 'sliderlever',
+        name: 'Slider Lever',
+        at: [784, 405],
+        columns: 2,
+        group: [{ id: 'slider', wide: true }, ...labelled(['btn106', 'Fwd'], ['btn107', 'Mid'], ['btn108', 'Back'])],
+      },
+      { id: 'paddle', name: 'Paddle Switch', at: [573, 331], columns: 2, group: threeWay(3) },
+      { id: 'btn80', at: [665, 433] },
+      { id: 'hmd', name: 'HMD Knob', at: [728, 498], columns: 2, group: knob(83) },
+      { id: 'btn81', at: [626, 470], tag: 'BEHIND THE LEVER' },
+      { id: 'btn82', at: [658, 512] },
+      {
+        id: 'diallever',
+        name: 'Dial Lever',
+        at: [592, 530],
+        columns: 2,
+        group: [{ id: 'dial', wide: true }, ...labelled(['btn109', 'Fwd'], ['btn110', 'Mid'], ['btn111', 'Back'])],
+      },
+    ]),
+  ],
+  // The throttles run up and to the right, beside their slot; the two base levers ride the
+  // arrows printed beside them.
+  guides: {
+    ry: {
+      path: 'M 590.5 473.6 L 635.6 445.1',
+      arrows: [
+        [590.5, 473.6, 147.7],
+        [635.6, 445.1, -32.3],
+      ],
+      point: (v) => [613.1 + v * 22.6, 459.3 - v * 14.2],
+    },
+    rx: {
+      path: 'M 714 525.8 L 759.1 497.3',
+      arrows: [
+        [714, 525.8, 147.7],
+        [759.1, 497.3, -32.3],
+      ],
+      point: (v) => [736.6 + v * 22.6, 511.6 - v * 14.2],
+    },
+    slider: {
+      path: 'M 996.6 506.8 L 1058.4 466.4',
+      arrows: [
+        [996.6, 506.8, 146.8],
+        [1058.4, 466.4, -33.2],
+      ],
+      point: (v) => [1027.5 + v * 30.9, 486.6 - v * 20.2],
+    },
+    dial: {
+      path: 'M 851.8 604.2 L 921.8 556.7',
+      arrows: [
+        [851.8, 604.2, 145.9],
+        [921.8, 556.7, -34.1],
+      ],
+      point: (v) => [886.8 + v * 35, 580.5 - v * 23.75],
+    },
+  },
+};
+
+// Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
 export const LAYOUTS = {
   extreme3dpro: EXTREME_3D_PRO,
   gladiatorevo: GLADIATOR_EVO,
   stecsstandard: STECS_STANDARD,
   velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
+  orion2f16ex: ORION2_F16EX,
+  orion2throttle: ORION2_THROTTLE,
 };
 
 export const toStage = (layout, [x, y]) => [layout.image.x + x * layout.image.scale, layout.image.y + y * layout.image.scale];

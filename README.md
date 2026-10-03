@@ -20,6 +20,12 @@ Click Releases on the right side —> click and download the .exe for the latest
 ![Photo layout: the Turtle Beach VelocityOne Flightstick with an Ace Combat 8 profile loaded](docs/screenshot-flightstick.png)
 <sub>**Turtle Beach VelocityOne Flightstick** (beta)</sub>
 
+![Photo layout: the WINWING Orion 2 joystick with the F-16EX grip, with an Ace Combat 8 profile loaded](docs/screenshot-orion-f16ex.png)
+<sub>**WINWING Orion 2 F-16EX** (beta)</sub>
+
+![Photo layout: the WINWING Orion 2 throttle with an Ace Combat 8 profile loaded](docs/screenshot-orion-throttle.png)
+<sub>**WINWING Orion 2 Throttle** (beta)</sub>
+
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>Every other stick gets the universal layout.</sub>
 
@@ -29,7 +35,7 @@ Click Releases on the right side —> click and download the .exe for the latest
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported** | Logitech Extreme 3D Pro, VKB Gladiator NXT EVO (right hand): tested, with a photo layout and named controls |
-| **Beta** | VKB STECS Modern Throttle Standard, Turtle Beach VelocityOne Flightstick: photo layout and named controls, still being confirmed by owners |
+| **Beta** | VKB STECS Modern Throttle Standard, Turtle Beach VelocityOne Flightstick, WINWING Orion 2 (F-16EX grip, and the throttle with F-15EX handles): photo layout and named controls, still being confirmed by owners. Virpil ACE-Torq pedals: named controls, no photo yet |
 | **Experimental** | Any other USB flight stick, throttle or pedals on Windows |
 
 Experimental sticks are detected automatically.
@@ -67,6 +73,8 @@ mapping for all of them, and unplugging a device only switches off its own contr
   available as a starting point that matches the game's default gamepad layout.
 - **Mapping.** Hover a label or hotspot to highlight its line. Click **NOT MAPPED** to
   pick an Xbox input. Axes also have **INV** (invert) and a **DZ** button with two sliders.
+- **Folded labels.** A device with a lot of controls shows each one as a name with its own
+  line. Click a name, or its dot, to open its dropdowns.
 - **Deadzone and anti-deadzone.** **Deadzone** ignores small movement, for an axis that
   drifts. **Anti-deadzone** starts the output at a set level the moment the axis moves, to
   cancel a deadzone the game applies itself. Off until you set it.
@@ -169,9 +177,11 @@ git push origin main --tags
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
 a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
-a Turtle Beach VelocityOne Flightstick (`?device=flightstick`) and a Thrustmaster T.16000M
-(`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle
-and pedals together; the keyboard drives whichever one is on screen.
+a Turtle Beach VelocityOne Flightstick (`?device=flightstick`), a WINWING Orion 2 stick
+and throttle (`?device=orionstick`, `?device=orionthrottle`), Virpil ACE-Torq pedals
+(`?device=acetorq`) and a Thrustmaster T.16000M (`?device=t16000m`, the universal layout).
+`?device=hotas` plugs in a stick, a throttle and pedals together, `?device=winwing` the
+WINWING and Virpil rig; the keyboard drives whichever one is on screen.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.

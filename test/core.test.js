@@ -122,6 +122,59 @@ const FLIGHTSTICK = { vendorId: 0x10f5, productId: 0x7055, name: 'Turtle Beach V
 // x, y, dial, slider, rz, ry, rx, z, hat, vendor byte
 const FLIGHTSTICK_REST = [0x8000, 0x8000, 0, 0, 0x98c0, 0x7fff, 0x7fff, 0x8000, 0, 0];
 
+// A WINWING Orion 2 stick and throttle and Virpil ACE-Torq pedals, from one owner's "Copy
+// device info" (GitHub issue #7). Each *_REST is the axis part of that device's last
+// report and *_HELD the buttons it had down, taking the report to pack them in this order.
+// Stick: hat, x, y, rx, ry, rz, slider, vendor byte. Both levers on the grip rest at 0.
+const ORION_STICK_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 4095 },
+    { page: 1, usage: 0x34, min: 0, max: 4095 },
+    { page: 1, usage: 0x35, min: 0, max: 4095 },
+    { page: 1, usage: 0x36, min: 0, max: 4095 },
+    { page: 255, usage: 1, min: 0, max: 255 },
+  ],
+  buttonCount: 42,
+};
+const ORION_STICK = { vendorId: 0x4098, productId: 0xbea8, name: 'WINWING Orion Joystick Base 2 + JGRIP-F16' };
+const ORION_STICK_REST = [15, 0x8000, 0x8000, 0x800, 0x800, 0, 0, 0];
+const ORION_STICK_HELD = [2, 7];
+
+// Throttle: x, y, z, rx, ry, rz, slider, dial, vendor byte. The throttle levers are on Rx
+// (right) and Ry (left), side by side part way up; every switch on the base holds a button.
+const ORION_THROTTLE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 4095 },
+    { page: 1, usage: 0x31, min: 0, max: 4095 },
+    { page: 1, usage: 0x32, min: 0, max: 4095 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 255, usage: 1, min: 0, max: 255 },
+  ],
+  buttonCount: 128,
+};
+const ORION_THROTTLE = { vendorId: 0x4098, productId: 0xbd64, name: 'WINWING Orion Throttle Base II + F15EX HANDLE L + F15EX HANDLE R' };
+const ORION_THROTTLE_REST = [2035, 1856, 2048, 29211, 30015, 37929, 59154, 65535, 0];
+const ORION_THROTTLE_HELD = [4, 23, 30, 31, 58, 66, 67, 69, 73, 76, 78, 87, 90, 94];
+
+// Pedals: z, x, y. The rudder is on Z; X and Y are not connected and sit at 0.
+const ACE_TORQ_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x32, min: 0, max: 60000 },
+    { page: 1, usage: 0x30, min: 0, max: 60000 },
+    { page: 1, usage: 0x31, min: 0, max: 60000 },
+  ],
+  buttonCount: 0,
+};
+const ACE_TORQ = { vendorId: 0x3344, productId: 0x01f9, name: 'VIRPIL Controls 20220720 VPC ACE-Torq Rudder' };
+const ACE_TORQ_REST = [0x7656, 0, 0];
+
 // Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
 function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
   const b = Buffer.alloc(8);
@@ -287,14 +340,146 @@ test('a Flightstick at rest reads centred; twisting right and pushing a lever fo
   assert.deepEqual([up.hat1_up, up.hat1_right, up.hat1_down, up.hat1_left], [true, false, false, false]);
 });
 
+test('the Orion 2 F-16EX stick reads its two levers from rest, not as a twist held over', () => {
+  const model = describeDevice(ORION_STICK_LAYOUT, ORION_STICK);
+  assert.equal(model.key, '4098:bea8');
+  assert.equal(model.skin, 'orion2f16ex');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'WINWING Orion 2 F-16EX');
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'rx', 'ry', 'rz', 'slider']);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.rz, ['Top Lever', false, false, 0.02]);
+  assert.deepEqual(axis.slider, ['Paddle', false, false, undefined]);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'rx', 'ry']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Trim Hat']);
+  assert.equal(model.buttons, 42);
+  assert.equal(model.buttonNames.btn20, 'Weapon Release');
+  assert.equal(model.buttonNames.btn36, 'Right Hat Push');
+  assert.equal(model.buttonNames.btn40, 'Right Hat Left');
+  assert.equal(model.buttonNames.btn18, 'Side Hat Up');
+  assert.equal(model.buttonNames.btn42, 'Top Lever Stage 2');
+
+  const rest = normalizeInput(decoded(ORION_STICK_REST, ORION_STICK_HELD), model, {});
+  for (const id of ['x', 'y', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.deepEqual([rest.axes.rz, rest.axes.slider], [-1, -1]); // both levers let go
+  // Each lever holds a button while it rests; the hat reports 15, outside 0–7, when let go.
+  assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), ['btn2', 'btn7']);
+  const squeezed = normalizeInput(decoded([15, 0x8000, 0x8000, 0x800, 0x800, 4095, 4095, 0]), model, {});
+  assert.deepEqual([squeezed.axes.rz, squeezed.axes.slider], [1, 1]);
+  // Without the skin the paddle read as fully squeezed, and the top lever as a twist that
+  // rests hard over: too far off centre for the stick ever to centre itself.
+  const generic = describeDevice(ORION_STICK_LAYOUT, { ...ORION_STICK, ignoreSkin: true });
+  assert.equal(generic.axes.find((a) => a.id === 'rz').centered, true);
+  assert.equal(normalizeInput(decoded(ORION_STICK_REST), generic, {}).axes.slider, 1);
+});
+
+test('the Orion 2 throttle reads its levers on Rx and Ry as levers, both the same way', () => {
+  const model = describeDevice(ORION_THROTTLE_LAYOUT, ORION_THROTTLE);
+  assert.equal(model.key, '4098:bd64');
+  assert.equal(model.skin, 'orion2throttle');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'WINWING Orion 2 Throttle');
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.rx, ['Right Throttle', false, true, undefined]);
+  assert.deepEqual(axis.ry, ['Left Throttle', false, true, undefined]);
+  assert.deepEqual(axis.z, ['Slew Wheel', true, true, undefined]);
+  assert.deepEqual(axis.rz, ['Antenna Knob', false, false, 0.02]);
+  assert.deepEqual(axis.slider, ['Slider Lever', false, true, undefined]); // generic defaults
+  assert.deepEqual(axis.dial, ['Dial Lever', false, true, undefined]);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'z']);
+  assert.equal(model.buttonNames.btn1, 'Right Throttle Off');
+  assert.equal(model.buttonNames.btn31, 'Left Throttle Idle');
+  assert.equal(model.buttonNames.btn36, 'TDC Up');
+  assert.equal(model.buttonNames.btn72, 'Wing Fold Push');
+  assert.equal(model.buttonNames.btn85, 'HMD Knob Push');
+  assert.equal(model.buttonNames.btn111, 'Dial Lever Back');
+  assert.equal(model.buttonNames.btn113, 'Left Finger Lift');
+  assert.equal(model.buttonNames.btn12, 'Cone Hat Up');
+  assert.equal(model.buttonNames.btn10, 'Ribbed Hat Push');
+  assert.equal(model.buttonNames.btn33, 'Front Hat Left'); // 30 and 31, in between, are the base's idle detents
+  assert.equal(model.buttonNames.btn44, 'Encoder Far Down');
+  assert.equal(model.buttonNames.btn50, 'Button 50'); // which of the left handle's two buttons it is isn't known
+  assert.equal(model.buttonNames.btn41, 'Button 41'); // the wheel's own buttons, off unless switched on
+
+  // x, y, z, rx, ry, rz, slider, dial, vendor byte
+  const read = (rx, ry, settings = {}) => normalizeInput(decoded([2048, 2048, 2048, rx, ry, 0, 0, 0, 0]), model, settings).axes;
+  assert.deepEqual([read(0, 0).rx, read(0, 0).ry], [1, 1]);
+  assert.deepEqual([read(65535, 65535).rx, read(65535, 65535).ry], [-1, -1]);
+  // Whatever centre was saved while they read as a stick no longer matters.
+  assert.equal(read(29211, 30015, { calibration: { rx: 29211, ry: 30015 } }).rx, read(29211, 30015).rx);
+
+  const rest = normalizeInput(decoded(ORION_THROTTLE_REST, ORION_THROTTLE_HELD), model, {});
+  assert.ok(rest.axes.rx > 0 && rest.axes.ry > 0 && Math.abs(rest.axes.rx - rest.axes.ry) < 0.05, `${rest.axes.rx} / ${rest.axes.ry}`);
+  assert.ok(Math.abs(rest.axes.z) < 0.001); // the sprung wheel, let go
+  // Without the skin the two levers, side by side, read opposite ways.
+  const generic = describeDevice(ORION_THROTTLE_LAYOUT, { ...ORION_THROTTLE, ignoreSkin: true });
+  const apart = normalizeInput(decoded(ORION_THROTTLE_REST), generic, {}).axes;
+  assert.ok(apart.rx < 0 && apart.ry > 0);
+  // Everything the owner's throttle was holding is a switch resting in a named position:
+  // the three three-way switches on the handles on their middles, like those on the base.
+  const held = ORION_THROTTLE_HELD.map((b) => model.buttonNames[`btn${b}`]);
+  assert.deepEqual(held.slice(0, 3), ['Paddle Switch Middle', 'Slide Switch Middle', 'Right Throttle Idle']);
+  assert.deepEqual(held.slice(3), [
+    'Left Throttle Idle',
+    'Lever Switch Middle',
+    'Launch Bar Extend',
+    'Hook Up',
+    'Wing Fold',
+    'Gear Up',
+    'Park Brake Off',
+    'Flap Half',
+    'Roll Switch Middle',
+    'Pitch Switch Middle',
+    'Master Safe',
+  ]);
+});
+
+test('ACE-Torq pedals read the rudder on Z, centred, with the two unused axes parked', () => {
+  const model = describeDevice(ACE_TORQ_LAYOUT, ACE_TORQ);
+  assert.equal(model.key, '3344:01f9');
+  assert.equal(model.skin, 'acetorq');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed which way it reads
+  assert.equal(model.name, 'Virpil ACE-Torq Rudder');
+  assert.equal(LAYOUTS.acetorq, undefined); // no photo yet: it shows as the list
+  assert.deepEqual(
+    model.axes.map((a) => [a.id, a.name, a.centered, a.invert]),
+    [
+      ['z', 'Rudder', true, false],
+      ['x', 'Spare X', false, false],
+      ['y', 'Spare Y', false, false],
+    ],
+  );
+  const rest = normalizeInput(decoded(ACE_TORQ_REST), model, {});
+  assert.ok(Math.abs(rest.axes.z) < 0.02, `z = ${rest.axes.z}`);
+  assert.deepEqual([rest.axes.x, rest.axes.y], [-1, -1]);
+  assert.equal(normalizeInput(decoded([60000, 0, 0]), model, {}).axes.z, 1);
+  assert.equal(normalizeInput(decoded([0, 0, 0]), model, {}).axes.z, -1);
+  // Without the skin the rudder read as a throttle lever, and X and Y as a stick held over.
+  const generic = describeDevice(ACE_TORQ_LAYOUT, { ...ACE_TORQ, ignoreSkin: true });
+  assert.deepEqual(generic.axes.map((a) => a.centered), [false, true, true]);
+  assert.deepEqual(guessRole(ACE_TORQ.name), 'pedals');
+  assert.deepEqual(guessRole(ORION_THROTTLE.name), 'throttle');
+});
+
+// first..last, inclusive.
+const range = (first, last) => Array.from({ length: last - first + 1 }, (_, i) => first + i);
+
+// The control IDs a set of labels points at.
+const shownBy = (callouts) => callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+
 test('every photo layout points only at controls its stick has, each one once', () => {
   const sticks = {
     extreme3dpro: [EXTREME_LAYOUT, EXTREME],
     gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR],
     stecsstandard: [STECS_LAYOUT, STECS],
     velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
+    orion2f16ex: [ORION_STICK_LAYOUT, ORION_STICK],
+    orion2throttle: [ORION_THROTTLE_LAYOUT, ORION_THROTTLE],
   };
-  assert.deepEqual(Object.keys(LAYOUTS).sort(), Object.values(SKINS).map((s) => s.id).sort());
+  // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
+  const skins = Object.values(SKINS).map((s) => s.id);
+  assert.deepEqual(skins.filter((id) => !LAYOUTS[id]), ['acetorq']);
+  assert.deepEqual(Object.keys(LAYOUTS).filter((id) => !skins.includes(id)), []);
   for (const [skin, layout] of Object.entries(LAYOUTS)) {
     const model = describeDevice(...sticks[skin]);
     const known = new Set([
@@ -302,25 +487,52 @@ test('every photo layout points only at controls its stick has, each one once', 
       ...model.hats.flatMap((h) => ['up', 'right', 'down', 'left'].map((dir) => `${h.id}_${dir}`)),
       ...Object.keys(model.buttonNames),
     ]);
-    const shown = layout.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+    const shown = shownBy(layout.callouts);
     assert.deepEqual(shown.filter((id) => !known.has(id)), [], `${skin}: unknown controls`);
     assert.equal(new Set(shown).size, shown.length, `${skin}: a control is shown twice`);
     for (const axis of Object.keys(layout.guides)) assert.ok(shown.includes(axis), `${skin}: guide for ${axis}`);
+    const labels = layout.callouts.map((c) => c.id);
+    assert.equal(new Set(labels).size, labels.length, `${skin}: two labels share an id`);
   }
   // The Gladiator's photo covers everything the factory profile sends.
-  const gladiator = LAYOUTS.gladiatorevo.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  const gladiator = shownBy(LAYOUTS.gladiatorevo.callouts);
   for (let b = 1; b <= 29; b++) assert.ok(gladiator.includes(`btn${b}`), `btn${b}`);
   // The STECS photo covers every button on its owner’s map, and names each one.
-  const stecs = LAYOUTS.stecsstandard.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  const stecs = shownBy(LAYOUTS.stecsstandard.callouts);
   const mapped = Array.from({ length: 58 }, (_, i) => i + 1).filter((b) => ![19, 55, 56].includes(b));
   for (const b of mapped) {
     assert.ok(stecs.includes(`btn${b}`), `btn${b}`);
     assert.ok(SKINS['231d:012d'].names[`btn${b}`], `btn${b} has a name`);
   }
   // The Flightstick photo shows every control its skin names.
-  const flightstick = LAYOUTS.velocityoneflightstick.callouts.flatMap((c) => (c.group ? c.group.map((item) => item.id) : [c.id]));
+  const flightstick = shownBy(LAYOUTS.velocityoneflightstick.callouts);
   for (const id of Object.keys(SKINS['10f5:7055'].names)) {
     assert.ok(id === 'hat1' ? flightstick.includes('hat1_up') : flightstick.includes(id), id);
+  }
+  // So does the Orion 2 stick's, which is all 42 of its buttons.
+  const orionStick = shownBy(LAYOUTS.orion2f16ex.callouts);
+  for (const id of Object.keys(SKINS['4098:bea8'].names)) {
+    assert.ok(id === 'hat1' ? orionStick.includes('hat1_up') : orionStick.includes(id), id);
+  }
+  for (let b = 1; b <= 42; b++) assert.ok(orionStick.includes(`btn${b}`), `btn${b}`);
+  // The Orion 2 throttle's photo has a line to each of its 37 controls, which between them
+  // are every axis and every button on the diagram for this base and these handles.
+  const orionThrottle = shownBy(LAYOUTS.orion2throttle.callouts);
+  assert.equal(LAYOUTS.orion2throttle.folded, true);
+  assert.equal(LAYOUTS.orion2throttle.callouts.length, 37);
+  for (const id of ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']) assert.ok(orionThrottle.includes(id), id);
+  const numbers = (ids) => ids.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((x, y) => x - y);
+  const onDiagram = [...range(1, 44), ...range(50, 62), ...range(65, 113)];
+  assert.deepEqual(numbers(orionThrottle), onDiagram);
+  // All of them are named, bar two buttons on the left handle and the buttons the wheel and
+  // the knob can also send.
+  const named = numbers(Object.keys(SKINS['4098:bd64'].names));
+  assert.deepEqual(onDiagram.filter((b) => !named.includes(b)), [40, 41, 42, 50, 56, 60, 61, 62]);
+  assert.deepEqual(named.filter((b) => !onDiagram.includes(b)), []);
+  // Each line has its own dot: no two closer than a dot's width and a bit.
+  const dots = LAYOUTS.orion2throttle.callouts.map((c) => c.at);
+  for (const [i, a] of dots.entries()) {
+    for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS.orion2throttle.image.scale >= 24, `${a} and ${b}`);
   }
 });
 
