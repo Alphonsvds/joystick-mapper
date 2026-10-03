@@ -13,7 +13,7 @@ Map the stick once and fly with it in any game that only understands gamepads.
 Click Releases on the right side —> click and download the .exe for the latest release
 
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
-<sub>Logitech Extreme 3D Pro</sub>
+<sub>**Logitech Extreme 3D Pro**</sub>
 
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
 <sub>**VKB Gladiator NXT EVO**</sub>
