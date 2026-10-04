@@ -10,7 +10,17 @@ So this app makes your flight stick show up to games as an Xbox 360 controller.
 Map the stick once and fly with it in any game that only understands gamepads.
 
 ## How to install
-Click Releases on the right side —> click and download the .exe for the latest release
+
+Click **Releases** on the right side, then download the file for your computer from the
+latest release:
+
+- **Windows:** `Joystick-Mapper-Setup-x.y.z.exe`
+- **Linux** (experimental), one of:
+  - **Fedora / openSUSE:** `Joystick-Mapper-x.y.z.rpm`
+  - **Ubuntu / Mint / Pop!_OS / Debian:** `Joystick-Mapper-x.y.z.deb`
+  - **Anything else** (Bazzite, Arch, SteamOS on the Steam Deck…): `Joystick-Mapper-x.y.z.AppImage`
+
+  Then see [Linux](#linux-experimental) for the one-time **Allow access** step.
 
 ![Photo layout: the Logitech Extreme 3D Pro with the Ace Combat 8 profile loaded](docs/screenshot.png)
 <sub>**Logitech Extreme 3D Pro**</sub>
@@ -44,11 +54,12 @@ Click Releases on the right side —> click and download the .exe for the latest
 
 | Support | Joysticks |
 | --- | --- |
-| **Fully supported** | Logitech Extreme 3D Pro, VKB Gladiator NXT EVO (right hand): tested, with a photo layout and named controls |
-| **Beta** | VKB STECS Modern Throttle Standard, Turtle Beach VelocityOne Flightstick, WINWING Orion 2 (F-16EX grip, and the throttle with F-15EX handles): photo layout and named controls, still being confirmed by owners. Virpil ACE-Torq pedals: named controls, no photo yet |
-| **Experimental** | Thrustmaster Sol-R (right and left sticks): photo layout and named controls, axes not confirmed yet. Any other USB flight stick, throttle or pedals on Windows |
+| **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Thrustmaster Sol-R right and left sticks (photo layout and named controls, axes not confirmed yet)</li><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
-Experimental sticks are detected automatically.
+On Linux every stick is read the same way as on Windows, with the same layouts, but Linux
+itself is still experimental: nothing has been confirmed on a real Linux machine yet.
 
 Beta sticks have a photo layout whose labels haven't all been checked on the real stick
 yet. If a line points at the wrong control, please say so in an issue.
@@ -68,11 +79,50 @@ mapping for all of them, and unplugging a device only switches off its own contr
 
 ## Download
 
-**[Download the latest installer](https://github.com/Alphonsvds/joystick-mapper/releases/latest)**:
-`Joystick-Mapper-Setup-x.y.z.exe`. 
+**[Download the latest release](https://github.com/Alphonsvds/joystick-mapper/releases/latest)**:
+`Joystick-Mapper-Setup-x.y.z.exe` on Windows, or the Linux file for your distro (see
+[How to install](#how-to-install)).
 
 > Windows may show **"Windows protected your PC"** because the installer isn't code-signed
 > (signing certificates cost money). Click **More info → Run anyway**.
+
+## Linux (experimental)
+
+Linux support is new. It works the same way as on Windows, but it hasn't been tried with
+many sticks and games yet, so if something's off, please
+[open an issue](https://github.com/Alphonsvds/joystick-mapper/issues/new).
+
+- **Installing.** Open the `.rpm` or `.deb` with your software center, or run
+  `sudo dnf install ./Joystick-Mapper-x.y.z.rpm` (Fedora) or
+  `sudo apt install ./Joystick-Mapper-x.y.z.deb` (Ubuntu). The **AppImage** needs no
+  install: make it executable (right-click → Properties → *Allow executing as program*, or
+  `chmod +x Joystick-Mapper-*.AppImage`) and double-click it.
+- **Allow access (once).** Linux doesn't let apps read joysticks or create controllers
+  until you say so. Plug in your stick, open the app, click **Allow access** in the top
+  bar and enter your password. That adds one small permissions file,
+  `/etc/udev/rules.d/70-joystick-mapper.rules`, covering the virtual controller and the
+  devices plugged in at the time. Plug in a new device later? Click it again. Delete the
+  file to undo it.
+- **Steam Deck:** set a password first (`passwd` in Konsole), since **Allow access** asks
+  for it.
+- **The AppImage won't open?** It needs FUSE 2: `sudo dnf install fuse-libs` (Fedora) or
+  `sudo apt install libfuse2t64` (Ubuntu 24.04). On Ubuntu, the `.deb` is the easier choice.
+- **Games** see an ordinary Xbox 360 controller, both native Linux games and Windows games
+  running through Steam's Proton.
+- **Updates.** The AppImage updates itself, like the Windows app. With the `.rpm` or
+  `.deb`, **Update available** opens the release page: install the new file over the old one.
+- **Settings** live in `~/.config/Joystick Mapper/`.
+- **No password prompt appears?** Do the same thing by hand in a terminal, with one
+  `hidraw` line per device: its ID from the joystick menu (e.g. `046d:c215`), in capitals.
+
+  ```bash
+  sudo tee /etc/udev/rules.d/70-joystick-mapper.rules <<'EOF'
+  KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess"
+  SUBSYSTEM=="hidraw", KERNELS=="*:046D:C215.*", TAG+="uaccess"
+  EOF
+  sudo modprobe uinput
+  sudo udevadm control --reload-rules && sudo udevadm trigger
+  ```
 
 ## Using it
 
@@ -97,10 +147,11 @@ mapping for all of them, and unplugging a device only switches off its own contr
   calibrates automatically the first time it sees the stick at rest.
 - **Throttle vs centred axes.** Each axis's dropdown has **Springs back to centre**. Leave it
   on for sticks, twists and pedals, and turn it off for throttles and sliders. Experimental
-  sticks get a best guess from Windows' description.
+  sticks get a best guess from the stick's own description.
 - **Updates.** **Update available** appears bottom-left when a newer release is out. Click
   it to download and install; Windows asks for permission and the app restarts. Profiles
   and calibration carry over. The app checks GitHub's public release list when it starts.
+  (Linux: see [Linux](#linux-experimental).)
 
 Handy axis options for flying: **Throttle → LT / RT Split** (pull back = brake, push
 forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
@@ -119,7 +170,7 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   Microsoft Store, then turn off **Settings → Gaming → Xbox Game Bar → "Open Xbox Game Bar
   using this button on a controller"** or just leave it alone if it doesn’t bother you.
 - Your settings live in `%APPDATA%\Joystick Mapper\` (`profiles.json`, and `devices.json`
-  for each device's calibration and role).
+  for each device's calibration and role). On Linux: `~/.config/Joystick Mapper/`.
 - Profiles use each stick's own button numbers (on nearly every flight stick, button 1 is
   the trigger), so a profile mostly carries over if you switch sticks. With a HOTAS, a
   profile maps by role, so it carries over to a different throttle or pedals the same way.
@@ -127,7 +178,8 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   it from **Settings → Apps** if you want.
 
 **Check that Windows sees the virtual pad:** with a game profile active, press Win+R, run
-`joy.cpl` and look for **Controller (XBOX 360 For Windows)**.
+`joy.cpl` and look for **Controller (XBOX 360 For Windows)**. On Linux, run
+`grep "X-Box 360" /proc/bus/input/devices` and look for **Microsoft X-Box 360 pad**.
 
 ## How it works
 
@@ -142,10 +194,13 @@ Flight stick ──raw HID──▶ Electron main process ──mapping──▶
 - **Input** is read straight from the stick over HID (`node-hid`), so it works in the
   background while the game is focused. Each report is decoded by **Windows' own HID
   parser** (`hid.dll`) from the stick's self-description, so any stick works without
-  per-model code.
+  per-model code. On Linux, the app's own parser reads the same self-description
+  (`hiddescriptor.js`) and lays it out exactly as Windows does, so layouts and profiles
+  carry over.
 - **Output** is a virtual Xbox 360 pad created by the free
   [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver (the one DS4Windows uses). The
-  app talks to the driver directly through `koffi`, so no C++ build tools are needed.
+  app talks to the driver directly through `koffi`, so no C++ build tools are needed. On
+  Linux there's no driver: the kernel's own `uinput` creates the pad.
 - The UI is plain HTML/CSS/SVG inside Electron. There's no build step for the app itself.
 
 ## Development
@@ -172,8 +227,16 @@ npm test
 npm run dist
 ```
 
+**Build the Linux packages locally** (on Linux; the `.rpm` needs `rpmbuild`). Writes the
+AppImage, `.deb` and `.rpm` to `dist/`:
+
+```bash
+npm run dist:linux
+```
+
 **Publish a release.** Bump `version` in `package.json`, commit, then push a tag. GitHub
-Actions (`.github/workflows/release.yml`) builds the installer and attaches it to the release:
+Actions (`.github/workflows/release.yml`) builds the Windows installer, attaches it to the
+release, then adds the Linux packages:
 
 ```bash
 git tag v0.1.0
@@ -202,8 +265,8 @@ screen.
 the browser preview, add `?update=9.9.9`. `JOYMAP_UPDATE_FEED=<url>` points the installed
 app's updater at a served `dist/` folder instead of GitHub.
 
-macOS: only the Extreme 3D Pro is read (Windows' HID parser isn't available), and the
-virtual Xbox controller needs ViGEmBus, which is Windows-only.
+Linux: `npm install` and `npm start` work the same; click **Allow access** once.
+macOS: only the Extreme 3D Pro is read, and there's no virtual Xbox controller.
 
 ## Project layout
 
@@ -211,9 +274,12 @@ virtual Xbox controller needs ViGEmBus, which is Windows-only.
 src/main/main.js                 Electron main: window, profiles, IPC, wiring
 src/main/joystick.js             Finds and reads every joystick plugged in, reconnects on unplug
 src/main/hidp.js                 Windows' HID parser: reads any stick from its self-description
-src/main/devices/extreme3dpro.js Hand-written Extreme 3D Pro reader (macOS / Linux fallback)
+src/main/hiddescriptor.js        Linux: the same, from the stick's report descriptor
+src/main/devices/extreme3dpro.js Hand-written Extreme 3D Pro reader (macOS fallback)
 src/shared/devices.js            Stick layout → controls (axes, hats, buttons), skins, calibration, HOTAS roles
 src/main/vigem.js                Virtual Xbox 360 controller via ViGEmBus
+src/main/uinput.js               Linux: the virtual Xbox 360 controller via uinput
+src/main/linux-access.js         Linux: the Allow access button (a udev rule, via pkexec)
 src/main/store.js                JSON persistence
 src/main/preload.cjs             The UI's only bridge to the main process
 src/shared/controls.js           Control IDs, Xbox targets, binding rules
@@ -246,3 +312,7 @@ version, it has to stay open source under the same license.
 
 The bundled ViGEmBus driver is © Nefarius Software Solutions e.U. under BSD-3-Clause; its
 licence ships with the installer (`resources/vigembus/ViGEmBus-LICENSE.txt`).
+
+The Barlow Semi Condensed font (used where Windows' Bahnschrift isn't available) is © The
+Barlow Project Authors under the SIL Open Font License
+(`src/renderer/assets/fonts/OFL.txt`).
