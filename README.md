@@ -26,13 +26,23 @@ Map the stick once and fly with it in any game that only understands gamepads.
   [HOTAS](#hotas-stick-throttle-and-pedals-together)), even a gamepad beside them: they
   all work together as one Xbox controller, mapped in one profile.
 - **[Xbox and PlayStation controllers](#xbox-and-playstation-controllers)** can be
-  remapped too.
+  remapped too, starting from a ready-made template.
 - **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
   or quicker control near centre) and anti-deadzone. See [Using it](#using-it).
 - **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad.
+- **Combos on one button:** a single stick button can press L3 + R3, LB + RB or LT + RT
+  together (like dropping flares in Ace Combat 8).
 - **A profile per game**, with Ace Combat 8 as a starting point. Export and import them to
   share or back up.
-- **Changes apply live**, so you can test them in the game right away.
+- **Stays out of the way.** The built-in **Default** profile leaves your stick alone, so
+  games that already support it (like Microsoft Flight Simulator) work as normal.
+- **See what the game sees.** Changes apply live, and an Xbox controller at the bottom of
+  the screen shows exactly what the game is receiving.
+- **Game controls sheet.** Ace Combat 8's own gamepad layout opens in its own window, so
+  you can decide what goes where while you map.
+- **Calibrates itself** the first time the stick is at rest, with **Recenter** if it ever
+  drifts.
+- **Updates itself** when a new release is out.
 - **Windows and Linux** (experimental).
 
 ## How to install
