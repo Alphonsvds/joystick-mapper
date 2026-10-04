@@ -18,6 +18,22 @@
 So this app makes your flight stick show up to games as an Xbox 360 controller.
 Map the stick once and fly with it in any game that only understands gamepads.
 
+## Features
+
+- **Any USB flight stick, throttle or pedals.** [Supported sticks](#supported-joysticks)
+  get a photo layout with named controls; every other stick gets the universal layout.
+- **[HOTAS](#hotas-stick-throttle-and-pedals-together):** stick, throttle and pedals
+  together, as one Xbox controller.
+- **[Xbox and PlayStation controllers](#xbox-and-playstation-controllers)** can be
+  remapped too.
+- **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
+  or quicker control near centre) and anti-deadzone. See [Using it](#using-it).
+- **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad.
+- **A profile per game**, with Ace Combat 8 as a starting point. Export and import them to
+  share or back up.
+- **Changes apply live**, so you can test them in the game right away.
+- **Windows and Linux** (experimental).
+
 ## How to install
 
 Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** on the right side, then download the file for your computer from the
