@@ -22,8 +22,9 @@ Map the stick once and fly with it in any game that only understands gamepads.
 
 - **Any USB flight stick, throttle or pedals.** [Supported sticks](#supported-joysticks)
   get a photo layout with named controls; every other stick gets the universal layout.
-- **[HOTAS](#hotas-stick-throttle-and-pedals-together):** stick, throttle and pedals
-  together, as one Xbox controller.
+- **Multiple devices at once.** Plug in a stick, throttle and pedals (a full
+  [HOTAS](#hotas-stick-throttle-and-pedals-together)), even a gamepad beside them: they
+  all work together as one Xbox controller, mapped in one profile.
 - **[Xbox and PlayStation controllers](#xbox-and-playstation-controllers)** can be
   remapped too.
 - **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
