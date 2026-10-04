@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  I'm seriously so blown away by all the support for this and I'm so glad it's letting you have some fun :)<br>
+  I'm seriously so blown away by all the support for this and I'm so glad it's letting everyobe using it have some fun :)<br>
   I've been asked about donations, which you can do by clicking the button, but honestly I'd rather just have you spread the word.
 </p>
 
 <p align="center">
-  <a href="https://buymeacoffee.com/alphonsvds"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" width="280"></a>
+  <a href="https://buymeacoffee.com/alphonsvds"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" width="200"></a>
 </p>
 
 # Joystick Mapper
