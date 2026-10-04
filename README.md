@@ -13,8 +13,6 @@
 
 # Joystick Mapper
 
-[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)
-
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
 So this app makes your flight stick show up to games as an Xbox 360 controller.
@@ -22,7 +20,7 @@ Map the stick once and fly with it in any game that only understands gamepads.
 
 ## How to install
 
-Click **Releases** on the right side, then download the file for your computer from the
+Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** on the right side, then download the file for your computer from the
 latest release:
 
 - **Windows:** `Joystick-Mapper-Setup-x.y.z.exe`
