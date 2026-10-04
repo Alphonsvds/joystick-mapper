@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 60" width="280" height="60" role="img" aria-labelledby="t">
+<title id="t">Buy me a coffee</title>
+<defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff2b8"/>
+    <stop offset=".55" stop-color="#ffd166"/>
+    <stop offset="1" stop-color="#f29e1d"/>
+  </linearGradient>
+</defs>
+<style>
+  .label { font: 800 21px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; letter-spacing: .5px; }
+</style>
+<rect x="1.5" y="1.5" width="277" height="57" rx="28.5" fill="url(#gold)" stroke="#8a5a00" stroke-opacity=".5" stroke-width="1"/>
+<g transform="translate(36.4 15)" fill="none" stroke="#14264a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2,8 L22,8 L20.5,23 Q20.2,26 17,26 L7,26 Q3.8,26 3.5,23 Z" fill="#14264a" fill-opacity=".18"/>
+  <path d="M22,11 Q29,11 29,16 Q29,21 21,21"/>
+  <path d="M8,1 Q6.5,3.5 8,5.5 M13,1 Q11.5,3.5 13,5.5 M18,1 Q16.5,3.5 18,5.5" stroke-width="2"/>
+</g>
+<text class="label" x="74.4" y="36" textLength="168.6" lengthAdjust="spacingAndGlyphs" fill="#14264a">Buy me a coffee</text>
+</svg>
