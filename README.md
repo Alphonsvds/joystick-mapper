@@ -4,8 +4,8 @@
 
 <p align="center">
   I'm seriously so blown away by all the support for this and I'm so glad it's letting everyobe using it have some fun :)<br>
-  I've been asked about donations, which you can do by clicking the button (and i appreciate it, seriously thank you!), but to be honest I'd rather just have you spread the word.
-</p>
+  <br>I've been asked about donations, which you can do by clicking the button (and i appreciate it, seriously thank you!), but to be honest I'd rather just have you spread the word.
+</br></p>
 
 <p align="center">
   <a href="https://buymeacoffee.com/alphonsvds"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" width="200"></a>
