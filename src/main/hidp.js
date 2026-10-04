@@ -44,6 +44,18 @@ function load() {
 
 const ok = (status) => status >>> 0 === HIDP_STATUS_SUCCESS;
 
+// Windows hands back a field's logical range as two signed numbers, however the stick
+// wrote them. A maximum written unsigned with its top bit set (0 to 65535 as `26 FF FF`)
+// comes back as -1 (GitHub issue #13): a range of 0 to -1, which reads as no range at all,
+// so the axis was dropped. A maximum below a minimum that isn't negative is such a number:
+// it is read as unsigned again, at the widest size (1, 2 or 4 bytes) the field can hold.
+export function logicalMax(min, max, bits) {
+  if (min < 0 || max >= min) return max;
+  const largest = 2 ** bits - 1;
+  const fits = [8, 16, 32].map((width) => max + 2 ** width).filter((value) => value > min && value <= largest);
+  return fits.length ? Math.max(...fits) : largest;
+}
+
 // Parses the capability arrays into plain data: the device's layout.
 function readLayout(a, pp) {
   const caps = Buffer.alloc(CAPS_SIZE);
@@ -63,6 +75,9 @@ function readLayout(a, pp) {
       const isRange = buf[o + 12] !== 0;
       const usageMin = buf.readUInt16LE(o + 56);
       const usageMax = isRange ? buf.readUInt16LE(o + 58) : usageMin;
+      const bits = buf.readUInt16LE(o + 18);
+      const min = buf.readInt32LE(o + 40);
+      const max = logicalMax(min, buf.readInt32LE(o + 44), bits);
       for (let usage = usageMin; usage <= usageMax; usage++) {
         values.push({
           page: buf.readUInt16LE(o),
@@ -70,9 +85,9 @@ function readLayout(a, pp) {
           reportId: buf[o + 2],
           link: buf.readUInt16LE(o + 6),
           hasNull: buf[o + 16] !== 0,
-          bits: buf.readUInt16LE(o + 18),
-          min: buf.readInt32LE(o + 40),
-          max: buf.readInt32LE(o + 44),
+          bits,
+          min,
+          max,
         });
       }
     }

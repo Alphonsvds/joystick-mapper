@@ -25,6 +25,7 @@ import {
   normalizeInput,
 } from '../src/shared/devices.js';
 import { HidDescriptorParser, parseDescriptor } from '../src/main/hiddescriptor.js';
+import { logicalMax } from '../src/main/hidp.js';
 import { XboxPadParser, isEliteProduct } from '../src/main/xinput.js';
 import { GAMES } from '../src/shared/games.js';
 import { LAYOUTS } from '../src/renderer/layout.js';
@@ -136,6 +137,84 @@ const FLIGHTSTICK_LAYOUT = {
 const FLIGHTSTICK = { vendorId: 0x10f5, productId: 0x7055, name: 'Turtle Beach VelocityOne Flightstick' };
 // x, y, dial, slider, rz, ry, rx, z, hat, vendor byte
 const FLIGHTSTICK_REST = [0x8000, 0x8000, 0, 0, 0x98c0, 0x7fff, 0x7fff, 0x8000, 0, 0];
+
+// Turtle Beach VelocityOne Flightstick II, from an owner's "Copy device info" (GitHub issue
+// #13), exactly as Windows handed it over: X and Y with a range of 0 to -1. The twist is on
+// Z; the levers are on Rz (left) and Slider (right). FLIGHTSTICK_2_REST is the axis part of
+// its last report: everything centred, both levers part way along.
+const FLIGHTSTICK_2_REPORTED = {
+  values: [
+    { page: 1, usage: 0x30, bits: 16, min: 0, max: -1 },
+    { page: 1, usage: 0x31, bits: 16, min: 0, max: -1 },
+    { page: 1, usage: 0x37, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, bits: 16, min: 0, max: 65535 },
+    { page: 1, usage: 0x39, bits: 8, min: 1, max: 8 },
+    { page: 255, usage: 33, bits: 8, min: 0, max: 255 },
+  ],
+  buttonCount: 54,
+};
+// The same layout as the app now reads it.
+const FLIGHTSTICK_2_LAYOUT = {
+  ...FLIGHTSTICK_2_REPORTED,
+  values: FLIGHTSTICK_2_REPORTED.values.map((v) => ({ ...v, max: logicalMax(v.min, v.max, v.bits) })),
+};
+const FLIGHTSTICK_2 = { vendorId: 0x10f5, productId: 0x7150, name: 'Turtle Beach VelocityOne Flightstick II' };
+// x, y, dial, slider, rz, ry, rx, z, hat, vendor byte
+const FLIGHTSTICK_2_REST = [0x7fff, 0x7fff, 0x7fff, 0xb640, 0x6d00, 0x7fff, 0x7fff, 0x7fff, 0, 0];
+
+// A Turtle Beach VelocityOne Flightdeck stick and throttle, from one owner's "Copy device
+// info" (GitHub issues #14 and #15). Each *_REST is the axis part of that device's last
+// report and *_HELD the buttons it had down, taking the report to pack the axes X, Y, Z,
+// Rx, Ry, Rz, Slider, Dial, with the buttons after the hats (stick) or the axes (throttle).
+// Stick: x, y, dial, slider, rz, ry, rx, z, three hats, two vendor bytes. The pinkie lever
+// on Rz rests at 0; the gear lever and the rotary knob each hold a button.
+const FLIGHTDECK_STICK_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 1, usage: 0x39, min: 1, max: 8 },
+    { page: 1, usage: 0x39, min: 1, max: 8 },
+    { page: 1, usage: 0x39, min: 1, max: 8 },
+    { page: 255, usage: 2, min: 0, max: 255 },
+    { page: 255, usage: 33, min: 0, max: 255 },
+  ],
+  buttonCount: 40,
+};
+const FLIGHTDECK_STICK = { vendorId: 0x10f5, productId: 0x7084, name: 'Turtle Beach Flightdeck Stick' };
+const FLIGHTDECK_STICK_REST = [0x7fff, 0x7fff, 0, 0x813f, 0, 0x7fff, 0x7fff, 0x7fff, 0, 0, 0, 0, 0];
+const FLIGHTDECK_STICK_HELD = [24, 26];
+
+// Throttle: hat, x, y, dial, slider, rz, ry, rx, z, vendor byte. Both throttle levers are
+// at the bottom of X and Y, holding their Min and Back buttons, and the flap lever is at
+// the top of Slider, holding its Forward button.
+const FLIGHTDECK_THROTTLE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x39, min: 1, max: 8 },
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x37, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 65281, usage: 40, min: 0, max: 255 },
+  ],
+  buttonCount: 47,
+};
+const FLIGHTDECK_THROTTLE = { vendorId: 0x10f5, productId: 0x7085, name: 'Turtle Beach Flightdeck Throttle' };
+const FLIGHTDECK_THROTTLE_REST = [0, 0, 0, 0x77ff, 0xffff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0];
+const FLIGHTDECK_THROTTLE_HELD = [16, 20, 22, 36, 39];
 
 // A WINWING Orion 2 stick and throttle and Virpil ACE-Torq pedals, from one owner's "Copy
 // device info" (GitHub issue #7). Each *_REST is the axis part of that device's last
@@ -460,6 +539,206 @@ test('a Flightstick at rest reads centred; twisting right and pushing a lever fo
   assert.equal(normalizeInput(decoded(FLIGHTSTICK_REST), model, { calibration: { rz: 0x98c0 } }).axes.rz, rest.axes.rz);
   const up = normalizeInput(decoded([0x8000, 0x8000, 0, 0, 0, 0x7fff, 0x7fff, 0x8000, 1, 0]), model, {}).buttons;
   assert.deepEqual([up.hat1_up, up.hat1_right, up.hat1_down, up.hat1_left], [true, false, false, false]);
+});
+
+test('a range Windows hands back as 0 to -1 is read as the unsigned range the stick wrote', () => {
+  assert.equal(logicalMax(0, -1, 16), 65535); // 26 FF FF
+  assert.equal(logicalMax(0, -1, 8), 255); // 25 FF
+  assert.equal(logicalMax(0, -32768, 16), 32768); // 26 00 80
+  assert.equal(logicalMax(0, -1, 32), 4294967295);
+  assert.equal(logicalMax(0, -1, 12), 255); // a 12-bit field can't hold 65535: it was one byte
+  assert.equal(logicalMax(0, -1, 4), 15); // no size fits: the whole field
+  // Ranges that already read true are left alone, signed ones included.
+  assert.equal(logicalMax(0, 65535, 16), 65535);
+  assert.equal(logicalMax(0, 1023, 16), 1023);
+  assert.equal(logicalMax(1, 8, 8), 8);
+  assert.equal(logicalMax(-32768, 32767, 16), 32767);
+  assert.equal(logicalMax(-127, -1, 8), -1);
+});
+
+test('the VelocityOne Flightstick II keeps its X and Y, which Windows reports as 0 to -1', () => {
+  // As reported, both read as having no range and were dropped: six axes, no stick.
+  const before = describeDevice(FLIGHTSTICK_2_REPORTED, { ...FLIGHTSTICK_2, ignoreSkin: true });
+  assert.deepEqual(before.axes.map((a) => a.id), ['dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  const model = describeDevice(FLIGHTSTICK_2_LAYOUT, FLIGHTSTICK_2);
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  assert.deepEqual(model.axes.slice(0, 2).map((a) => [a.min, a.max]), [[0, 65535], [0, 65535]]);
+  const read = (x, y) => normalizeInput(decoded([x, y, ...FLIGHTSTICK_2_REST.slice(2)]), model, {}).axes;
+  assert.deepEqual([read(0, 65535).x, read(0, 65535).y], [-1, -1]); // left, and pulled back
+  assert.deepEqual([read(65535, 0).x, read(65535, 0).y], [1, 1]);
+});
+
+test('the VelocityOne Flightstick II twists on Z and reads its levers on Rz and Slider', () => {
+  const model = describeDevice(FLIGHTSTICK_2_LAYOUT, FLIGHTSTICK_2);
+  assert.equal(model.key, '10f5:7150');
+  assert.equal(model.skin, 'velocityoneflightstick2');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'VelocityOne Flightstick II');
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.z, ['Yaw', true, false, 0.1]);
+  assert.deepEqual(axis.rz, ['Left Lever', false, false, 0.02]);
+  assert.deepEqual(axis.slider, ['Right Lever', false, false, undefined]);
+  assert.deepEqual(axis.dial, ['Scroll Wheel', false, true, undefined]); // generic defaults
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'ry', 'rx', 'z']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Hat 1']);
+  assert.equal(model.buttons, 54);
+  assert.deepEqual([1, 5, 8, 9, 17, 18, 21, 22, 25, 26, 27, 34, 35].map((b) => model.buttonNames[`btn${b}`]), [
+    'B1 Button',
+    'Left Lever Top',
+    'Right Lever Bottom',
+    'Dial Mode 1 Up',
+    'Dial Mode 3 Select',
+    'POV Push',
+    'Scroll Wheel Push',
+    'Bumper',
+    'Middle Stick Button',
+    'Trigger',
+    'A Button',
+    'Menu Button',
+    'Button 35', // not on Turtle Beach's control list
+  ]);
+  // The owner's last report: everything centred, and both levers read the same way.
+  const rest = normalizeInput(decoded(FLIGHTSTICK_2_REST), model, {});
+  for (const id of ['x', 'y', 'z', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.ok(rest.axes.rz < 0 && rest.axes.slider > 0, 'the left lever below halfway, the right one above');
+  const high = normalizeInput(decoded([0x7fff, 0x7fff, 0x7fff, 65535, 65535, 0x7fff, 0x7fff, 65535, 0, 0]), model, {}).axes;
+  assert.deepEqual([high.z, high.rz, high.slider], [1, 1, 1]);
+  // Without the skin the twist read as a reversed throttle and the levers ran opposite ways.
+  const generic = describeDevice(FLIGHTSTICK_2_LAYOUT, { ...FLIGHTSTICK_2, ignoreSkin: true });
+  const loose = Object.fromEntries(generic.axes.map((a) => [a.id, [a.centered, a.invert]]));
+  assert.deepEqual([loose.z, loose.rz, loose.slider], [[false, true], [true, false], [false, true]]);
+  assert.equal(guessRole(FLIGHTSTICK_2.name), null);
+});
+
+test('the Flightdeck stick twists on Z and reads its pinkie lever from rest on Rz', () => {
+  const model = describeDevice(FLIGHTDECK_STICK_LAYOUT, FLIGHTDECK_STICK);
+  assert.equal(model.key, '10f5:7084');
+  assert.equal(model.skin, 'flightdeckstick');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'Flightdeck Stick');
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.z, ['Yaw', true, false, 0.1]);
+  assert.deepEqual(axis.rz, ['Pinkie Lever', false, false, 0.02]);
+  assert.deepEqual(axis.slider, ['Thumb Wheel', false, true, undefined]); // generic defaults
+  assert.deepEqual(axis.dial, ['Dial', false, true, undefined]); // not on Turtle Beach's control list
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'ry', 'rx', 'z']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Hat 1', 'Hat 2', 'Hat 3']);
+  assert.equal(model.buttons, 40);
+  assert.deepEqual([1, 2, 3, 4, 7, 8, 9, 10, 11, 15, 16, 21, 22, 23, 24, 26, 27, 28, 30, 33, 34].map((b) => model.buttonNames[`btn${b}`]), [
+    'Fire Button',
+    'Trigger Stage 2',
+    'Analog POV Push',
+    'D-Pad Up',
+    'D-Pad Left',
+    'Thumb Wheel Push',
+    'Shaft Button',
+    'Pinkie Lever Full',
+    'B11 Button',
+    'B15 Button',
+    'Left Switch Forward',
+    'Right Switch Back',
+    'B22 Button',
+    'Gear Lever Forward',
+    'Gear Lever Back',
+    'Rotary Knob Right',
+    'Rotary Knob Down',
+    'Trigger Stage 1',
+    'Thumb Wheel Down',
+    'B33 Button',
+    'Button 34', // not on Turtle Beach's control list
+  ]);
+
+  // The owner's last report: stick, twist and analog POV centred, the pinkie lever let go,
+  // the gear lever back and the rotary knob on its right position.
+  const rest = normalizeInput(decoded(FLIGHTDECK_STICK_REST, FLIGHTDECK_STICK_HELD), model, {});
+  for (const id of ['x', 'y', 'z', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.equal(rest.axes.rz, -1);
+  assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), ['btn24', 'btn26']); // all three hats rest at 0, outside 1–8
+  const squeezed = normalizeInput(decoded([0x7fff, 0x7fff, 0, 0x813f, 65535, 0x7fff, 0x7fff, 65535, 1, 3, 0, 0, 0]), model, {});
+  assert.deepEqual([squeezed.axes.rz, squeezed.axes.z], [1, 1]);
+  assert.deepEqual([squeezed.buttons.hat1_up, squeezed.buttons.hat2_right, squeezed.buttons.hat2_up], [true, true, false]);
+  // Without the skin the pinkie lever read as a twist held hard over, and the twist as a lever.
+  const generic = describeDevice(FLIGHTDECK_STICK_LAYOUT, { ...FLIGHTDECK_STICK, ignoreSkin: true });
+  assert.deepEqual(generic.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'rz', 'ry', 'rx']);
+  assert.equal(normalizeInput(decoded(FLIGHTDECK_STICK_REST), generic, {}).axes.rz, -1);
+});
+
+test('the Flightdeck throttle reads its two levers and its flap lever as levers, forward reading high', () => {
+  const model = describeDevice(FLIGHTDECK_THROTTLE_LAYOUT, FLIGHTDECK_THROTTLE);
+  assert.equal(model.key, '10f5:7085');
+  assert.equal(model.skin, 'flightdeckthrottle');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'Flightdeck Throttle');
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.x, ['Left Throttle', false, false, undefined]);
+  assert.deepEqual(axis.y, ['Right Throttle', false, false, undefined]);
+  assert.deepEqual(axis.slider, ['Flap Lever', false, false, undefined]);
+  // The two wheels and the knob's dial keep the generic settings.
+  assert.deepEqual(axis.rz, ['Thumb Wheel', true, false, 0.1]);
+  assert.deepEqual(axis.dial, ['Finger Wheel', false, true, undefined]);
+  assert.deepEqual(axis.z, ['Upper Knob', false, true, undefined]);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['rz', 'ry', 'rx']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Thumb Hat']);
+  assert.equal(model.buttons, 47);
+  assert.deepEqual([1, 2, 4, 5, 6, 7, 10, 11, 12, 15, 16, 17, 18, 19, 20, 22, 23, 24, 27, 28, 30, 31, 33, 34, 36, 39, 40, 41, 42].map((b) => model.buttonNames[`btn${b}`]), [
+    'Analog POV Push',
+    'Upper Side Button',
+    'Lower Side Button',
+    'Slide Switch Left',
+    'Slide Switch Right',
+    'Front Hat Up',
+    'Front Hat Left',
+    'Front Button',
+    'Rocker 1 Up',
+    'Rocker 2 Down',
+    'Flap Lever Forward',
+    'Flap Lever Back',
+    'Red Button',
+    'Left Throttle Max',
+    'Left Throttle Min',
+    'Right Throttle Min',
+    'Upper Knob Push',
+    'Upper Knob Outer Left',
+    'Upper Knob Inner Right',
+    'Middle Knob Push',
+    'Middle Knob Right',
+    'Lower Knob Push',
+    'Lower Knob Right',
+    'Left Throttle Forward',
+    'Left Throttle Back',
+    'Right Throttle Back',
+    'Finger Wheel Up',
+    'Finger Wheel Down',
+    'Button 42', // not on Turtle Beach's control list
+  ]);
+
+  // The owner's last report: both throttles right back, on their Min and Back buttons, and
+  // the flap lever right forward, on its Forward button.
+  const rest = normalizeInput(decoded(FLIGHTDECK_THROTTLE_REST, FLIGHTDECK_THROTTLE_HELD), model, {});
+  assert.deepEqual([rest.axes.x, rest.axes.y, rest.axes.slider], [-1, -1, 1]);
+  for (const id of ['rx', 'ry', 'rz']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.deepEqual(
+    Object.keys(rest.buttons).filter((id) => rest.buttons[id]).map((id) => model.buttonNames[id]),
+    ['Flap Lever Forward', 'Left Throttle Min', 'Right Throttle Min', 'Left Throttle Back', 'Right Throttle Back'],
+  );
+  const forward = normalizeInput(decoded([0, 65535, 65535, 0x77ff, 0, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0]), model, {}).axes;
+  assert.deepEqual([forward.x, forward.y, forward.slider], [1, 1, -1]);
+  // A Recenter with the levers back leaves them their whole travel.
+  assert.equal(normalizeInput(decoded(FLIGHTDECK_THROTTLE_REST), model, { calibration: { x: 0, y: 0 } }).axes.x, -1);
+  // Without the skin they read as a stick held in a corner, each lever the other way.
+  const generic = describeDevice(FLIGHTDECK_THROTTLE_LAYOUT, { ...FLIGHTDECK_THROTTLE, ignoreSkin: true });
+  const loose = normalizeInput(decoded(FLIGHTDECK_THROTTLE_REST), generic, {});
+  assert.deepEqual([loose.axes.x, loose.axes.y], [-1, 1]);
+});
+
+test('the Flightdeck pair take the stick and throttle roles whichever order they are found in', () => {
+  const stick = { id: '10f5:7084', name: FLIGHTDECK_STICK.name };
+  const throttle = { id: '10f5:7085', name: FLIGHTDECK_THROTTLE.name };
+  const roles = { [stick.id]: 'stick', [throttle.id]: 'throttle' };
+  assert.deepEqual(assignRoles([stick, throttle]), roles);
+  assert.deepEqual(assignRoles([throttle, stick]), roles);
 });
 
 test('the Orion 2 F-16EX stick reads its two levers from rest, not as a twist held over', () => {
@@ -899,6 +1178,9 @@ test('every photo layout points only at controls its stick has, each one once', 
     gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR],
     stecsstandard: [STECS_LAYOUT, STECS],
     velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
+    velocityoneflightstick2: [FLIGHTSTICK_2_LAYOUT, FLIGHTSTICK_2],
+    flightdeckstick: [FLIGHTDECK_STICK_LAYOUT, FLIGHTDECK_STICK],
+    flightdeckthrottle: [FLIGHTDECK_THROTTLE_LAYOUT, FLIGHTDECK_THROTTLE],
     orion2f16ex: [ORION_STICK_LAYOUT, ORION_STICK],
     orion2throttle: [ORION_THROTTLE_LAYOUT, ORION_THROTTLE],
     solrright: [SOL_R_LAYOUT, SOL_R_RIGHT],
@@ -997,10 +1279,16 @@ test('every photo layout points only at controls its stick has, each one once', 
   }
   // The X56 throttle's photo shows all 36 buttons and all eight axes, the stick's the 14
   // buttons on its chart, its POV and its five axes, and each gamepad's everything it has.
-  // Their labels fit above the bottom of the stage too.
+  // The Flightstick II's and both Flightdeck photos show every button and axis on Turtle
+  // Beach's control lists: 34 buttons, the hat and all eight axes on the Flightstick II, 33
+  // buttons, both hats and seven axes on the Flightdeck stick, 41 buttons, the hat and all
+  // eight axes on its throttle. Their labels fit above the bottom of the stage too.
   for (const [skin, buttons, axes] of [
     ['x56throttle', range(1, 36), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
     ['x56stick', range(1, 14), ['x', 'y', 'rz', 'rx', 'ry']],
+    ['velocityoneflightstick2', range(1, 34), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
+    ['flightdeckstick', range(1, 33), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider']],
+    ['flightdeckthrottle', range(1, 41), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
     ['xboxcontroller', range(1, 10), ['x', 'y', 'rx', 'ry', 'z', 'rz']],
     ['xboxelite', range(1, 10), ['x', 'y', 'rx', 'ry', 'z', 'rz']],
     // The triggers are shown as axes: the buttons they also press (7 and 8) are left out.
@@ -1016,6 +1304,18 @@ test('every photo layout points only at controls its stick has, each one once', 
     for (const side of ['left', 'right']) {
       const last = layout.callouts.filter((c) => c.side === side).at(-1);
       assert.ok(last.y + 23 + rows(last) * 32 <= (side === 'left' ? 915 : 985), `${skin}: the ${side} labels run off the stage`);
+    }
+  }
+  // The Flightdeck stick's second hat is on its photo too, every control these three
+  // photos' skins name is shown, and each line has its own dot, clear of the others.
+  for (const dir of ['up', 'right', 'down', 'left']) assert.ok(shownBy(LAYOUTS.flightdeckstick.callouts).includes(`hat2_${dir}`), `hat2_${dir}`);
+  for (const [key, skin] of [['10f5:7150', 'velocityoneflightstick2'], ['10f5:7084', 'flightdeckstick'], ['10f5:7085', 'flightdeckthrottle']]) {
+    const shown = shownBy(LAYOUTS[skin].callouts);
+    for (const id of Object.keys(SKINS[key].names)) assert.ok(/^hat/.test(id) ? shown.includes(`${id}_up`) : shown.includes(id), `${skin}: ${id}`);
+    assert.equal(LAYOUTS[skin].folded, undefined);
+    const spots = LAYOUTS[skin].callouts.map((c) => c.at);
+    for (const [i, a] of spots.entries()) {
+      for (const b of spots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS[skin].image.scale >= 24, `${skin}: ${a} and ${b}`);
     }
   }
 });

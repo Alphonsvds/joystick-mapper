@@ -2,16 +2,19 @@
 // Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
 // throttle, the Turtle Beach VelocityOne Flightstick and the WINWING Orion 2 stick and
 // throttle, the Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and
-// throttle, an Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo
-// layouts), the Virpil ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M
-// built from its published layout (universal layout).
+// throttle, the Turtle Beach VelocityOne Flightstick II and Flightdeck stick and throttle,
+// an Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the
+// Virpil ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its
+// published layout (universal layout).
 // Add ?device=gladiator, ?device=stecs, ?device=flightstick, ?device=orionstick,
 // ?device=orionthrottle, ?device=solrright, ?device=solrleft, ?device=x56stick,
-// ?device=x56throttle, ?device=xbox, ?device=elite, ?device=dualshock4, ?device=dualsense,
-// ?device=acetorq or ?device=t16000m to plug in one of the others.
+// ?device=x56throttle, ?device=flightdeckstick, ?device=flightdeckthrottle, ?device=xbox,
+// ?device=elite, ?device=dualshock4, ?device=dualsense, ?device=acetorq,
+// ?device=flightstick2 or ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
-// issue #16; any comma-separated list works too (?device=gladiator,twcs).
+// issue #16, ?device=flightdeck the pair from issues #14 and #15; any comma-separated list
+// works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
@@ -280,6 +283,83 @@ const SIMULATED = [
       buttonCount: 36,
     },
   },
+  // As reported by a real VelocityOne Flightstick II (GitHub issue #13), once its X and Y
+  // read 0 to 65535: the twist is on Z and the two levers are on Rz and Slider. R / F move
+  // both levers.
+  {
+    vendorId: 0x10f5,
+    productId: 0x7150,
+    name: 'Turtle Beach VelocityOne Flightstick II',
+    alias: 'flightstick2',
+    throttle: ['rz', 'slider'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 255, usage: 33, min: 0, max: 255 },
+      ],
+      buttonCount: 54,
+    },
+  },
+  // The Turtle Beach VelocityOne Flightdeck pair, as real ones report (GitHub issues #14
+  // and #15). The stick twists on Z and has its pinkie lever on Rz; the throttle's two
+  // levers are on X and Y. R / F move the levers, Q / E the twist.
+  {
+    vendorId: 0x10f5,
+    productId: 0x7084,
+    name: 'Turtle Beach Flightdeck Stick',
+    alias: 'flightdeckstick',
+    throttle: 'rz',
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 255, usage: 2, min: 0, max: 255 },
+        { page: 255, usage: 33, min: 0, max: 255 },
+      ],
+      buttonCount: 40,
+    },
+  },
+  {
+    vendorId: 0x10f5,
+    productId: 0x7085,
+    name: 'Turtle Beach Flightdeck Throttle',
+    alias: 'flightdeckthrottle',
+    throttle: ['x', 'y', 'slider'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 65281, usage: 40, min: 0, max: 255 },
+      ],
+      buttonCount: 47,
+    },
+  },
   // An Xbox controller, as the app describes the ones XInput finds. W/A/S/D move the left
   // stick, R / F pull the triggers, the arrows are the D-pad.
   { ...XBOX_PAD, alias: 'xbox', throttle: ['z', 'rz'], layout: XBOX_LAYOUT },
@@ -373,6 +453,7 @@ const RIGS = {
   winwing: ['orionstick', 'orionthrottle', 'acetorq'],
   solr: ['solrright', 'solrleft'],
   x56: ['x56stick', 'x56throttle'],
+  flightdeck: ['flightdeckstick', 'flightdeckthrottle'],
 };
 
 const KEY_BUTTONS = {

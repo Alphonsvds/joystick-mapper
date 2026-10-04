@@ -45,6 +45,15 @@ latest release:
 ![Photo layout: the Turtle Beach VelocityOne Flightstick with an Ace Combat 8 profile loaded](docs/screenshot-flightstick.png)
 <sub>**Turtle Beach VelocityOne Flightstick** (beta)</sub>
 
+![Photo layout: the Turtle Beach VelocityOne Flightstick II with an Ace Combat 8 profile loaded](docs/screenshot-flightstick-2.png)
+<sub>**Turtle Beach VelocityOne Flightstick II** (beta)</sub>
+
+![Photo layout: the Turtle Beach VelocityOne Flightdeck stick with an Ace Combat 8 profile loaded](docs/screenshot-flightdeck-stick.png)
+<sub>**Turtle Beach VelocityOne Flightdeck Stick** (beta)</sub>
+
+![Photo layout: the Turtle Beach VelocityOne Flightdeck throttle with an Ace Combat 8 profile loaded](docs/screenshot-flightdeck-throttle.png)
+<sub>**Turtle Beach VelocityOne Flightdeck Throttle** (beta)</sub>
+
 ![Photo layout: the WINWING Orion 2 joystick with the F-16EX grip, with an Ace Combat 8 profile loaded](docs/screenshot-orion-f16ex.png)
 <sub>**WINWING Orion 2 F-16EX** (beta)</sub>
 
@@ -84,7 +93,7 @@ latest release:
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 On Linux every stick is read the same way as on Windows, with the same layouts, but Linux
@@ -300,15 +309,17 @@ git push origin main --tags
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
 a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
-a Turtle Beach VelocityOne Flightstick (`?device=flightstick`), a WINWING Orion 2 stick
+a Turtle Beach VelocityOne Flightstick and Flightstick II (`?device=flightstick`,
+`?device=flightstick2`), a WINWING Orion 2 stick
 and throttle (`?device=orionstick`, `?device=orionthrottle`), a Thrustmaster Sol-R right and
 left stick (`?device=solrright`, `?device=solrleft`), a Logitech X56 stick and throttle
-(`?device=x56stick`, `?device=x56throttle`), an Xbox controller and an Xbox Elite
-(`?device=xbox`, `?device=elite`), a DualShock 4 and a DualSense (`?device=dualshock4`,
-`?device=dualsense`), Virpil ACE-Torq pedals (`?device=acetorq`) and a Thrustmaster
-T.16000M (`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle and pedals together,
+(`?device=x56stick`, `?device=x56throttle`), a Turtle Beach VelocityOne Flightdeck stick
+and throttle (`?device=flightdeckstick`, `?device=flightdeckthrottle`), an Xbox controller
+and an Xbox Elite (`?device=xbox`, `?device=elite`), a DualShock 4 and a DualSense
+(`?device=dualshock4`, `?device=dualsense`), Virpil ACE-Torq pedals (`?device=acetorq`)
+and a Thrustmaster T.16000M (`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle and pedals together,
 `?device=winwing` the WINWING and Virpil rig, `?device=solr` the Sol-R pair, `?device=x56`
-the X56 pair; the keyboard drives whichever one is on screen.
+the X56 pair, `?device=flightdeck` the Flightdeck pair; the keyboard drives whichever one is on screen.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.

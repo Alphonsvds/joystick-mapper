@@ -726,6 +726,9 @@ body.is-intro * {
 .stage[data-skin='gladiatorevo'] .stick,
 .stage[data-skin='x56stick'] .stick,
 .stage[data-skin='x56throttle'] .stick,
+.stage[data-skin='flightdeckstick'] .stick,
+.stage[data-skin='flightdeckthrottle'] .stick,
+.stage[data-skin='velocityoneflightstick2'] .stick,
 .stage[data-skin='stecsstandard'] .stick {
   filter: brightness(1.25) contrast(1.05) saturate(0.85) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35))
     drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));
@@ -736,6 +739,9 @@ body.is-intro * {
 .stage[data-skin='gladiatorevo'].has-focus .stick,
 .stage[data-skin='x56stick'].has-focus .stick,
 .stage[data-skin='x56throttle'].has-focus .stick,
+.stage[data-skin='flightdeckstick'].has-focus .stick,
+.stage[data-skin='flightdeckthrottle'].has-focus .stick,
+.stage[data-skin='velocityoneflightstick2'].has-focus .stick,
 .stage[data-skin='stecsstandard'].has-focus .stick {
   filter: brightness(0.8) contrast(1.05) saturate(0.7) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25))
     drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));

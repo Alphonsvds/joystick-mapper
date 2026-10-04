@@ -628,6 +628,186 @@ export const SKINS = Object.freeze({
       dial: { invert: false },
     },
   },
+  // Turtle Beach VelocityOne Flightstick II (GitHub issue #13), in its default right-hand
+  // orientation (the left-hand setting swaps the levers and the B1–B4 buttons). Its axes
+  // are where the first Flightstick has them, bar the right lever, which is on Slider: the
+  // twist on Z would read as a reversed throttle, the left lever on Rz as a twist, and the
+  // two levers would run opposite ways.
+  // Axis roles and button numbers are Turtle Beach's default control list for the stick on
+  // PC. The scroll wheel is the Dial axis, or buttons 19 and 20 when it is set to "Digital
+  // Buttons". Not confirmed: which way the levers read (up reads high, as on the first
+  // Flightstick). Beta until an owner has confirmed every label.
+  '10f5:7150': {
+    id: 'velocityoneflightstick2',
+    name: 'VelocityOne Flightstick II',
+    support: 'beta',
+    names: {
+      ...numbered(1, 4, (n) => `B${n} Button`),
+      ...positions(5, 'Left Lever', 'Top', 'Bottom'),
+      ...positions(7, 'Right Lever', 'Top', 'Bottom'),
+      ...positions(9, 'Dial Mode 1', 'Up', 'Down', 'Select'),
+      ...positions(12, 'Dial Mode 2', 'Up', 'Down', 'Select'),
+      ...positions(15, 'Dial Mode 3', 'Up', 'Down', 'Select'),
+      btn18: 'POV Push',
+      ...positions(19, 'Scroll Wheel', 'Up', 'Down', 'Push'),
+      btn22: 'Bumper',
+      btn23: 'Left Stick Button',
+      btn24: 'Right Stick Button',
+      btn25: 'Middle Stick Button',
+      btn26: 'Trigger',
+      btn27: 'A Button',
+      btn28: 'B Button',
+      btn29: 'X Button',
+      btn30: 'Y Button',
+      btn31: 'Xbox Button',
+      btn32: 'View Button',
+      btn33: 'Share Button',
+      btn34: 'Menu Button',
+      hat1: 'Hat 1',
+      x: 'Roll',
+      y: 'Pitch',
+      z: 'Yaw',
+      rx: 'POV X',
+      ry: 'POV Y',
+      rz: 'Left Lever',
+      slider: 'Right Lever',
+      dial: 'Scroll Wheel',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      z: 'Twist the stick',
+      rx: 'Analog POV',
+      ry: 'Analog POV',
+      rz: 'Lever on the left of the base',
+      slider: 'Lever on the right of the base',
+      dial: 'Wheel on the grip, in analog mode',
+    },
+    axes: {
+      z: { centered: true, invert: false, deadzone: 0.1 },
+      rz: { centered: false, invert: false, deadzone: 0.02 },
+      slider: { invert: false },
+    },
+  },
+  // Turtle Beach VelocityOne Flightdeck stick (reports as "Flightdeck Stick", GitHub issue
+  // #14). Like the Flightstick it twists on Z, which would read as a reversed throttle, and
+  // its pinkie lever is on Rz, which would read as a twist held hard over.
+  // Axis roles and button numbers are Turtle Beach's control list for the stick. An owner's
+  // report has the pinkie lever resting at the bottom of Rz, and the gear lever and the
+  // rotary knob each holding a button at rest (24 and 26). The thumb wheel keeps the
+  // generic settings: whether it springs back isn't known. The stick also reports a Dial
+  // axis, a third hat and buttons 34 to 40, which aren't on that list and keep their
+  // generic names; the touchpad on the Fire button is a mouse.
+  // Beta until an owner has confirmed every label.
+  '10f5:7084': {
+    id: 'flightdeckstick',
+    name: 'Flightdeck Stick',
+    support: 'beta',
+    names: {
+      btn1: 'Fire Button',
+      btn2: 'Trigger Stage 2',
+      btn3: 'Analog POV Push',
+      ...numbered(4, 4, (n) => `D-Pad ${['Up', 'Right', 'Down', 'Left'][n - 1]}`),
+      btn8: 'Thumb Wheel Push',
+      btn9: 'Shaft Button',
+      btn10: 'Pinkie Lever Full',
+      ...numbered(11, 5, (n) => `B${10 + n} Button`),
+      ...positions(16, 'Left Switch', 'Forward', 'Back'),
+      ...positions(18, 'Middle Switch', 'Forward', 'Back'),
+      ...positions(20, 'Right Switch', 'Forward', 'Back'),
+      btn22: 'B22 Button',
+      ...positions(23, 'Gear Lever', 'Forward', 'Back'),
+      ...positions(25, 'Rotary Knob', 'Left', 'Right', 'Down'),
+      btn28: 'Trigger Stage 1',
+      ...positions(29, 'Thumb Wheel', 'Up', 'Down'),
+      ...numbered(31, 3, (n) => `B${30 + n} Button`),
+      hat1: 'Hat 1',
+      hat2: 'Hat 2',
+      x: 'Roll',
+      y: 'Pitch',
+      z: 'Yaw',
+      rx: 'Analog POV X',
+      ry: 'Analog POV Y',
+      rz: 'Pinkie Lever',
+      slider: 'Thumb Wheel',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      z: 'Twist the stick',
+      rx: 'Analog POV',
+      ry: 'Analog POV',
+      rz: 'Lever on the front of the grip',
+      slider: 'Wheel under the Fire button',
+      dial: '',
+    },
+    axes: {
+      z: { centered: true, invert: false, deadzone: 0.1 },
+      rz: { centered: false, invert: false, deadzone: 0.02 },
+    },
+  },
+  // Turtle Beach VelocityOne Flightdeck throttle (reports as "Flightdeck Throttle", GitHub
+  // issue #15). Its two throttle levers are the X and Y axes, which would read as a stick:
+  // Y reversed next to X, and Recenter taking wherever they sit as the middle.
+  // Axis roles and button numbers are Turtle Beach's control list for the throttle. Each
+  // lever also presses buttons along its travel. An owner's report has both throttles at
+  // the bottom of their axes with their Min and Back buttons held, and the flap lever at
+  // the top of Slider with its Forward button held: forward reads high on all three.
+  // The thumb wheel, the finger wheel and the upper knob's outer dial keep the generic
+  // settings: whether they spring back isn't known. The touch display isn't on the list.
+  // Beta until an owner has confirmed every label.
+  '10f5:7085': {
+    id: 'flightdeckthrottle',
+    name: 'Flightdeck Throttle',
+    support: 'beta',
+    names: {
+      btn1: 'Analog POV Push',
+      btn2: 'Upper Side Button',
+      btn3: 'Middle Side Button',
+      btn4: 'Lower Side Button',
+      ...positions(5, 'Slide Switch', 'Left', 'Right'),
+      ...numbered(7, 4, (n) => `Front Hat ${['Up', 'Right', 'Down', 'Left'][n - 1]}`),
+      btn11: 'Front Button',
+      ...positions(12, 'Rocker 1', 'Up', 'Down'),
+      ...positions(14, 'Rocker 2', 'Up', 'Down'),
+      ...positions(16, 'Flap Lever', 'Forward', 'Back'),
+      btn18: 'Red Button',
+      ...positions(19, 'Left Throttle', 'Max', 'Min'),
+      ...positions(21, 'Right Throttle', 'Max', 'Min'),
+      btn23: 'Upper Knob Push',
+      ...positions(24, 'Upper Knob Outer', 'Left', 'Right'),
+      ...positions(26, 'Upper Knob Inner', 'Left', 'Right'),
+      ...positions(28, 'Middle Knob', 'Push', 'Left', 'Right'),
+      ...positions(31, 'Lower Knob', 'Push', 'Left', 'Right'),
+      ...positions(34, 'Left Throttle', 'Forward', 'Middle', 'Back'),
+      ...positions(37, 'Right Throttle', 'Forward', 'Middle', 'Back'),
+      ...positions(40, 'Finger Wheel', 'Up', 'Down'),
+      hat1: 'Thumb Hat',
+      x: 'Left Throttle',
+      y: 'Right Throttle',
+      z: 'Upper Knob',
+      rx: 'Analog POV X',
+      ry: 'Analog POV Y',
+      rz: 'Thumb Wheel',
+      slider: 'Flap Lever',
+      dial: 'Finger Wheel',
+    },
+    hints: {
+      x: 'Throttle lever',
+      y: 'Throttle lever',
+      z: 'Outer dial of the upper knob',
+      rx: 'Analog POV',
+      ry: 'Analog POV',
+      rz: 'Wheel beside the analog POV',
+      slider: 'Lever on the left of the base',
+      dial: 'Wheel on the front of the handle',
+    },
+    axes: {
+      x: { centered: false, invert: false },
+      y: { centered: false, invert: false },
+      slider: { invert: false },
+    },
+  },
   // VKB Gladiator NXT EVO, right hand (reports as "VKBsim Gladiator EVO R"), with the
   // Premium / Space Combat grip. Button numbers are VKB's factory profile; the stick
   // advertises 128 buttons and two spare axes (Slider, Dial) that it doesn't use.

@@ -1243,6 +1243,385 @@ const X56_THROTTLE = {
   },
 };
 
+// ─── Turtle Beach VelocityOne Flightdeck (stick and throttle) ────────────────
+
+// One of a stick's hat switches: `hat` is hat1, hat2…
+const hatSwitch = (hat) => HAT_DIRECTIONS.map((dir) => ({ id: `${hat}_${dir}`, dir }));
+
+// A knob that sends a button when pushed, then one each way it turns: `push`, left, right.
+const pushKnob = (push) => [
+  { id: `btn${push + 1}`, dir: 'left' },
+  { id: `btn${push + 2}`, dir: 'right' },
+  { id: `btn${push}`, dir: 'push' },
+];
+
+// Seen from behind, above and to the right. The trigger, the shaft button and the pinkie
+// lever are on the front of the grip, out of sight: each points at the grip's left edge
+// where it sits behind it. The Fire button's touchpad is a mouse, and the small switch
+// beside it and the HUD NAV button aren't reported, so none of them has a label.
+const FLIGHTDECK_STICK = {
+  alt: 'Turtle Beach VelocityOne Flightdeck stick, seen from behind',
+  dense: true,
+  image: { src: 'assets/flightdeck-stick.png', width: 1018, height: 1258, x: 490, y: 108, scale: 0.61 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 88, [
+      { id: 'trigger', name: 'Trigger', tag: 'FRONT', at: [486, 168], columns: 2, group: leftToRight(labelled(['btn28', '1st'], ['btn2', '2nd'])) },
+      {
+        id: 'pov',
+        name: 'Analog POV',
+        at: [512, 222],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn3', dir: 'push' }],
+      },
+      { id: 'dpad', name: 'D-Pad', at: [460, 345], columns: 2, group: fourWay(4) },
+      { id: 'btn9', tag: 'FRONT', at: [428, 475] },
+      { id: 'gear', name: 'Gear Lever', at: [365, 600], columns: 2, group: leftToRight(labelled(['btn23', 'Fwd'], ['btn24', 'Back'])) },
+      { id: 'pinkie', name: 'Pinkie Lever', tag: 'FRONT', at: [458, 610], columns: 2, group: [{ id: 'rz', wide: true }, { id: 'btn10', label: 'Full' }] },
+      {
+        id: 'switches',
+        name: 'Switches',
+        at: [198, 940],
+        columns: 2,
+        group: leftToRight(labelled(['btn16', '1 Up'], ['btn17', '1 Dn'], ['btn18', '2 Up'], ['btn19', '2 Dn'], ['btn20', '3 Up'], ['btn21', '3 Dn'])),
+      },
+      {
+        id: 'shortcuts',
+        name: 'Front Buttons',
+        at: [330, 1105],
+        columns: 2,
+        group: leftToRight(labelled(['btn22', 'B22'], ['btn31', 'B31'], ['btn32', 'B32'], ['btn33', 'B33'])),
+      },
+    ]),
+    ...stack('right', 88, [
+      { id: 'hat1', tag: 'POV', at: [575, 172], columns: 2, group: hatSwitch('hat1') },
+      { id: 'hat2', at: [612, 250], columns: 2, group: hatSwitch('hat2') },
+      { id: 'btn1', at: [542, 315] },
+      {
+        id: 'wheel',
+        name: 'Thumb Wheel',
+        at: [525, 398],
+        columns: 2,
+        group: [{ id: 'slider', wide: true }, { id: 'btn29', dir: 'up' }, { id: 'btn30', dir: 'down' }, { id: 'btn8', dir: 'push' }],
+      },
+      {
+        id: 'stick',
+        name: 'Stick',
+        at: [530, 560],
+        columns: 2,
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'z', label: 'Yaw', wide: true }],
+      },
+      { id: 'knob', name: 'Rotary Knob', at: [848, 735], columns: 2, group: [{ id: 'btn25', dir: 'left' }, { id: 'btn26', dir: 'right' }, { id: 'btn27', dir: 'down' }] },
+      {
+        id: 'bank',
+        name: 'Button Bank',
+        at: [590, 1045],
+        columns: 2,
+        group: labelled(['btn11', 'B11'], ['btn12', 'B12'], ['btn13', 'B13'], ['btn14', 'B14'], ['btn15', 'B15']),
+      },
+    ]),
+  ],
+  guides: {
+    x: {
+      path: 'M 771 90 L 941 90',
+      arrows: [
+        [771, 90, 180],
+        [941, 90, 0],
+      ],
+      point: (v) => [856 + v * 85, 90],
+    },
+    y: {
+      path: 'M 1000 150 L 1000 280',
+      arrows: [
+        [1000, 150, -90],
+        [1000, 280, 90],
+      ],
+      point: (v) => [1000, 215 - v * 65],
+    },
+    // An arc under the lit ring around the gimbal.
+    z: {
+      path: 'M 683.7 652.1 A 118 54 0 0 0 912.3 652.1',
+      arrows: [
+        [683.7, 652.1, -119.2],
+        [912.3, 652.1, -60.8],
+      ],
+      point: (v) => {
+        const a = Math.PI / 2 - v * (Math.PI / 2 - 0.25);
+        return [798 + 118 * Math.cos(a), 638.7 + 54 * Math.sin(a)];
+      },
+    },
+  },
+};
+
+// The buttons a throttle lever presses along its travel, from the front of it to the
+// back: `max` and the next are its two ends, `forward` and the next two the detents between.
+const detents = (max, forward) =>
+  labelled([`btn${max}`, 'Max'], [`btn${forward}`, 'Fwd'], [`btn${forward + 1}`, 'Mid'], [`btn${forward + 2}`, 'Back'], [`btn${max + 1}`, 'Min']);
+
+// Seen from the pilot's left: the pilot sits bottom left and forward is up and to the
+// right, so the left throttle is the far half of the handle. The front hat, the finger
+// wheel, the front button and both rockers are on the front of the handle, out of sight:
+// they point at its top edge, above where each one sits, and the first two lines come in
+// over the handle to keep clear of the other dots. A label on the left that starts with a
+// lever's own row already lists its pairs left to right. The touch display has no label.
+const FLIGHTDECK_THROTTLE = {
+  alt: 'Turtle Beach VelocityOne Flightdeck throttle, seen from the left',
+  dense: true,
+  image: { src: 'assets/flightdeck-throttle.png', width: 1025, height: 871, x: 472, y: 210, scale: 0.64 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 88, [
+      { id: 'fronthat', name: 'Front Hat', tag: 'FRONT', at: [710, 72], via: [[902, 188]], columns: 2, group: fourWay(7) },
+      {
+        id: 'fingerwheel',
+        name: 'Finger Wheel',
+        tag: 'FRONT',
+        at: [640, 50],
+        via: [[856, 200]],
+        columns: 2,
+        group: [{ id: 'dial', wide: true }, { id: 'btn40', dir: 'up' }, { id: 'btn41', dir: 'down' }],
+      },
+      {
+        id: 'rockers',
+        name: 'Rockers',
+        tag: 'FRONT',
+        at: [385, 18],
+        columns: 2,
+        group: leftToRight(labelled(['btn12', '1 Up'], ['btn14', '2 Up'], ['btn13', '1 Dn'], ['btn15', '2 Dn'])),
+      },
+      { id: 'btn11', at: [590, 36] },
+      {
+        id: 'flap',
+        name: 'Flap Lever',
+        at: [125, 478],
+        columns: 2,
+        group: [{ id: 'slider', wide: true }, ...labelled(['btn16', 'Fwd'], ['btn17', 'Back'])],
+      },
+      {
+        id: 'leftthrottle',
+        name: 'Left Throttle',
+        at: [395, 425],
+        columns: 2,
+        group: [{ id: 'x', wide: true }, ...detents(19, 34)],
+      },
+      {
+        id: 'rightthrottle',
+        name: 'Right Throttle',
+        at: [565, 470],
+        columns: 2,
+        group: [{ id: 'y', wide: true }, ...detents(21, 37)],
+      },
+    ]),
+    ...stack('right', 88, [
+      { id: 'rz', at: [785, 112] },
+      {
+        id: 'pov',
+        name: 'Analog POV',
+        at: [805, 180],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn1', dir: 'push' }],
+      },
+      { id: 'hat1', tag: 'POV', at: [735, 290], columns: 2, group: hatSwitch('hat1') },
+      {
+        id: 'side',
+        name: 'Side Buttons',
+        tag: 'SLIDE SWITCH · B2–B4',
+        at: [692, 333],
+        columns: 2,
+        group: labelled(['btn5', 'SW L'], ['btn6', 'SW R'], ['btn2', 'B2'], ['btn3', 'B3'], ['btn4', 'B4']),
+      },
+      { id: 'btn18', at: [880, 410] },
+      {
+        id: 'upperknob',
+        name: 'Upper Knob',
+        tag: 'OUTER · INNER',
+        at: [785, 495],
+        columns: 2,
+        group: [
+          { id: 'z', wide: true },
+          { id: 'btn24', dir: 'left', label: 'O' },
+          { id: 'btn25', dir: 'right', label: 'O' },
+          { id: 'btn26', dir: 'left', label: 'I' },
+          { id: 'btn27', dir: 'right', label: 'I' },
+          { id: 'btn23', dir: 'push' },
+        ],
+      },
+      { id: 'middleknob', name: 'Middle Knob', at: [720, 590], columns: 2, group: pushKnob(28) },
+      { id: 'lowerknob', name: 'Lower Knob', at: [655, 665], columns: 2, group: pushKnob(31) },
+    ]),
+  ],
+  // Along the lit strip beside each throttle's slot, and the scale beside the flap lever's;
+  // forward is up and to the right.
+  guides: {
+    x: {
+      path: 'M 684.5 499.3 L 720.3 441.7',
+      arrows: [
+        [684.5, 499.3, 121.9],
+        [720.3, 441.7, -58.1],
+      ],
+      point: (v) => [702.4 + v * 17.9, 470.5 - v * 28.8],
+    },
+    y: {
+      path: 'M 792 525.5 L 827.2 467.3',
+      arrows: [
+        [792, 525.5, 121.2],
+        [827.2, 467.3, -58.8],
+      ],
+      point: (v) => [809.6 + v * 17.6, 496.4 - v * 29.1],
+    },
+    slider: {
+      path: 'M 561.6 594 L 598.7 544.1',
+      arrows: [
+        [561.6, 594, 126.6],
+        [598.7, 544.1, -53.4],
+      ],
+      point: (v) => [580.15 + v * 18.55, 569.05 - v * 24.95],
+    },
+  },
+};
+
+// ─── Turtle Beach VelocityOne Flightstick II ─────────────────────────────────
+
+// Seen from behind and to the right: the pilot sits bottom left and forward is up and to
+// the right. The bumper and the trigger are on the front of the head, out of sight: they
+// point at its far edge. The dial sends a different set of three buttons in each of its
+// three modes: turned up, turned down and pressed. Pressing the H1 hat isn't reported.
+const VELOCITYONE_FLIGHTSTICK_2 = {
+  alt: 'Turtle Beach VelocityOne Flightstick II, seen from behind',
+  dense: true,
+  image: { src: 'assets/velocityone-flightstick-2.png', width: 915, height: 1170, x: 510, y: 100, scale: 0.633 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 88, [
+      {
+        id: 'pov',
+        name: 'Analog POV',
+        tag: 'P1',
+        at: [516, 152],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn18', dir: 'push' }],
+      },
+      { id: 'stickbuttons', name: 'Stick Buttons', at: [539, 213], columns: 2, group: leftToRight(labelled(['btn23', 'Left'], ['btn24', 'Right'], ['btn25', 'Mid'])) },
+      {
+        id: 'wheel',
+        name: 'Scroll Wheel',
+        tag: 'AXIS OR BUTTONS',
+        at: [522, 282],
+        columns: 2,
+        group: [{ id: 'dial', wide: true }, { id: 'btn19', dir: 'up' }, { id: 'btn20', dir: 'down' }, { id: 'btn21', dir: 'push' }],
+      },
+      {
+        id: 'leftlever',
+        name: 'Left Lever',
+        tag: 'B5 · B6',
+        at: [365, 563],
+        columns: 2,
+        group: [{ id: 'rz', wide: true }, { id: 'btn5', dir: 'up' }, { id: 'btn6', dir: 'down' }],
+      },
+      {
+        id: 'leftbuttons',
+        name: 'Left Buttons',
+        at: [201, 789],
+        columns: 2,
+        group: leftToRight(labelled(['btn27', 'A'], ['btn28', 'B'], ['btn29', 'X'], ['btn30', 'Y'])),
+      },
+      {
+        id: 'menubuttons',
+        name: 'Menu Buttons',
+        at: [114, 917],
+        columns: 2,
+        group: leftToRight(labelled(['btn31', 'Xbox'], ['btn32', 'View'], ['btn33', 'Share'], ['btn34', 'Menu'])),
+      },
+    ]),
+    ...stack('right', 88, [
+      { id: 'hat1', tag: 'H1', at: [591, 165], columns: 2, group: hatSwitch('hat1') },
+      { id: 'btn22', tag: 'FRONT', at: [668, 158] },
+      { id: 'btn26', tag: 'FRONT', at: [644, 213] },
+      {
+        id: 'stick',
+        name: 'Stick',
+        at: [492, 458],
+        columns: 2,
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'z', label: 'Yaw', wide: true }],
+      },
+      {
+        id: 'rightlever',
+        name: 'Right Lever',
+        tag: 'B7 · B8',
+        at: [816, 695],
+        columns: 2,
+        group: [{ id: 'slider', wide: true }, { id: 'btn7', dir: 'up' }, { id: 'btn8', dir: 'down' }],
+      },
+      {
+        id: 'autopilot',
+        name: 'Autopilot Dial',
+        tag: 'MODES 1–3',
+        at: [344, 896],
+        columns: 2,
+        group: [
+          { id: 'btn9', dir: 'up', label: '1' },
+          { id: 'btn10', dir: 'down', label: '1' },
+          { id: 'btn12', dir: 'up', label: '2' },
+          { id: 'btn13', dir: 'down', label: '2' },
+          { id: 'btn15', dir: 'up', label: '3' },
+          { id: 'btn16', dir: 'down', label: '3' },
+          { id: 'btn11', dir: 'push', label: '1' },
+          { id: 'btn14', dir: 'push', label: '2' },
+          { id: 'btn17', dir: 'push', label: '3' },
+        ],
+      },
+      { id: 'rightbuttons', name: 'Right Buttons', at: [590, 963], columns: 2, group: labelled(['btn1', 'B1'], ['btn2', 'B2'], ['btn3', 'B3'], ['btn4', 'B4']) },
+    ]),
+  ],
+  guides: {
+    x: {
+      path: 'M 800 84 L 960 84',
+      arrows: [
+        [800, 84, 180],
+        [960, 84, 0],
+      ],
+      point: (v) => [880 + v * 80, 84],
+    },
+    y: {
+      path: 'M 985 130 L 985 260',
+      arrows: [
+        [985, 130, -90],
+        [985, 260, 90],
+      ],
+      point: (v) => [985, 195 - v * 65],
+    },
+    // An arc under the light ring around the stick's base.
+    z: {
+      path: 'M 706.5 617.9 A 112 56 0 0 0 923.5 617.9',
+      arrows: [
+        [706.5, 617.9, -117],
+        [923.5, 617.9, -63],
+      ],
+      point: (v) => {
+        const a = Math.PI / 2 - v * (Math.PI / 2 - 0.25);
+        return [815 + 112 * Math.cos(a), 604 + 56 * Math.sin(a)];
+      },
+    },
+    // Along the scale printed beside each lever's slot; forward is up and to the right.
+    rz: {
+      path: 'M 746.5 540.8 L 782.7 508.5',
+      arrows: [
+        [746.5, 540.8, 138.2],
+        [782.7, 508.5, -41.8],
+      ],
+      point: (v) => [764.6 + v * 18.1, 524.65 - v * 16.15],
+    },
+    slider: {
+      path: 'M 946.1 592.1 L 987.9 552.2',
+      arrows: [
+        [946.1, 592.1, 136.3],
+        [987.9, 552.2, -43.7],
+      ],
+      point: (v) => [967 + v * 20.9, 572.15 - v * 19.95],
+    },
+  },
+};
+
 // ─── Gamepads ────────────────────────────────────────────────────────────────
 
 // All seen from above, with the triggers behind the bumpers and out of sight: each points
@@ -1416,6 +1795,9 @@ export const LAYOUTS = {
   gladiatorevo: GLADIATOR_EVO,
   stecsstandard: STECS_STANDARD,
   velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
+  velocityoneflightstick2: VELOCITYONE_FLIGHTSTICK_2,
+  flightdeckstick: FLIGHTDECK_STICK,
+  flightdeckthrottle: FLIGHTDECK_THROTTLE,
   orion2f16ex: ORION2_F16EX,
   orion2throttle: ORION2_THROTTLE,
   solrright: SOLR_RIGHT,
