@@ -1,20 +1,23 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
 // Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
 // throttle, the Turtle Beach VelocityOne Flightstick and the WINWING Orion 2 stick and
-// throttle and the Thrustmaster Sol-R right and left sticks (photo layouts), the Virpil
-// ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its published
-// layout (universal layout). Add ?device=gladiator, ?device=stecs, ?device=flightstick,
-// ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
+// throttle, the Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and
+// throttle, an Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo
+// layouts), the Virpil ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M
+// built from its published layout (universal layout).
+// Add ?device=gladiator, ?device=stecs, ?device=flightstick, ?device=orionstick,
+// ?device=orionthrottle, ?device=solrright, ?device=solrleft, ?device=x56stick,
+// ?device=x56throttle, ?device=xbox, ?device=elite, ?device=dualshock4, ?device=dualsense,
 // ?device=acetorq or ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
-// from GitHub issue #7, ?device=solr the pair from issue #8; any comma-separated list works
-// too (?device=gladiator,twcs).
+// from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
+// issue #16; any comma-separated list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
 import { ROLES, sanitizeBinding, emptyBindings, rolePrefix } from '../shared/controls.js';
-import { assignRoles, describeDevice, mergeInputs } from '../shared/devices.js';
+import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, describeDevice, mergeInputs } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -35,8 +38,8 @@ import {
 const STORAGE_KEY = 'joymap.preview.library';
 
 const hat = { page: 1, usage: 0x39, min: 0, max: 7 };
-// A Sol-R stick as reported by a real pair (GitHub issue #8): the thrust lever is on Rx,
-// and every other axis rests at its midpoint.
+// A Sol-R stick as reported by a real pair (GitHub issues #8 and #10): the thrust lever is
+// on Z, and every other axis rests at its midpoint.
 const SOL_R_LAYOUT = {
   values: [
     hat,
@@ -225,8 +228,7 @@ const SIMULATED = [
     productId: 0x0422,
     name: 'Thrustmaster Sol-R [R] Flightstick',
     alias: 'solrright',
-    throttle: 'rx',
-    twist: 'z',
+    throttle: 'z',
     layout: SOL_R_LAYOUT,
   },
   {
@@ -234,9 +236,97 @@ const SIMULATED = [
     productId: 0x042a,
     name: 'Thrustmaster Sol-R [L] Flightstick',
     alias: 'solrleft',
-    throttle: 'rx',
-    twist: 'z',
+    throttle: 'z',
     layout: SOL_R_LAYOUT,
+  },
+  // The Logitech X56 pair from GitHub issue #16. The throttle is as a real one reports: its
+  // two levers are 10-bit axes on X and Y. The stick's layout is built from its published
+  // control list, not captured. R / F move both levers.
+  {
+    vendorId: 0x0738,
+    productId: 0x2221,
+    name: 'Mad Catz Saitek Pro Flight X-56 Rhino Stick',
+    alias: 'x56stick',
+    throttle: null,
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 4095 },
+        hat,
+        { page: 1, usage: 0x33, min: 0, max: 255 },
+        { page: 1, usage: 0x34, min: 0, max: 255 },
+      ],
+      buttonCount: 17,
+    },
+  },
+  {
+    vendorId: 0x0738,
+    productId: 0xa221,
+    name: 'Mad Catz Saitek Pro Flight X-56 Rhino Throttle',
+    alias: 'x56throttle',
+    throttle: ['x', 'y'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x31, min: 0, max: 1023 },
+        { page: 1, usage: 0x30, min: 0, max: 1023 },
+        { page: 1, usage: 0x37, min: 0, max: 255 },
+        { page: 1, usage: 0x36, min: 0, max: 255 },
+        { page: 1, usage: 0x34, min: 0, max: 255 },
+        { page: 1, usage: 0x35, min: 0, max: 255 },
+        { page: 1, usage: 0x33, min: 0, max: 255 },
+        { page: 1, usage: 0x32, min: 0, max: 255 },
+      ],
+      buttonCount: 36,
+    },
+  },
+  // An Xbox controller, as the app describes the ones XInput finds. W/A/S/D move the left
+  // stick, R / F pull the triggers, the arrows are the D-pad.
+  { ...XBOX_PAD, alias: 'xbox', throttle: ['z', 'rz'], layout: XBOX_LAYOUT },
+  { ...XBOX_ELITE_PAD, alias: 'elite', throttle: ['z', 'rz'], layout: XBOX_LAYOUT },
+  // PlayStation controllers, laid out as their published descriptors read (not captured):
+  // the right stick on Z and Rz, the triggers on Rx and Ry. Q / E move the right stick.
+  {
+    vendorId: 0x054c,
+    productId: 0x09cc,
+    name: 'Sony Interactive Entertainment Wireless Controller',
+    alias: 'dualshock4',
+    throttle: ['rx', 'ry'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x35, min: 0, max: 255 },
+        { page: 1, usage: 0x32, min: 0, max: 255 },
+        { page: 1, usage: 0x31, min: 0, max: 255 },
+        { page: 1, usage: 0x30, min: 0, max: 255 },
+        hat,
+        { page: 0xff00, usage: 0x20, min: 0, max: 127 },
+        { page: 1, usage: 0x34, min: 0, max: 255 },
+        { page: 1, usage: 0x33, min: 0, max: 255 },
+      ],
+      buttonCount: 14,
+    },
+  },
+  {
+    vendorId: 0x054c,
+    productId: 0x0ce6,
+    name: 'Sony Interactive Entertainment DualSense Wireless Controller',
+    alias: 'dualsense',
+    throttle: ['rx', 'ry'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x34, min: 0, max: 255 },
+        { page: 1, usage: 0x33, min: 0, max: 255 },
+        { page: 1, usage: 0x35, min: 0, max: 255 },
+        { page: 1, usage: 0x32, min: 0, max: 255 },
+        { page: 1, usage: 0x31, min: 0, max: 255 },
+        { page: 1, usage: 0x30, min: 0, max: 255 },
+        { page: 0xff00, usage: 0x20, min: 0, max: 255 },
+        hat,
+      ],
+      buttonCount: 15,
+    },
   },
   // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
   // not captured from the real devices.
@@ -282,6 +372,7 @@ const RIGS = {
   hotas: ['extreme3dpro', 'twcs', 'pedals'],
   winwing: ['orionstick', 'orionthrottle', 'acetorq'],
   solr: ['solrright', 'solrleft'],
+  x56: ['x56stick', 'x56throttle'],
 };
 
 const KEY_BUTTONS = {

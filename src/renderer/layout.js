@@ -893,21 +893,27 @@ const ORION2_THROTTLE = {
 
 // ─── Thrustmaster Sol-R (right and left sticks) ──────────────────────────────
 
-// The two sticks have the same controls, so one set of labels serves both. Each photo
-// says where every label points and in what order they stack down the sides; the order
-// keeps the lines from crossing or running over another dot. The photo is the pilot's
-// view, so the trigger and the grip button are on the front of the grip, out of sight:
-// their dot sits on the grip's edge, on the side the lever sticks out. The left column
-// lists each pair of controls the other way round (see leftToRight above).
-const solrLabels = (side) => {
+// The two sticks have the same controls bar the hats, so one set of labels serves both.
+// `pov` is the side the stick's POV hat is on (see solR in shared/devices.js): that hat's
+// directions are the POV's, with its own push button, and the other hat is five buttons.
+// Each photo says where every label points and in what order they stack down the sides;
+// the order keeps the lines from crossing or running over another dot. The photo is the
+// pilot's view, so the trigger and the grip button are on the front of the grip, out of
+// sight: their dot sits on the grip's edge, on the side the lever sticks out. The left
+// column lists each pair of controls the other way round (see leftToRight above).
+const solrLabels = (side, pov) => {
   const pairs = (items) => (side === 'left' ? leftToRight(items) : items);
+  const hat = (name, at, push) =>
+    at === pov
+      ? { name, tag: 'POV', columns: 2, group: [...HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })), { id: `btn${push}`, dir: 'push' }] }
+      : { name, columns: 2, group: pushHat(push) };
   return {
-    hat: { name: 'Left Hat', tag: 'POV', columns: 2, group: [...HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })), { id: 'btn30', dir: 'push' }] },
-    righthat: { name: 'Right Hat', columns: 2, group: pushHat(40) },
+    lefthat: hat('Left Hat', 'left', 30),
+    righthat: hat('Right Hat', 'right', 40),
     ministick: {
       name: 'Ministick',
       columns: 2,
-      group: [{ id: 'ry', label: 'X', wide: true }, { id: 'rz', label: 'Y', wide: true }, { id: 'btn29', dir: 'push' }],
+      group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn29', dir: 'push' }],
     },
     scroll: { name: 'Scroll', columns: 2, group: [{ id: 'btn37', dir: 'up' }, { id: 'btn38', dir: 'down' }, { id: 'btn36', dir: 'push' }] },
     lever: { name: 'Lever', columns: 2, group: pairs([{ id: 'btn26', dir: 'left' }, { id: 'btn27', dir: 'right' }]) },
@@ -915,7 +921,7 @@ const solrLabels = (side) => {
     stick: {
       name: 'Stick',
       columns: 2,
-      group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'z', label: 'Twist', wide: true }],
+      group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'rz', label: 'Twist', wide: true }],
     },
     leftswitches: {
       name: 'Left Switches',
@@ -931,12 +937,14 @@ const solrLabels = (side) => {
     },
     rightpads: { name: 'Right Pads', columns: 2, group: pairs(labelled(['btn17', '17'], ['btn16', '16'], ['btn19', '19'], ['btn18', '18'])) },
     rotary: { name: 'Rotary', columns: 2, group: labelled(['btn20', '1'], ['btn21', '2'], ['btn22', '3'], ['btn23', '4']) },
-    rx: {},
+    z: {},
   };
 };
 
-// Labels stacked down one side from `top`, each as [id, where it points on the photo].
-const solr = (side, top, entries) => stack(side, top, entries.map(([id, at]) => ({ id, ...solrLabels(side)[id], at })));
+// One stick's labels stacked down one side from `top`, each as [id, where it points on the photo].
+const solr = (pov) => (side, top, entries) => stack(side, top, entries.map(([id, at]) => ({ id, ...solrLabels(side, pov)[id], at })));
+const solrLeft = solr('left');
+const solrRight = solr('right');
 
 const SOL_R_COLUMNS = {
   left: { edge: 470, anchor: 484, elbow: 520 },
@@ -978,7 +986,7 @@ const solrGuides = (image, { head: [left, right, top], collar, slot: [slotX, slo
       ],
       point: (v) => [vx, (v0 + v1) / 2 - (v * (v1 - v0)) / 2],
     },
-    z: {
+    rz: {
       path: `M ${round(cx - ex)} ${round(ey)} A ${rx} ${ry} 0 0 0 ${round(cx + ex)} ${round(ey)}`,
       arrows: [
         [round(cx - ex), round(ey), round(-180 - tilt)],
@@ -989,7 +997,7 @@ const solrGuides = (image, { head: [left, right, top], collar, slot: [slotX, slo
         return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)];
       },
     },
-    rx: {
+    z: {
       path: `M ${round(tx)} ${round(t1)} L ${round(tx)} ${round(t0)}`,
       arrows: [
         [round(tx), round(t1), 90],
@@ -1007,17 +1015,17 @@ const SOLR_LEFT = {
   image: SOLR_LEFT_IMAGE,
   columns: SOL_R_COLUMNS,
   callouts: [
-    ...solr('left', 88, [
+    ...solrLeft('left', 88, [
       ['ministick', [335, 52]],
-      ['hat', [267, 74]],
+      ['lefthat', [267, 74]],
       ['btn35', [275, 134]],
       ['scroll', [335, 181]],
       ['leftswitches', [123, 630]],
       ['leftpads', [121, 702]],
       ['knob', [113, 744]],
-      ['rx', [338, 761]],
+      ['z', [338, 761]],
     ]),
-    ...solr('right', 88, [
+    ...solrLeft('right', 88, [
       ['righthat', [421, 74]],
       ['btn39', [390, 134]],
       ['lever', [421, 276]],
@@ -1041,9 +1049,9 @@ const SOLR_RIGHT = {
   image: SOLR_RIGHT_IMAGE,
   columns: SOL_R_COLUMNS,
   callouts: [
-    ...solr('left', 88, [
+    ...solrRight('left', 88, [
       ['ministick', [333, 60]],
-      ['hat', [247, 75]],
+      ['lefthat', [247, 75]],
       ['btn35', [273, 131]],
       ['lever', [250, 278]],
       ['trigger', [276, 375]],
@@ -1051,7 +1059,7 @@ const SOLR_RIGHT = {
       ['leftpads', [116, 702]],
       ['knob', [109, 747]],
     ]),
-    ...solr('right', 88, [
+    ...solrRight('right', 88, [
       ['righthat', [413, 75]],
       ['btn39', [387, 131]],
       ['scroll', [331, 174]],
@@ -1059,14 +1067,351 @@ const SOLR_RIGHT = {
       ['rightswitches', [549, 631]],
       ['rightpads', [554, 704]],
       ['rotary', [560, 758]],
-      ['rx', [335, 762]],
+      ['z', [335, 762]],
     ]),
   ],
   guides: solrGuides(SOLR_RIGHT_IMAGE, { head: [213, 453, 3], collar: [336, 624], slot: [207, 745.5, 835.5] }),
 };
 
+// ─── Logitech X56 (stick and throttle) ───────────────────────────────────────
+
+// A hat that reports as four buttons, clockwise from `first`, its "up".
+const fourWay = (first) => HAT_DIRECTIONS.map((dir, i) => ({ id: `btn${first + i}`, dir }));
+
+const X56_COLUMNS = {
+  left: { edge: 450, anchor: 464, elbow: 520 },
+  right: { edge: 1150, anchor: 1136, elbow: 1080 },
+};
+
+// Seen from the pilot's seat, a little to the left. The trigger, the D button and the
+// pinkie lever are on the front of the grip, out of sight: the trigger's edge shows beside
+// the grip, and the other two point at the grip's edge where they sit behind it.
+const X56_STICK = {
+  alt: 'Logitech X56 stick, seen from behind',
+  dense: true,
+  image: { src: 'assets/x56-stick.png', width: 846, height: 1115, x: 530, y: 104, scale: 0.64 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 120, [
+      { id: 'btn2', at: [485, 22] },
+      { id: 'hat1', tag: 'POV', columns: 2, at: [425, 75], group: HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })) },
+      {
+        id: 'cstick',
+        name: 'C Stick',
+        columns: 2,
+        at: [402, 265],
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn4', dir: 'push' }],
+      },
+      {
+        id: 'stick',
+        name: 'Stick',
+        columns: 2,
+        at: [475, 320],
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'rz', label: 'Yaw', wide: true }],
+      },
+    ]),
+    ...stack('right', 120, [
+      { id: 'h1', name: 'H1 Hat', columns: 2, at: [552, 42], group: fourWay(7) },
+      { id: 'btn3', at: [666, 127] },
+      { id: 'h2', name: 'H2 Hat', columns: 2, at: [517, 117], group: fourWay(11) },
+      { id: 'btn1', tag: 'FRONT', at: [557, 245] },
+      { id: 'btn5', tag: 'FRONT', at: [540, 350] },
+      { id: 'btn6', tag: 'FRONT', at: [520, 450] },
+    ]),
+  ],
+  guides: {
+    x: {
+      path: 'M 777 90 L 949 90',
+      arrows: [
+        [777, 90, 180],
+        [949, 90, 0],
+      ],
+      point: (v) => [863 + v * 86, 90],
+    },
+    y: {
+      path: 'M 1010 150 L 1010 280',
+      arrows: [
+        [1010, 150, -90],
+        [1010, 280, 90],
+      ],
+      point: (v) => [1010, 215 - v * 65],
+    },
+    // An arc under the gimbal ring; its ends stop short of the ellipse's sides so the
+    // arrowheads angle along the curve.
+    rz: {
+      path: 'M 699.4 548.4 A 110 46 0 0 0 912.6 548.4',
+      arrows: [
+        [699.4, 548.4, -121.5],
+        [912.6, 548.4, -58.5],
+      ],
+      point: (v) => {
+        const a = Math.PI / 2 - v * (Math.PI / 2 - 0.25);
+        return [806 + 110 * Math.cos(a), 537 + 46 * Math.sin(a)];
+      },
+    },
+  },
+};
+
+// Seen from behind and to the right, so forward is up and to the right, and the left lever
+// is the far half of the handle. The H and I buttons, the K1 rocker and the scroll wheel
+// are on the far side of the handle, out of sight: they point at its edge. Each toggle on
+// the left of the base is two SW numbers, up then down. On the two thumb hats, right is
+// forward.
+const X56_THROTTLE = {
+  alt: 'Logitech X56 throttle, seen from behind',
+  dense: true,
+  image: { src: 'assets/x56-throttle.png', width: 970, height: 816, x: 480, y: 215, scale: 0.66 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 120, [
+      {
+        id: 'throttles',
+        name: 'Throttles',
+        columns: 2,
+        at: [455, 150],
+        group: [{ id: 'x', label: 'Left', wide: true }, { id: 'y', label: 'Right', wide: true }],
+      },
+      { id: 'pinkie', name: 'Pinkie Buttons', tag: 'FRONT', columns: 2, at: [312, 180], group: leftToRight(labelled(['btn5', 'H'], ['btn4', 'I'])) },
+      { id: 'k1', name: 'K1 Rocker', tag: 'FRONT', columns: 2, at: [306, 222], group: [{ id: 'btn28', dir: 'up' }, { id: 'btn29', dir: 'down' }] },
+      { id: 'scroll', name: 'Scroll Wheel', tag: 'FRONT', columns: 2, at: [303, 263], group: [{ id: 'btn30', dir: 'up' }, { id: 'btn31', dir: 'down' }] },
+      { id: 'btn1', at: [590, 262] },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        columns: 2,
+        at: [570, 320],
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn32', dir: 'push' }],
+      },
+      { id: 'mode', name: 'Mode', columns: 2, at: [105, 390], group: leftToRight(labelled(['btn34', 'M1'], ['btn35', 'M2'], ['btn36', 'S1'])) },
+      {
+        id: 'switches',
+        name: 'Switches',
+        columns: 2,
+        at: [325, 468],
+        group: leftToRight(labelled(['btn6', 'SW 1'], ['btn7', 'SW 2'], ['btn8', 'SW 3'], ['btn9', 'SW 4'], ['btn10', 'SW 5'], ['btn11', 'SW 6'])),
+      },
+    ]),
+    ...stack('right', 88, [
+      { id: 'frotary', name: 'F Rotary', columns: 2, at: [725, 45], group: [{ id: 'z', wide: true }, { id: 'btn2', dir: 'push' }] },
+      { id: 'btn33', at: [648, 178] },
+      { id: 'grotary', name: 'G Rotary', columns: 2, at: [735, 225], group: [{ id: 'rz', wide: true }, { id: 'btn3', dir: 'push' }] },
+      { id: 'h3', name: 'H3 Hat', columns: 2, at: [672, 270], group: fourWay(20) },
+      { id: 'h4', name: 'H4 Hat', columns: 2, at: [652, 328], group: fourWay(24) },
+      {
+        id: 'toggles',
+        name: 'Toggles',
+        columns: 2,
+        at: [755, 398],
+        group: labelled(
+          ['btn12', '1 Up'],
+          ['btn13', '1 Dn'],
+          ['btn14', '2 Up'],
+          ['btn15', '2 Dn'],
+          ['btn16', '3 Up'],
+          ['btn17', '3 Dn'],
+          ['btn18', '4 Up'],
+          ['btn19', '4 Dn'],
+        ),
+      },
+      {
+        id: 'rotaries',
+        name: 'Base Rotaries',
+        columns: 2,
+        at: [592, 474],
+        group: [{ id: 'slider', label: 'RTY 3', wide: true }, { id: 'dial', label: 'RTY 4', wide: true }],
+      },
+    ]),
+  ],
+  // Along the scales printed beside each lever's slot.
+  guides: {
+    x: {
+      path: 'M 693.2 497.3 L 768.8 448.7',
+      arrows: [
+        [693.2, 497.3, 147.3],
+        [768.8, 448.7, -32.7],
+      ],
+      point: (v) => [731 + v * 37.8, 473 - v * 24.3],
+    },
+    y: {
+      path: 'M 751.2 518.8 L 826.8 470.2',
+      arrows: [
+        [751.2, 518.8, 147.3],
+        [826.8, 470.2, -32.7],
+      ],
+      point: (v) => [789 + v * 37.8, 494.5 - v * 24.3],
+    },
+  },
+};
+
+// ─── Gamepads ────────────────────────────────────────────────────────────────
+
+// All seen from above, with the triggers behind the bumpers and out of sight: each points
+// at its bumper's outer end.
+
+// An Xbox controller's labels, given where each control is on its photo. The Xbox button
+// isn't labelled: Windows keeps it for itself. Nor are an Elite's paddles: the controller
+// sends each one as a copy of an ordinary button.
+const xboxPad = (alt, image, at) => ({
+  alt,
+  dense: true,
+  image,
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 230, [
+      { id: 'btn5', at: at.lb },
+      { id: 'z', at: at.lt },
+      {
+        id: 'leftstick',
+        name: 'Left Stick',
+        columns: 2,
+        at: at.leftStick,
+        group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'btn9', dir: 'push' }],
+      },
+      { id: 'btn7', at: at.view },
+      { id: 'hat1', columns: 2, at: at.dpad, group: HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })) },
+      { id: 'btn8', at: at.menu },
+    ]),
+    ...stack('right', 230, [
+      { id: 'btn6', at: at.rb },
+      { id: 'rz', at: at.rt },
+      { id: 'face', name: 'Face Buttons', columns: 2, at: at.face, group: labelled(['btn4', 'Y'], ['btn2', 'B'], ['btn3', 'X'], ['btn1', 'A']) },
+      {
+        id: 'rightstick',
+        name: 'Right Stick',
+        columns: 2,
+        at: at.rightStick,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn10', dir: 'push' }],
+      },
+    ]),
+  ],
+  guides: {},
+});
+
+const XBOX_CONTROLLER = xboxPad(
+  'Xbox controller, seen from above',
+  { src: 'assets/xbox-controller.png', width: 762, height: 540, x: 495, y: 250, scale: 0.8 },
+  {
+    lb: [218, 32],
+    lt: [154, 49],
+    leftStick: [186, 149],
+    view: [324, 152],
+    dpad: [279, 272],
+    menu: [436, 151],
+    rb: [545, 32],
+    rt: [609, 49],
+    face: [576, 151],
+    rightStick: [481, 265],
+  },
+);
+
+const XBOX_ELITE = xboxPad(
+  'Xbox Elite controller, seen from above',
+  { src: 'assets/xbox-elite.png', width: 762, height: 537, x: 495, y: 250, scale: 0.8 },
+  {
+    lb: [177, 31],
+    lt: [135, 46],
+    leftStick: [185, 146],
+    view: [327, 152],
+    dpad: [279, 275],
+    menu: [437, 152],
+    rb: [585, 31],
+    rt: [627, 46],
+    face: [578, 152],
+    rightStick: [483, 265],
+  },
+);
+
+// A PlayStation controller's labels, the same way. The triggers are axes; the buttons they
+// also press (7 and 8) are left to the list view. `extra` adds a model's own buttons under
+// the right-hand column.
+const playstationPad = (alt, image, top, at, extra = []) => ({
+  alt,
+  dense: true,
+  image,
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', top, [
+      { id: 'btn5', at: at.l1 },
+      { id: 'rx', at: at.l2 },
+      { id: 'btn9', at: at.create },
+      { id: 'hat1', columns: 2, at: at.dpad, group: HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })) },
+      { id: 'btn14', at: at.touchpad },
+      {
+        id: 'leftstick',
+        name: 'Left Stick',
+        columns: 2,
+        at: at.leftStick,
+        group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'btn11', dir: 'push' }],
+      },
+      { id: 'btn13', at: at.ps },
+    ]),
+    ...stack('right', top, [
+      { id: 'btn6', at: at.r1 },
+      { id: 'ry', at: at.r2 },
+      { id: 'btn10', at: at.options },
+      { id: 'face', name: 'Face Buttons', columns: 2, at: at.face, group: labelled(['btn4', 'Tri'], ['btn3', 'Cir'], ['btn1', 'Sq'], ['btn2', 'Cross']) },
+      {
+        id: 'rightstick',
+        name: 'Right Stick',
+        columns: 2,
+        at: at.rightStick,
+        group: [{ id: 'z', label: 'X', wide: true }, { id: 'rz', label: 'Y', wide: true }, { id: 'btn12', dir: 'push' }],
+      },
+      ...extra,
+    ]),
+  ],
+  guides: {},
+});
+
+const DUALSHOCK_4 = playstationPad(
+  'DualShock 4, seen from above',
+  { src: 'assets/dualshock4.png', width: 732, height: 452, x: 493, y: 270, scale: 0.84 },
+  200,
+  {
+    l1: [178, 21],
+    l2: [137, 24],
+    create: [233, 74],
+    dpad: [159, 137],
+    touchpad: [374, 104],
+    leftStick: [263, 237],
+    ps: [374, 239],
+    r1: [554, 21],
+    r2: [595, 24],
+    options: [513, 74],
+    face: [590, 140],
+    rightStick: [485, 237],
+  },
+);
+
+const DUALSENSE = playstationPad(
+  'DualSense, seen from above',
+  { src: 'assets/dualsense.png', width: 807, height: 558, x: 493, y: 250, scale: 0.76 },
+  200,
+  {
+    l1: [172, 24],
+    l2: [112, 34],
+    create: [220, 76],
+    dpad: [158, 158],
+    touchpad: [404, 96],
+    leftStick: [280, 264],
+    ps: [404, 268],
+    r1: [632, 24],
+    r2: [694, 34],
+    options: [586, 76],
+    face: [650, 158],
+    rightStick: [528, 264],
+  },
+  [{ id: 'btn15', at: [404, 310] }],
+);
+
 // Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
 export const LAYOUTS = {
+  xboxcontroller: XBOX_CONTROLLER,
+  xboxelite: XBOX_ELITE,
+  dualshock4: DUALSHOCK_4,
+  dualsense: DUALSENSE,
+  x56stick: X56_STICK,
+  x56throttle: X56_THROTTLE,
   extreme3dpro: EXTREME_3D_PRO,
   gladiatorevo: GLADIATOR_EVO,
   stecsstandard: STECS_STANDARD,

@@ -8,6 +8,7 @@
 import { EventEmitter } from 'node:events';
 import { createRequire } from 'node:module';
 import { VirtualUinputPad } from './uinput.js';
+import { readXboxSlots } from './xinput.js';
 
 export const VIGEM_DOWNLOAD_URL = 'https://github.com/nefarius/ViGEmBus/releases/latest';
 
@@ -21,6 +22,55 @@ const IOCTL_VIGEM_UNPLUG_TARGET = ioctl(0x802);
 const IOCTL_VIGEM_CHECK_VERSION = ioctl(0x803);
 const IOCTL_VIGEM_WAIT_DEVICE_READY = ioctl(0x804);
 const IOCTL_XUSB_SUBMIT_REPORT = ioctl(0x801 + 0x201);
+
+// Finding the pad's XInput slot (see findPadSlot). The marks are stick positions a few
+// steps off centre, out of 32767: far inside any deadzone, and nothing a real controller
+// sends twice running.
+const SLOT_MARKS = [
+  { lx: 3, ly: -5, rx: 7, ry: -2 },
+  { lx: -6, ly: 4, rx: -1, ry: 8 },
+];
+const SLOT_TRIES = 10; // two seconds at most: the stick's reports wait meanwhile
+const SLOT_SETTLE_MS = 40; // for a report to show up in XInput
+const SLOT_RETRY_MS = 120; // Windows gives a new pad its slot a moment after it is plugged in
+// How long a pad that was just unplugged may still be listed by XInput.
+const SLOT_LINGER_MS = 3000;
+const AT_REST = Object.freeze({ buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 });
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Finds which XInput slot a newly plugged-in virtual pad was given, before anything else
+// is sent through it: shows each mark in turn and looks for the one slot that repeats
+// them all. The driver has a request for this, but ViGEmBus 1.21 answers it with nothing,
+// and a wrong answer would have the app read its own pad back as a real controller; this
+// needs no answer from the driver.
+//   send(report)  submits a report to the pad
+//   read()        what each XInput slot holds now (see readXboxSlots), null for an empty
+//                 one, or null altogether when there is no XInput to look in
+//   there()       false once the pad has been unplugged, which ends the search
+// Resolves to the slot, or null if XInput never shows the pad (or shows it twice). The
+// pad is left at rest.
+export async function findPadSlot({ send, read, there = () => true, wait = sleep, tries = SLOT_TRIES }) {
+  let found = null;
+  if (!read()) return found;
+  for (let attempt = 0; attempt < tries && found === null && there(); attempt++) {
+    let slots = [0, 1, 2, 3];
+    for (const mark of SLOT_MARKS) {
+      send({ ...AT_REST, ...mark });
+      await wait(SLOT_SETTLE_MS);
+      if (!there()) return null;
+      const shown = read() ?? [];
+      slots = slots.filter((slot) => {
+        const s = shown[slot];
+        return s && s.buttons === 0 && s.lt === 0 && s.rt === 0 && s.lx === mark.lx && s.ly === mark.ly && s.rx === mark.rx && s.ry === mark.ry;
+      });
+      if (slots.length === 0) break;
+    }
+    if (slots.length === 1) found = slots[0];
+    else await wait(SLOT_RETRY_MS);
+  }
+  if (there()) send(AT_REST);
+  return found;
+}
 
 const VIGEM_COMMON_VERSION = 0x0001;
 const XBOX360_WIRED = 0;
@@ -107,12 +157,25 @@ class VirtualX360 extends EventEmitter {
     this.report = Buffer.alloc(20);
     this.returned = Buffer.alloc(4);
     this.status = { state: 'off', message: '' };
+    this.userIndex = null; // the pad's XInput slot, once it has been found
+    this.lastIndex = null; // the slot of the pad that was last unplugged
+    this.goneAt = 0; // when that was
+    this.probing = false; // finding the slot: reports wait in `held` meanwhile
+    this.held = null;
   }
 
   setStatus(state, message = '') {
     if (this.status.state === state && this.status.message === message) return;
     this.status = { state, message };
     this.emit('status', this.status);
+  }
+
+  // The XInput slot the virtual pad sits in, so the app never reads its own output back
+  // as a real controller (see xinput.js): a number once known, 'unknown' while the pad is
+  // there (or only just gone) and its slot can't be told, null when there is no pad.
+  get slot() {
+    if (this.handle !== null || this.status.state === 'connecting') return this.userIndex ?? 'unknown';
+    return Date.now() < this.goneAt + SLOT_LINGER_MS ? (this.lastIndex ?? 'unknown') : null;
   }
 
   // Blocking DeviceIoControl on a koffi worker thread, so the main process stays responsive.
@@ -123,6 +186,14 @@ class VirtualX360 extends EventEmitter {
         resolve(!err && ok !== 0),
       );
     });
+  }
+
+  // Finds the new pad's XInput slot (see findPadSlot). The slot stays unknown (see `slot`)
+  // if XInput never shows the pad.
+  async findSlot(gen) {
+    const there = () => gen === this.generation && this.handle !== null;
+    const slot = await findPadSlot({ send: (report) => this.send(report), read: readXboxSlots, there });
+    if (there()) this.userIndex = slot;
   }
 
   async connect() {
@@ -210,7 +281,13 @@ class VirtualX360 extends EventEmitter {
       this.handle = handle;
       this.serial = serial;
       this.failures = 0;
+      this.probing = true;
+      await this.findSlot(gen).catch(() => {});
+      this.probing = false;
+      if (gen !== this.generation || this.handle !== handle) return; // unplugged meanwhile
       this.setStatus('connected');
+      if (this.userIndex !== null) this.emit('slot', this.userIndex);
+      if (this.held) this.submit(this.held);
       return;
     }
     return abandon('error', 'ViGEmBus refused to create a virtual controller');
@@ -223,6 +300,11 @@ class VirtualX360 extends EventEmitter {
 
   submit(out) {
     if (this.handle === null) return;
+    this.held = this.probing ? out : null;
+    if (!this.probing) this.send(out);
+  }
+
+  send(out) {
     const r = this.report;
     r.writeUInt32LE(20, 0);
     r.writeUInt32LE(this.serial, 4);
@@ -257,12 +339,17 @@ class VirtualX360 extends EventEmitter {
     api.CloseHandle(this.handle);
     this.handle = null;
     this.serial = 0;
+    this.lastIndex = this.userIndex;
+    this.userIndex = null;
+    this.held = null;
+    this.goneAt = Date.now();
   }
 
   disconnect() {
     this.wanted = false;
     this.generation++;
     clearTimeout(this.retryTimer);
+    if (this.status.state === 'connecting') this.goneAt = Date.now(); // a pad may be half plugged in
     this.teardown();
     this.setStatus('off');
   }
@@ -272,6 +359,7 @@ class UnsupportedPad extends EventEmitter {
   constructor() {
     super();
     this.status = { state: 'unsupported', message: 'Virtual Xbox controllers need Windows (ViGEmBus) or Linux (uinput)' };
+    this.slot = null;
   }
   connect() {}
   submit() {}

@@ -44,15 +44,15 @@ const positions = (first, name, ...places) => Object.fromEntries(places.map((pla
 
 // The Thrustmaster Sol-R's two sticks (reporting as "Sol-R [R] Flightstick" and "Sol-R [L]
 // Flightstick", GitHub issue #8) are the same hardware apart from the grip, so they share
-// one set of names. Button numbers are from a community Star Citizen chart for the pair and
-// the numbers printed on the sticks. The chart leaves out 25 and 31–34: 25 is taken to be
-// the trigger's second stage, and 31–34 keep their generic names. The right hat is read
-// push first, from the "40" printed beside its push symbol.
-// The thrust lever is the one axis off the middle in an owner's rest report, and Windows
-// lists it on Rx, which would read as a centred axis halfway over and stop the stick
-// centring itself. Which axes are the twist (Z), the ministick (Ry, Rz) and the two spares
-// is inferred from the order Windows lists them in, and which way the lever and the
-// ministick read is guessed.
+// these names. Button numbers are from a community Star Citizen chart for the pair and the
+// numbers printed on the sticks. The chart leaves out 25, taken to be the trigger's second
+// stage.
+// The axes are where the generic defaults expect them, so they need names only: an owner
+// has checked each one (GitHub issue #10). The thrust lever is on Z, the ministick on Rx
+// and Ry, the twist on Rz. Slider and Dial are spares.
+// The two hats are each a push and four directions, 30–34 on the left and 40–44 on the
+// right, but the hat on the outer side of each stick sends its directions as the POV hat
+// instead (see solR below).
 const SOL_R = {
   names: {
     ...positions(1, 'Left Switch 1', 'Up', 'Down'),
@@ -85,32 +85,139 @@ const SOL_R = {
     btn37: 'Scroll Up',
     btn38: 'Scroll Down',
     btn39: 'Right Orange Button',
-    ...pushHat('Right Hat', 40),
-    hat1: 'Left Hat',
+    btn40: 'Right Hat Push',
     x: 'Stick X',
     y: 'Stick Y',
-    z: 'Twist',
-    rx: 'Thrust',
-    ry: 'Ministick X',
-    rz: 'Ministick Y',
+    z: 'Thrust',
+    rx: 'Ministick X',
+    ry: 'Ministick Y',
+    rz: 'Twist',
   },
   hints: {
     x: 'Stick left / right',
     y: 'Stick forward / back',
-    z: 'Twist the stick',
-    rx: 'Lever on the base',
+    z: 'Lever on the base',
+    rx: 'Ministick',
     ry: 'Ministick',
-    rz: 'Ministick',
+    rz: 'Twist the stick',
     slider: '',
     dial: '',
   },
+};
+
+// One Sol-R stick. `pov` is the side its POV hat is on: the right on the right stick and
+// the left on the left one, from an owner's report of which hat lights what (GitHub issue
+// #10). The other hat's directions are buttons: 41–44 on the left stick, as on the chart,
+// and so 31–34 on the right stick, whose order is taken to match. The four numbers a stick
+// doesn't send keep their generic names.
+const solR = (pov) => ({
+  names: {
+    ...SOL_R.names,
+    ...(pov === 'left' ? pushHat('Right Hat', 40) : pushHat('Left Hat', 30)),
+    hat1: pov === 'left' ? 'Left Hat' : 'Right Hat',
+  },
+  hints: SOL_R.hints,
+});
+
+// An Xbox controller is read through XInput (see main/xinput.js), not HID, where it would
+// report both triggers as one shared axis. XInput has no self-description, so this is the
+// layout the app gives every controller it finds there: the D-pad as a hat, the two
+// sticks, the triggers on Z and Rz, and the ten buttons in the order HID lists them.
+// Stick values go down and right, as on a HID stick.
+export const XBOX_PAD = Object.freeze({ vendorId: 0x045e, productId: 0x028e, name: 'Xbox Controller' });
+export const XBOX_LAYOUT = Object.freeze({
+  values: Object.freeze([
+    { page: PAGE_GENERIC, usage: USAGE_HAT, min: 0, max: 7 },
+    { page: PAGE_GENERIC, usage: 0x30, min: -32768, max: 32767 },
+    { page: PAGE_GENERIC, usage: 0x31, min: -32768, max: 32767 },
+    { page: PAGE_GENERIC, usage: 0x33, min: -32768, max: 32767 },
+    { page: PAGE_GENERIC, usage: 0x34, min: -32768, max: 32767 },
+    { page: PAGE_GENERIC, usage: 0x32, min: 0, max: 255 },
+    { page: PAGE_GENERIC, usage: 0x35, min: 0, max: 255 },
+  ]),
+  buttonCount: 10,
+});
+// An Elite controller is the same to XInput, which is asked which one sits in each slot.
+// Its paddles aren't there to read: the controller sends each one as a copy of whichever
+// ordinary button it is set to, in the Xbox Accessories app.
+export const XBOX_ELITE_PAD = Object.freeze({ vendorId: 0x045e, productId: 0x0b00, name: 'Xbox Elite Controller' });
+
+// What every Xbox controller shares. The triggers rest at the bottom of Z and Rz, which
+// would read as a reversed lever and a twist held over. The Xbox button isn't included:
+// Windows keeps it for itself.
+const XBOX = {
+  names: {
+    btn1: 'A Button',
+    btn2: 'B Button',
+    btn3: 'X Button',
+    btn4: 'Y Button',
+    btn5: 'Left Bumper',
+    btn6: 'Right Bumper',
+    btn7: 'View Button',
+    btn8: 'Menu Button',
+    btn9: 'Left Stick Click',
+    btn10: 'Right Stick Click',
+    hat1: 'D-Pad',
+    x: 'Left Stick X',
+    y: 'Left Stick Y',
+    rx: 'Right Stick X',
+    ry: 'Right Stick Y',
+    z: 'Left Trigger',
+    rz: 'Right Trigger',
+  },
+  hints: { x: '', y: '', rx: '', ry: '', z: '', rz: '' },
   axes: {
-    z: { centered: true, invert: false, deadzone: 0.1 },
-    rx: { centered: false, invert: false },
-    ry: { invert: false },
-    rz: { invert: true, deadzone: 0.04 },
+    z: { centered: false, invert: false, deadzone: 0 },
+    rz: { centered: false, invert: false, deadzone: 0 },
   },
 };
+
+// A PlayStation controller describes itself over HID like a stick, as a gamepad: the left
+// stick on X and Y, the right stick on Z and Rz (which would read as a lever and a twist),
+// and the triggers on Rx and Ry (which would read as a second stick held in a corner).
+// Each trigger is also a button, 7 and 8, once it is pulled. The button order is the one
+// every PlayStation controller since the DualShock 4 uses; `create` is what the left
+// centre button is called, and `extra` the buttons a model adds.
+// `gamepad` lets the joystick manager read it although it isn't a joystick.
+const playstation = (id, name, create, extra = {}) => ({
+  id,
+  name,
+  support: 'beta',
+  gamepad: true,
+  names: {
+    btn1: 'Square',
+    btn2: 'Cross',
+    btn3: 'Circle',
+    btn4: 'Triangle',
+    btn5: 'L1',
+    btn6: 'R1',
+    btn7: 'L2 Button',
+    btn8: 'R2 Button',
+    btn9: create,
+    btn10: 'Options',
+    btn11: 'L3',
+    btn12: 'R3',
+    btn13: 'PS Button',
+    btn14: 'Touchpad Click',
+    ...extra,
+    hat1: 'D-Pad',
+    x: 'Left Stick X',
+    y: 'Left Stick Y',
+    z: 'Right Stick X',
+    rz: 'Right Stick Y',
+    rx: 'L2',
+    ry: 'R2',
+  },
+  hints: { x: '', y: '', z: '', rz: '', rx: '', ry: '' },
+  axes: {
+    z: { centered: true, invert: false },
+    rz: { centered: true, invert: true, deadzone: 0.04 },
+    rx: { centered: false, invert: false, deadzone: 0 },
+    ry: { centered: false, invert: false, deadzone: 0 },
+  },
+});
+const DUALSHOCK_4 = playstation('dualshock4', 'DualShock 4', 'Share');
+const DUALSENSE = playstation('dualsense', 'DualSense', 'Create', { btn15: 'Mute' });
 
 // How well a stick is known, shown next to its name:
 //   full          photo layout and names, checked against the real stick
@@ -125,11 +232,113 @@ export const SUPPORT_LABELS = Object.freeze({ full: 'Fully supported', beta: 'Be
 // Everything else gets the generic layout and is marked experimental until someone
 // confirms it.
 export const SKINS = Object.freeze({
-  // Thrustmaster Sol-R right stick (GitHub issue #8), see SOL_R above. Experimental until an
-  // owner has confirmed which axis is which.
-  '044f:0422': { id: 'solrright', name: 'Sol-R Right Stick', support: 'experimental', ...SOL_R },
-  // Thrustmaster Sol-R left stick: the same, with its grip the other way round.
-  '044f:042a': { id: 'solrleft', name: 'Sol-R Left Stick', support: 'experimental', ...SOL_R },
+  // Any Xbox controller, as XInput reports it (see XBOX_LAYOUT above), and the Elite, which
+  // differs only in its photo. Beta until they have been tried on real controllers.
+  '045e:028e': { id: 'xboxcontroller', name: XBOX_PAD.name, support: 'beta', ...XBOX },
+  '045e:0b00': { id: 'xboxelite', name: XBOX_ELITE_PAD.name, support: 'beta', ...XBOX },
+  // Sony DualShock 4: both hardware revisions, and one on Sony's wireless USB adaptor.
+  // Beta until an owner has confirmed every label.
+  '054c:05c4': DUALSHOCK_4,
+  '054c:09cc': DUALSHOCK_4,
+  '054c:0ba0': DUALSHOCK_4,
+  // Sony DualSense, and the DualSense Edge, whose extra buttons aren't in its description.
+  '054c:0ce6': DUALSENSE,
+  '054c:0df2': DUALSENSE,
+  // Logitech X56 stick (reports as "Saitek Pro Flight X-56 Rhino Stick", GitHub issue #16).
+  // Its axes are where the generic defaults expect them, so they need names only. Button
+  // numbers are from EDRefCard's definition for this USB ID and a community chart, which
+  // agree bar the order of H1's directions; this follows EDRefCard, as Logitech numbers
+  // every hat clockwise from up. Beta until an owner has confirmed every label.
+  '0738:2221': {
+    id: 'x56stick',
+    name: 'Logitech X56 Stick',
+    support: 'beta',
+    names: {
+      btn1: 'Trigger',
+      btn2: 'A Button',
+      btn3: 'B Button',
+      btn4: 'C Stick Push',
+      btn5: 'D Button',
+      btn6: 'Pinkie Lever',
+      ...numbered(7, 4, (n) => `H1 ${['Up', 'Right', 'Down', 'Left'][n - 1]}`),
+      ...numbered(11, 4, (n) => `H2 ${['Up', 'Right', 'Down', 'Left'][n - 1]}`),
+      hat1: 'POV Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      rz: 'Yaw',
+      rx: 'C Stick X',
+      ry: 'C Stick Y',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      rz: 'Twist the stick',
+      rx: 'C ministick',
+      ry: 'C ministick',
+    },
+  },
+  // Logitech X56 throttle (reports as "Saitek Pro Flight X-56 Rhino Throttle"). Its two
+  // throttle levers are the 10-bit X and Y axes, which would read as a stick (GitHub issue
+  // #16): Y reversed next to X, and Recenter taking wherever they sit as the middle. The G
+  // rotary is on Rz, which would read as a twist with a wide deadzone.
+  // Axis roles and button numbers are from EDRefCard's definition for this USB ID and a
+  // community chart; SLD on 33 is from the chart alone, and the three positions of the MODE
+  // switch are taken to be the three buttons after it (an owner's report has 34 held).
+  // The chart numbers the two thumb hats the other way round; this follows EDRefCard and a
+  // forum map of the lower hat. Not confirmed: which way the levers read (forward reads
+  // low, as for Slider and Dial). Beta until an owner has confirmed every label.
+  '0738:a221': {
+    id: 'x56throttle',
+    name: 'Logitech X56 Throttle',
+    support: 'beta',
+    names: {
+      btn1: 'E Button',
+      btn2: 'F Rotary Push',
+      btn3: 'G Rotary Push',
+      btn4: 'I Button',
+      btn5: 'H Button',
+      ...numbered(6, 6, (n) => `SW ${n}`),
+      ...positions(12, 'TGL 1', 'Up', 'Down'),
+      ...positions(14, 'TGL 2', 'Up', 'Down'),
+      ...positions(16, 'TGL 3', 'Up', 'Down'),
+      ...positions(18, 'TGL 4', 'Up', 'Down'),
+      ...positions(20, 'H3', 'Up', 'Forward', 'Down', 'Back'),
+      ...positions(24, 'H4', 'Up', 'Forward', 'Down', 'Back'),
+      ...positions(28, 'K1', 'Up', 'Down'),
+      ...positions(30, 'Scroll', 'Forward', 'Back'),
+      btn32: 'Ministick Push',
+      btn33: 'SLD Switch',
+      ...positions(34, 'Mode', 'M1', 'M2', 'S1'),
+      x: 'Left Throttle',
+      y: 'Right Throttle',
+      z: 'F Rotary',
+      rz: 'G Rotary',
+      rx: 'Ministick X',
+      ry: 'Ministick Y',
+      slider: 'RTY 3',
+      dial: 'RTY 4',
+    },
+    hints: {
+      x: 'Throttle lever',
+      y: 'Throttle lever',
+      z: 'Knob on top of the handle',
+      rz: 'Knob under the SLD switch',
+      rx: 'Thumb ministick',
+      ry: 'Thumb ministick',
+      slider: 'Knob on the base',
+      dial: 'Knob on the base',
+    },
+    axes: {
+      x: { centered: false, invert: true },
+      y: { centered: false, invert: true },
+      rz: { centered: false, deadzone: 0.02 },
+    },
+  },
+  // Thrustmaster Sol-R right stick (GitHub issues #8 and #10), see SOL_R above. Beta until
+  // an owner has confirmed every label.
+  '044f:0422': { id: 'solrright', name: 'Sol-R Right Stick', support: 'beta', ...solR('right') },
+  // Thrustmaster Sol-R left stick: the same, with its grip and its hats the other way round.
+  '044f:042a': { id: 'solrleft', name: 'Sol-R Left Stick', support: 'beta', ...solR('left') },
   // WINWING Orion 2 joystick base with the F-16EX grip and its left extension (reports as
   // "WINWING Orion Joystick Base 2 + JGRIP-F16"). The grip's two levers rest at the bottom
   // of their axes (GitHub issue #7): the one beside the trigger is on Rz, which would read
@@ -485,12 +694,16 @@ export const SKINS = Object.freeze({
 export const deviceKey = (vendorId, productId) =>
   `${vendorId.toString(16).padStart(4, '0')}:${productId.toString(16).padStart(4, '0')}`;
 
+// A gamepad the app reads over HID as it would a joystick (see `gamepad` on its skin).
+export const isKnownGamepad = (vendorId, productId) => SKINS[deviceKey(vendorId, productId)]?.gamepad === true;
+
 export const defaultDeadzone = (axis, centered) => axis.deadzone ?? (centered ? 0.04 : 0.02);
 
 // Windows calls throttles and pedals joysticks too, so the name is the only clue.
 const ROLE_HINTS = [
   ['pedals', /pedal|rudder|tfrp|crosswind/i],
   ['throttle', /throttle|twcs|quadrant|collective|sol-r \[l\]/i], // the left stick of a Sol-R pair
+  ['extra', /^xbox( elite)? controller$|wireless controller$/i], // a gamepad beside a flight stick never takes the stick's place
 ];
 
 export const guessRole = (name) => ROLE_HINTS.find(([, hint]) => hint.test(name ?? ''))?.[0] ?? null;

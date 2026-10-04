@@ -13,6 +13,8 @@
 
 # Joystick Mapper
 
+[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)
+
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
 So this app makes your flight stick show up to games as an Xbox 360 controller.
@@ -50,10 +52,28 @@ latest release:
 <sub>**WINWING Orion 2 Throttle** (beta)</sub>
 
 ![Photo layout: the Thrustmaster Sol-R right stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-right.png)
-<sub>**Thrustmaster Sol-R Right Stick** (experimental)</sub>
+<sub>**Thrustmaster Sol-R Right Stick** (beta)</sub>
 
 ![Photo layout: the Thrustmaster Sol-R left stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-left.png)
-<sub>**Thrustmaster Sol-R Left Stick** (experimental)</sub>
+<sub>**Thrustmaster Sol-R Left Stick** (beta)</sub>
+
+![Photo layout: the Logitech X56 stick with an Ace Combat 8 profile loaded](docs/screenshot-x56-stick.png)
+<sub>**Logitech X56 Stick** (beta)</sub>
+
+![Photo layout: the Logitech X56 throttle with an Ace Combat 8 profile loaded](docs/screenshot-x56-throttle.png)
+<sub>**Logitech X56 Throttle** (beta)</sub>
+
+![Photo layout: an Xbox controller mapped to itself](docs/screenshot-xbox.png)
+<sub>**Xbox Controller** (beta)</sub>
+
+![Photo layout: an Xbox Elite controller mapped to itself](docs/screenshot-xbox-elite.png)
+<sub>**Xbox Elite Controller** (beta)</sub>
+
+![Photo layout: a DualSense mapped as an Xbox controller](docs/screenshot-dualsense.png)
+<sub>**DualSense** (beta)</sub>
+
+![Photo layout: a DualShock 4 mapped as an Xbox controller](docs/screenshot-dualshock4.png)
+<sub>**DualShock 4** (beta)</sub>
 
 ![Universal layout: any other stick, built from what the stick reports](docs/screenshot-generic.png)
 <sub>Every other stick gets the universal layout.</sub>
@@ -64,8 +84,8 @@ latest release:
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
-| **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Thrustmaster Sol-R right and left sticks (photo layout and named controls, axes not confirmed yet)</li><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 On Linux every stick is read the same way as on Windows, with the same layouts, but Linux
 itself is still experimental: nothing has been confirmed on a real Linux machine yet.
@@ -86,11 +106,30 @@ mapping. Each one gets a role (**Stick**, **Throttle**, **Pedals** or **Extra**)
 from its name; change it in the same menu if the guess is wrong. One profile holds the
 mapping for all of them, and unplugging a device only switches off its own controls.
 
+## Xbox and PlayStation controllers
+
+A controller shows up like any stick. Start a profile from its own template, then change
+the controls you want: an **Xbox** controller starts mapped to itself, a **DualSense** or
+**DualShock 4** as the Xbox controller a game expects.
+
+- **Xbox controllers** are read on Windows.
+- **Xbox Elite paddles** aren't buttons of their own to Windows: each one copies the button
+  you give it in the Xbox Accessories app, so map that button here.
+- **PlayStation controllers:** plug in the USB cable.
+
+The game still sees the real controller beside the remapped one. Hide the real one with
+[HidHide](https://github.com/nefarius/HidHide), with Joystick Mapper on its list of
+applications, so only your mapping is read.
+
+Next to a flight stick, a controller comes up as **Extra** and does nothing until you map it.
+
 ## Download
 
 **[Download the latest release](https://github.com/Alphonsvds/joystick-mapper/releases/latest)**:
-`Joystick-Mapper-Setup-x.y.z.exe` on Windows, or the Linux file for your distro (see
-[How to install](#how-to-install)).
+
+- **Windows:** the `.exe`
+- **Linux:** the `.rpm`, `.deb` or `.AppImage` (see [How to install](#how-to-install) for
+  which one)
 
 > Windows may show **"Windows protected your PC"** because the installer isn't code-signed
 > (signing certificates cost money). Click **More info → Run anyway**.
@@ -173,6 +212,8 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
   listen to player 1, and a real gamepad plugged in first takes that slot.
 - **Games still see the physical joystick too.** Games without joystick support ignore it.
   If one reacts to both, hiding the stick with HidHide is on the v2 list.
+- **Deadzone bigger than you set?** Steam adds its own by default. Change it in the game's
+  Steam controller settings, or turn off **Steam Input** for that game.
 - **A "pick an app to open this ms-gamebar link" popup?** Windows calls Xbox Game Bar
   whenever an Xbox controller (including the virtual one) connects. If Game Bar has been
   uninstalled, Windows asks what should open it instead. Reinstall **Xbox Game Bar** from the
@@ -261,11 +302,13 @@ R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an E
 a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
 a Turtle Beach VelocityOne Flightstick (`?device=flightstick`), a WINWING Orion 2 stick
 and throttle (`?device=orionstick`, `?device=orionthrottle`), a Thrustmaster Sol-R right and
-left stick (`?device=solrright`, `?device=solrleft`), Virpil ACE-Torq pedals
-(`?device=acetorq`) and a Thrustmaster T.16000M (`?device=t16000m`, the universal layout).
-`?device=hotas` plugs in a stick, a throttle and pedals together, `?device=winwing` the
-WINWING and Virpil rig, `?device=solr` the Sol-R pair; the keyboard drives whichever one is on
-screen.
+left stick (`?device=solrright`, `?device=solrleft`), a Logitech X56 stick and throttle
+(`?device=x56stick`, `?device=x56throttle`), an Xbox controller and an Xbox Elite
+(`?device=xbox`, `?device=elite`), a DualShock 4 and a DualSense (`?device=dualshock4`,
+`?device=dualsense`), Virpil ACE-Torq pedals (`?device=acetorq`) and a Thrustmaster
+T.16000M (`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle and pedals together,
+`?device=winwing` the WINWING and Virpil rig, `?device=solr` the Sol-R pair, `?device=x56`
+the X56 pair; the keyboard drives whichever one is on screen.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.

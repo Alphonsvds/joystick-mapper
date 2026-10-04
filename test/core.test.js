@@ -10,7 +10,22 @@ import {
   sanitizeBinding,
   splitControlId,
 } from '../src/shared/controls.js';
-import { SKINS, assignRoles, describeDevice, deviceKey, guessRole, hatDirections, mergeInputs, normalizeInput } from '../src/shared/devices.js';
+import {
+  SKINS,
+  XBOX_ELITE_PAD,
+  XBOX_LAYOUT,
+  XBOX_PAD,
+  assignRoles,
+  describeDevice,
+  deviceKey,
+  guessRole,
+  hatDirections,
+  isKnownGamepad,
+  mergeInputs,
+  normalizeInput,
+} from '../src/shared/devices.js';
+import { HidDescriptorParser, parseDescriptor } from '../src/main/hiddescriptor.js';
+import { XboxPadParser, isEliteProduct } from '../src/main/xinput.js';
 import { GAMES } from '../src/shared/games.js';
 import { LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
@@ -175,11 +190,11 @@ const ACE_TORQ_LAYOUT = {
 const ACE_TORQ = { vendorId: 0x3344, productId: 0x01f9, name: 'VIRPIL Controls 20220720 VPC ACE-Torq Rudder' };
 const ACE_TORQ_REST = [0x7656, 0, 0];
 
-// A Thrustmaster Sol-R pair, from one owner's "Copy device info" (GitHub issue #8): two
-// sticks with the same 44 buttons and the same axes, in this order: hat, dial, slider, rx,
-// ry, rz, z, y, x, vendor byte. SOL_R_REST is the right stick's last report: everything on
-// the middle but the thrust lever on Rx, part way up (the left stick's lever was at 0), and
-// the base's rotary on its first position (button 20).
+// A Thrustmaster Sol-R pair, from one owner's "Copy device info" (GitHub issues #8 and
+// #10): two sticks with the same 44 buttons and the same axes, in this order: hat, dial,
+// slider, rx, ry, rz, z, y, x, vendor byte. SOL_R_REST is the right stick at rest:
+// everything on the middle but the thrust lever on Z, part way along (the left stick's
+// lever was at 0), and the base's rotary on its first position (button 20).
 const SOL_R_LAYOUT = {
   values: [
     { page: 1, usage: 0x39, min: 0, max: 7 },
@@ -197,8 +212,90 @@ const SOL_R_LAYOUT = {
 };
 const SOL_R_RIGHT = { vendorId: 0x044f, productId: 0x0422, name: 'Thrustmaster Sol-R [R] Flightstick' };
 const SOL_R_LEFT = { vendorId: 0x044f, productId: 0x042a, name: 'Thrustmaster Sol-R [L] Flightstick' };
-const SOL_R_REST = [8, 0x8000, 0x8000, 0x9653, 0x8000, 0x8000, 0x8000, 0x7fff, 0x8000, 0];
+const SOL_R_REST = [8, 0x8000, 0x7fff, 0x8000, 0x8000, 0x8000, 0x9653, 0x8000, 0x8000, 0];
 const SOL_R_HELD = [20];
+
+// A Logitech X56 throttle, from an owner's "Copy device info" (GitHub issue #16): two
+// 10-bit levers on X and Y and six 8-bit axes, in this order: y, x, dial, slider, ry, rz,
+// rx, z. In its last report both levers read 0 and button 34 (the MODE switch) was held.
+const X56_THROTTLE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x31, min: 0, max: 1023 },
+    { page: 1, usage: 0x30, min: 0, max: 1023 },
+    { page: 1, usage: 0x37, min: 0, max: 255 },
+    { page: 1, usage: 0x36, min: 0, max: 255 },
+    { page: 1, usage: 0x34, min: 0, max: 255 },
+    { page: 1, usage: 0x35, min: 0, max: 255 },
+    { page: 1, usage: 0x33, min: 0, max: 255 },
+    { page: 1, usage: 0x32, min: 0, max: 255 },
+  ],
+  buttonCount: 36,
+};
+const X56_THROTTLE = { vendorId: 0x0738, productId: 0xa221, name: 'Mad Catz Saitek Pro Flight X-56 Rhino Throttle' };
+// The X56 stick, from its published control list (not a captured device).
+const X56_STICK_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, min: 0, max: 4095 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 1, usage: 0x33, min: 0, max: 255 },
+    { page: 1, usage: 0x34, min: 0, max: 255 },
+  ],
+  buttonCount: 17,
+};
+const X56_STICK = { vendorId: 0x0738, productId: 0x2221, name: 'Mad Catz Saitek Pro Flight X-56 Rhino Stick' };
+
+// The two PlayStation controllers' input reports, from their published descriptors (not
+// captured devices), read with the app's own descriptor parser, which lists a layout as
+// Windows does. DualShock 4: both sticks, the hat, 14 buttons, a counter, then the
+// triggers. DualSense: both sticks and the triggers together, a counter, the hat, 15
+// buttons.
+const descriptor = (hex) => Buffer.from(hex.replace(/\s+/g, ''), 'hex');
+const DUALSHOCK_4_DESCRIPTOR = descriptor(`
+  05 01 09 05 a1 01 85 01
+  09 30 09 31 09 32 09 35 15 00 26 ff 00 75 08 95 04 81 02
+  09 39 15 00 25 07 35 00 46 3b 01 65 14 75 04 95 01 81 42
+  65 00 05 09 19 01 29 0e 15 00 25 01 75 01 95 0e 81 02
+  06 00 ff 09 20 75 06 95 01 15 00 25 7f 81 02
+  05 01 09 33 09 34 15 00 26 ff 00 75 08 95 02 81 02
+  06 00 ff 09 21 95 36 81 02
+  c0`);
+const DUALSENSE_DESCRIPTOR = descriptor(`
+  05 01 09 05 a1 01 85 01
+  09 30 09 31 09 32 09 35 09 33 09 34 15 00 26 ff 00 75 08 95 06 81 02
+  06 00 ff 09 20 95 01 81 02
+  05 01 09 39 15 00 25 07 35 00 46 3b 01 65 14 75 04 81 42
+  65 00 05 09 19 01 29 0f 15 00 25 01 75 01 95 0f 81 02
+  06 00 ff 09 21 95 0d 81 02
+  06 00 ff 09 22 15 00 26 ff 00 75 08 95 34 81 02
+  c0`);
+const DUALSHOCK_4 = { vendorId: 0x054c, productId: 0x09cc, name: 'Sony Interactive Entertainment Wireless Controller' };
+const DUALSENSE = { vendorId: 0x054c, productId: 0x0ce6, name: 'Sony Interactive Entertainment DualSense Wireless Controller' };
+
+// A 64-byte report from either controller. `face` holds the hat in its low four bits (8
+// is centred) and Square, Cross, Circle, Triangle above them; `shoulder` is L1, R1, L2, R2,
+// Share / Create, Options, L3, R3; `system` is PS, the touchpad and, on a DualSense, mute.
+function playstationReport(model, { lx = 128, ly = 128, rx = 128, ry = 128, l2 = 0, r2 = 0, face = 8, shoulder = 0, system = 0 }) {
+  const b = Buffer.alloc(64);
+  b[0] = 1;
+  if (model === 'dualshock4') b.set([lx, ly, rx, ry, face, shoulder, system, l2, r2], 1);
+  else b.set([lx, ly, rx, ry, l2, r2, 0, face, shoulder, system], 1);
+  return b;
+}
+
+// An XINPUT_GAMEPAD, as XInput hands an Xbox controller's state over.
+function xboxState({ buttons = 0, lt = 0, rt = 0, lx = 0, ly = 0, rx = 0, ry = 0 }) {
+  const b = Buffer.alloc(12);
+  b.writeUInt16LE(buttons, 0);
+  b.writeUInt8(lt, 2);
+  b.writeUInt8(rt, 3);
+  b.writeInt16LE(lx, 4);
+  b.writeInt16LE(ly, 6);
+  b.writeInt16LE(rx, 8);
+  b.writeInt16LE(ry, 10);
+  return b;
+}
 
 // Build a raw 8-byte Windows report (leading report ID 0) for the Extreme 3D Pro.
 function extremeReport({ x = 512, y = 512, hat = 8, twist = 128, slider = 128, buttons = 0 }) {
@@ -486,47 +583,49 @@ test('ACE-Torq pedals read the rudder on Z, centred, with the two unused axes pa
   assert.deepEqual(guessRole(ORION_THROTTLE.name), 'throttle');
 });
 
-test('the Sol-R sticks read their thrust lever as a lever and everything else from the middle', () => {
-  for (const [stick, skin, name] of [
-    [SOL_R_RIGHT, 'solrright', 'Sol-R Right Stick'],
-    [SOL_R_LEFT, 'solrleft', 'Sol-R Left Stick'],
+test('the Sol-R sticks name the axes an owner found them on, and each has its POV hat on its own side', () => {
+  for (const [stick, skin, name, pov] of [
+    [SOL_R_RIGHT, 'solrright', 'Sol-R Right Stick', 'Right Hat'],
+    [SOL_R_LEFT, 'solrleft', 'Sol-R Left Stick', 'Left Hat'],
   ]) {
     const model = describeDevice(SOL_R_LAYOUT, stick);
     assert.equal(model.skin, skin);
-    assert.equal(model.support, 'experimental'); // until an owner has confirmed which axis is which
+    assert.equal(model.support, 'beta');
     assert.equal(model.name, name);
     assert.equal(model.buttons, 44);
     assert.deepEqual(model.axes.map((a) => a.id), ['dial', 'slider', 'rx', 'ry', 'rz', 'z', 'y', 'x']); // the vendor byte isn't one
     const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
-    assert.deepEqual(axis.rx, ['Thrust', false, false, undefined]);
-    assert.deepEqual(axis.z, ['Twist', true, false, 0.1]);
-    assert.deepEqual(axis.ry, ['Ministick X', true, false, undefined]);
-    assert.deepEqual(axis.rz, ['Ministick Y', true, true, 0.04]);
+    assert.deepEqual(axis.z, ['Thrust', false, true, undefined]);
+    assert.deepEqual(axis.rx, ['Ministick X', true, false, undefined]);
+    assert.deepEqual(axis.ry, ['Ministick Y', true, true, undefined]);
+    assert.deepEqual(axis.rz, ['Twist', true, false, 0.1]);
     assert.deepEqual(axis.slider, ['Slider', false, true, undefined]); // the two spares keep their generic ones
-    assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['ry', 'rz', 'z', 'y', 'x']);
     assert.equal(model.axes.find((a) => a.id === 'slider').hint, '');
-    assert.deepEqual(model.hats.map((h) => h.name), ['Left Hat']);
+    // Named, but behaving exactly as it would without the skin: the generic defaults fit.
+    const generic = describeDevice(SOL_R_LAYOUT, { ...stick, ignoreSkin: true });
+    const behaviour = (m) => m.axes.map((a) => [a.id, a.centered, a.invert, a.deadzone]);
+    assert.deepEqual(behaviour(model), behaviour(generic));
+
+    assert.deepEqual(model.hats.map((h) => h.name), [pov]);
     assert.equal(model.buttonNames.btn20, 'Rotary 1');
     assert.equal(model.buttonNames.btn25, 'Trigger Stage 2');
     assert.equal(model.buttonNames.btn30, 'Left Hat Push');
-    assert.equal(model.buttonNames.btn40, 'Right Hat Push'); // push first, from the "40" printed beside its push symbol
-    assert.equal(model.buttonNames.btn44, 'Right Hat Left');
+    assert.equal(model.buttonNames.btn40, 'Right Hat Push');
     assert.equal(model.buttonNames.btn17, 'Right Pad Top Left'); // 17 is above 19, and left of 16
-    assert.equal(model.buttonNames.btn31, 'Button 31'); // the chart leaves out 31–34
 
     // At rest only the thrust lever and the rotary's first position stand out.
     const rest = normalizeInput(decoded(SOL_R_REST, SOL_R_HELD), model, {});
-    for (const id of ['x', 'y', 'z', 'ry', 'rz', 'slider', 'dial']) assert.ok(Math.abs(rest.axes[id]) < 0.01, `${id} = ${rest.axes[id]}`);
-    assert.ok(rest.axes.rx > 0.17 && rest.axes.rx < 0.18, `rx = ${rest.axes.rx}`);
+    for (const id of ['x', 'y', 'rx', 'ry', 'rz', 'slider', 'dial']) assert.ok(Math.abs(rest.axes[id]) < 0.01, `${id} = ${rest.axes[id]}`);
+    assert.ok(rest.axes.z < -0.17 && rest.axes.z > -0.18, `z = ${rest.axes.z}`);
     assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), ['btn20']);
-    const idle = normalizeInput(decoded([8, 0x8000, 0x8000, 0, 0x8000, 0x8000, 0x8000, 0x7fff, 0x8000, 0]), model, {});
-    assert.equal(idle.axes.rx, -1);
-    // Without the skin the lever read as a centred axis half way over, which is more than
-    // the stick will accept as at rest, so it never centred itself.
-    const generic = describeDevice(SOL_R_LAYOUT, { ...stick, ignoreSkin: true });
-    assert.equal(generic.axes.find((a) => a.id === 'rx').centered, true);
-    assert.ok(Math.abs(normalizeInput(decoded(SOL_R_REST), generic, {}).axes.rx) > 0.1);
   }
+  // The hat that isn't the POV sends its directions as the four buttons after its push;
+  // the other hat's four are never sent, so they stay unnamed.
+  const [right, left] = [SOL_R_RIGHT, SOL_R_LEFT].map((stick) => describeDevice(SOL_R_LAYOUT, stick).buttonNames);
+  assert.deepEqual([31, 32, 33, 34].map((b) => right[`btn${b}`]), ['Left Hat Up', 'Left Hat Right', 'Left Hat Down', 'Left Hat Left']);
+  assert.deepEqual([41, 44].map((b) => right[`btn${b}`]), ['Button 41', 'Button 44']);
+  assert.deepEqual([41, 42, 43, 44].map((b) => left[`btn${b}`]), ['Right Hat Up', 'Right Hat Right', 'Right Hat Down', 'Right Hat Left']);
+  assert.deepEqual([31, 34].map((b) => left[`btn${b}`]), ['Button 31', 'Button 34']);
 });
 
 test('the two Sol-R sticks take the stick and throttle roles whichever order they are found in', () => {
@@ -537,6 +636,255 @@ test('the two Sol-R sticks take the stick and throttle roles whichever order the
   assert.deepEqual(assignRoles([right, left]), roles);
   assert.deepEqual(assignRoles([left, right]), roles);
   assert.deepEqual(assignRoles([left]), { [left.id]: 'stick' }); // on its own it is the stick, as for any other
+});
+
+test('the X56 throttle reads its two levers as levers, the same way round, and its G rotary as a knob', () => {
+  const model = describeDevice(X56_THROTTLE_LAYOUT, X56_THROTTLE);
+  assert.equal(model.skin, 'x56throttle');
+  assert.equal(model.support, 'beta');
+  assert.equal(model.name, 'Logitech X56 Throttle');
+  assert.equal(model.buttons, 36);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.x, ['Left Throttle', false, true, undefined]);
+  assert.deepEqual(axis.y, ['Right Throttle', false, true, undefined]);
+  assert.deepEqual(axis.rz, ['G Rotary', false, false, 0.02]);
+  assert.deepEqual(axis.z, ['F Rotary', false, true, undefined]); // as any Z: no override needed
+  assert.deepEqual(axis.rx, ['Ministick X', true, false, undefined]);
+  assert.deepEqual(axis.slider, ['RTY 3', false, true, undefined]);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['ry', 'rx']); // only the ministick springs back
+  assert.deepEqual([1, 4, 5, 6, 11, 12, 19, 20, 27, 28, 31, 32, 33, 34, 36].map((b) => model.buttonNames[`btn${b}`]), [
+    'E Button',
+    'I Button',
+    'H Button',
+    'SW 1',
+    'SW 6',
+    'TGL 1 Up',
+    'TGL 4 Down',
+    'H3 Up',
+    'H4 Back',
+    'K1 Up',
+    'Scroll Back',
+    'Ministick Push',
+    'SLD Switch',
+    'Mode M1',
+    'Mode S1',
+  ]);
+
+  // The owner's last report: both levers at raw 0, which reads as fully forward on both.
+  const rest = normalizeInput(decoded([0, 0, 0x14, 0x71, 0x80, 0x80, 0x7f, 0x7f], [34]), model, {});
+  assert.equal(rest.axes.x, 1);
+  assert.equal(rest.axes.y, 1);
+  assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), ['btn34']);
+  // Without the skin they read as a stick held in a corner, each lever the other way.
+  const generic = describeDevice(X56_THROTTLE_LAYOUT, { ...X56_THROTTLE, ignoreSkin: true });
+  assert.deepEqual(generic.axes.filter((a) => a.centered).map((a) => a.id), ['y', 'x', 'ry', 'rz', 'rx']);
+  const loose = normalizeInput(decoded([0, 0, 0x14, 0x71, 0x80, 0x80, 0x7f, 0x7f]), generic, {});
+  assert.deepEqual([loose.axes.x, loose.axes.y], [-1, 1]);
+  assert.equal(guessRole(X56_THROTTLE.name), 'throttle');
+  assert.equal(guessRole(X56_STICK.name), null);
+});
+
+test('the X56 stick only needs names: its axes are where any stick has them', () => {
+  const model = describeDevice(X56_STICK_LAYOUT, X56_STICK);
+  assert.equal(model.skin, 'x56stick');
+  assert.equal(model.support, 'beta');
+  assert.equal(model.name, 'Logitech X56 Stick');
+  const generic = describeDevice(X56_STICK_LAYOUT, { ...X56_STICK, ignoreSkin: true });
+  const behaviour = (m) => m.axes.map((a) => [a.id, a.centered, a.invert, a.deadzone]);
+  assert.deepEqual(behaviour(model), behaviour(generic));
+  assert.deepEqual(model.axes.map((a) => a.name), ['Roll', 'Pitch', 'Yaw', 'C Stick X', 'C Stick Y']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['POV Hat']);
+  assert.deepEqual([1, 2, 4, 6, 7, 8, 9, 10, 11, 14, 15].map((b) => model.buttonNames[`btn${b}`]), [
+    'Trigger',
+    'A Button',
+    'C Stick Push',
+    'Pinkie Lever',
+    'H1 Up',
+    'H1 Right',
+    'H1 Down',
+    'H1 Left',
+    'H2 Up',
+    'H2 Left',
+    'Button 15',
+  ]);
+});
+
+test('an Xbox controller is decoded from XInput: every button, the D-pad as a hat, both triggers', () => {
+  const parser = new XboxPadParser();
+  assert.equal(parser.layout, XBOX_LAYOUT);
+  const model = describeDevice(parser.layout, XBOX_PAD);
+  assert.equal(model.key, '045e:028e');
+  assert.equal(model.skin, 'xboxcontroller');
+  assert.equal(model.name, 'Xbox Controller');
+  assert.equal(model.buttons, 10);
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name, a.centered, a.invert]), [
+    ['x', 'Left Stick X', true, false],
+    ['y', 'Left Stick Y', true, true],
+    ['rx', 'Right Stick X', true, false],
+    ['ry', 'Right Stick Y', true, true],
+    ['z', 'Left Trigger', false, false],
+    ['rz', 'Right Trigger', false, false],
+  ]);
+  const read = (state) => normalizeInput(parser.decode(xboxState(state)), model, {});
+  const held = (state) => Object.keys(read(state).buttons).filter((id) => read(state).buttons[id]);
+
+  const rest = read({});
+  assert.deepEqual(held({}), []);
+  assert.deepEqual([rest.axes.z, rest.axes.rz], [-1, -1]); // a trigger at rest is at the bottom of its travel
+  for (const id of ['x', 'y', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.001, id);
+
+  const names = (ids) => ids.map((id) => model.buttonNames[id]);
+  assert.deepEqual(names(held({ buttons: XUSB.A | XUSB.B | XUSB.X | XUSB.Y })), ['A Button', 'B Button', 'X Button', 'Y Button']);
+  assert.deepEqual(names(held({ buttons: XUSB.LEFT_SHOULDER | XUSB.RIGHT_SHOULDER })), ['Left Bumper', 'Right Bumper']);
+  assert.deepEqual(names(held({ buttons: XUSB.BACK | XUSB.START })), ['View Button', 'Menu Button']);
+  assert.deepEqual(names(held({ buttons: XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB })), ['Left Stick Click', 'Right Stick Click']);
+  assert.deepEqual(held({ buttons: XUSB.DPAD_UP }), ['hat1_up']);
+  assert.deepEqual(held({ buttons: XUSB.DPAD_UP | XUSB.DPAD_RIGHT }), ['hat1_up', 'hat1_right']);
+  assert.deepEqual(held({ buttons: XUSB.DPAD_DOWN | XUSB.DPAD_LEFT }), ['hat1_down', 'hat1_left']);
+  assert.deepEqual(held({ buttons: XUSB.GUIDE }), []); // Windows keeps the Xbox button
+
+  // Up and right are positive, as on every stick here.
+  const pushed = read({ lx: 32767, ly: 32767, rx: -32768, ry: -32768, lt: 255, rt: 0 });
+  assert.deepEqual([pushed.axes.x, pushed.axes.y, pushed.axes.rx, pushed.axes.ry], [1, 1, -1, -1]);
+  assert.deepEqual([pushed.axes.z, pushed.axes.rz], [1, -1]);
+});
+
+test('the Xbox Controller template maps a controller to itself', () => {
+  const parser = new XboxPadParser();
+  const model = describeDevice(parser.layout, XBOX_PAD);
+  const bindings = presetBindings('xbox-controller');
+  assert.equal(PRESETS.find((p) => p.id === 'xbox-controller').skin, 'xboxcontroller');
+  const through = (state) => mapInput(normalizeInput(parser.decode(xboxState(state)), model, {}), bindings);
+  const every = Object.values(XUSB).reduce((all, bit) => all | bit, 0) & ~XUSB.GUIDE;
+  for (const state of [
+    { buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 },
+    { buttons: XUSB.A | XUSB.DPAD_LEFT | XUSB.LEFT_THUMB, lt: 255, rt: 128, lx: 32767, ly: -20000, rx: -12345, ry: 500 },
+    { buttons: every & ~(XUSB.DPAD_DOWN | XUSB.DPAD_RIGHT), lt: 1, rt: 254, lx: -32767, ly: 32767, rx: 9, ry: -9 },
+  ]) {
+    const out = through(state);
+    assert.equal(out.buttons, state.buttons);
+    assert.deepEqual([out.lt, out.rt], [state.lt, state.rt]);
+    // A stick's two halves aren't quite the same length, so it may come out a step or two off.
+    for (const id of ['lx', 'ly', 'rx', 'ry']) assert.ok(Math.abs(out[id] - state[id]) <= 2, `${id}: ${state[id]} -> ${out[id]}`);
+  }
+});
+
+test('an Elite is an Xbox controller with its own photo, told apart by its product ID', () => {
+  for (const product of [0x02e3, 0x0b00, 0x0b05, 0x0b22]) assert.equal(isEliteProduct(0x045e, product), true);
+  assert.equal(isEliteProduct(0x045e, 0x028e), false); // a 360 controller, and this app's virtual pad
+  assert.equal(isEliteProduct(0x045e, 0x0b12), false); // an Xbox Series controller
+  assert.equal(isEliteProduct(0x0e6f, 0x0b00), false);
+  const elite = describeDevice(XBOX_LAYOUT, XBOX_ELITE_PAD);
+  const plain = describeDevice(XBOX_LAYOUT, XBOX_PAD);
+  assert.equal(elite.skin, 'xboxelite');
+  assert.equal(elite.name, 'Xbox Elite Controller');
+  assert.equal(elite.support, 'beta');
+  // The same controls, behaving the same: the paddles aren't there to read.
+  assert.deepEqual(elite.axes, plain.axes);
+  assert.deepEqual(elite.buttonNames, plain.buttonNames);
+  assert.deepEqual(presetBindings('xbox-elite-controller'), presetBindings('xbox-controller'));
+  assert.equal(PRESETS.find((p) => p.id === 'xbox-elite-controller').skin, 'xboxelite');
+  assert.equal(guessRole(XBOX_ELITE_PAD.name), 'extra');
+});
+
+test('PlayStation controllers read their right stick and triggers where they are', () => {
+  for (const [bytes, device, skin, name, buttons, create] of [
+    [DUALSHOCK_4_DESCRIPTOR, DUALSHOCK_4, 'dualshock4', 'DualShock 4', 14, 'Share'],
+    [DUALSENSE_DESCRIPTOR, DUALSENSE, 'dualsense', 'DualSense', 15, 'Create'],
+  ]) {
+    const parser = new HidDescriptorParser(bytes);
+    assert.equal(parser.layout.reportLength, 64);
+    const model = describeDevice(parser.layout, device);
+    assert.equal(model.skin, skin);
+    assert.equal(model.name, name);
+    assert.equal(model.support, 'beta');
+    assert.equal(model.buttons, buttons);
+    const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert]]));
+    assert.deepEqual(axis, {
+      x: ['Left Stick X', true, false],
+      y: ['Left Stick Y', true, true],
+      z: ['Right Stick X', true, false],
+      rz: ['Right Stick Y', true, true],
+      rx: ['L2', false, false],
+      ry: ['R2', false, false],
+    });
+    assert.deepEqual([1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14].map((b) => model.buttonNames[`btn${b}`]), [
+      'Square',
+      'Cross',
+      'Circle',
+      'Triangle',
+      'L1',
+      'R1',
+      create,
+      'Options',
+      'L3',
+      'R3',
+      'PS Button',
+      'Touchpad Click',
+    ]);
+    assert.equal(model.buttonNames.btn15, skin === 'dualsense' ? 'Mute' : undefined);
+    // Without the skin the right stick read as a lever and a twist, and the triggers as a
+    // second stick held in a corner.
+    const generic = describeDevice(parser.layout, { ...device, ignoreSkin: true });
+    assert.deepEqual(generic.axes.filter((a) => !a.centered).map((a) => a.id), ['z']);
+
+    const read = (state) => normalizeInput(parser.decode(playstationReport(skin, state)), model, {});
+    const held = (state) => Object.keys(read(state).buttons).filter((id) => read(state).buttons[id]);
+    const rest = read({});
+    assert.deepEqual(held({}), []);
+    assert.deepEqual([rest.axes.rx, rest.axes.ry], [-1, -1]);
+    for (const id of ['x', 'y', 'z', 'rz']) assert.ok(Math.abs(rest.axes[id]) < 0.01, id);
+    const pushed = read({ lx: 255, ly: 0, rx: 0, ry: 255, l2: 255, r2: 0 });
+    assert.deepEqual([pushed.axes.x, pushed.axes.y, pushed.axes.z, pushed.axes.rz], [1, 1, -1, -1]); // right and up are positive
+    assert.deepEqual([pushed.axes.rx, pushed.axes.ry], [1, -1]);
+    assert.deepEqual(held({ face: 8 | 0x20 }).map((id) => model.buttonNames[id]), ['Cross']);
+    assert.deepEqual(held({ face: 2 }), ['hat1_right']);
+    assert.deepEqual(held({ shoulder: 0x01 | 0x20, system: 0x01 }).map((id) => model.buttonNames[id]), ['L1', 'Options', 'PS Button']);
+
+    // Its template is the Xbox controller a game expects: each control to the one in its place.
+    const bindings = presetBindings(skin === 'dualshock4' ? 'dualshock-4' : 'dualsense');
+    const out = (state) => mapInput(read(state), bindings);
+    assert.equal(out({ face: 8 | 0x10 }).buttons, XUSB.X); // Square
+    assert.equal(out({ face: 8 | 0x20 }).buttons, XUSB.A); // Cross
+    assert.equal(out({ face: 8 | 0x40 }).buttons, XUSB.B); // Circle
+    assert.equal(out({ face: 8 | 0x80 }).buttons, XUSB.Y); // Triangle
+    assert.equal(out({ face: 0 }).buttons, XUSB.DPAD_UP);
+    assert.equal(out({ shoulder: 0x01 | 0x02 }).buttons, XUSB.LEFT_SHOULDER | XUSB.RIGHT_SHOULDER);
+    assert.equal(out({ shoulder: 0x10 | 0x20 }).buttons, XUSB.BACK | XUSB.START);
+    assert.equal(out({ shoulder: 0x40 | 0x80 }).buttons, XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB);
+    // A pulled trigger is its axis; the button it also presses (7 or 8) adds nothing.
+    assert.deepEqual(out({ l2: 255, r2: 128, shoulder: 0x04 | 0x08 }), { ...out({}), lt: 255, rt: 128 });
+    const sticks = out({ lx: 255, ly: 0, rx: 0, ry: 255 });
+    assert.deepEqual([sticks.lx, sticks.ly, sticks.rx, sticks.ry], [32767, 32767, -32767, -32767]);
+  }
+});
+
+test('only the gamepads with a skin of their own are read over HID, and beside a stick they are extras', () => {
+  for (const product of [0x05c4, 0x09cc, 0x0ba0, 0x0ce6, 0x0df2]) assert.equal(isKnownGamepad(0x054c, product), true);
+  assert.equal(SKINS['054c:05c4'].id, 'dualshock4');
+  assert.equal(SKINS['054c:0ba0'].id, 'dualshock4');
+  assert.equal(SKINS['054c:0df2'].id, 'dualsense');
+  assert.equal(isKnownGamepad(0x045e, 0x028e), false); // Xbox controllers come through XInput instead
+  assert.equal(isKnownGamepad(0x045e, 0x02ea), false);
+  assert.equal(isKnownGamepad(0x046d, 0xc215), false); // a joystick needs no such leave
+  assert.equal(isKnownGamepad(0x057e, 0x2009), false); // a gamepad nobody has described yet
+  assert.equal(guessRole(DUALSHOCK_4.name), 'extra');
+  assert.equal(guessRole(DUALSENSE.name), 'extra');
+  const stick = { id: '046d:c215', name: 'Logitech Extreme 3D' };
+  const pad = { id: '054c:0ce6', name: DUALSENSE.name };
+  assert.deepEqual(assignRoles([pad, stick]), { [stick.id]: 'stick', [pad.id]: 'extra' });
+  assert.deepEqual(assignRoles([pad]), { [pad.id]: 'stick' });
+});
+
+test('an Xbox controller beside a flight stick is an extra device, and on its own it is the stick', () => {
+  const stick = { id: '046d:c215', name: 'Logitech Extreme 3D' };
+  const pad = { id: deviceKey(XBOX_PAD.vendorId, XBOX_PAD.productId), name: XBOX_PAD.name };
+  assert.equal(guessRole(pad.name), 'extra');
+  assert.deepEqual(assignRoles([stick, pad]), { [stick.id]: 'stick', [pad.id]: 'extra' });
+  assert.deepEqual(assignRoles([pad, stick]), { [stick.id]: 'stick', [pad.id]: 'extra' });
+  assert.deepEqual(assignRoles([pad]), { [pad.id]: 'stick' });
+  // Once it has been seen beside the stick it stays an extra, so the stick's profile never drives it.
+  assert.deepEqual(assignRoles([pad], { [stick.id]: 'stick', [pad.id]: 'extra' }), { [pad.id]: 'extra' });
 });
 
 // first..last, inclusive.
@@ -555,6 +903,12 @@ test('every photo layout points only at controls its stick has, each one once', 
     orion2throttle: [ORION_THROTTLE_LAYOUT, ORION_THROTTLE],
     solrright: [SOL_R_LAYOUT, SOL_R_RIGHT],
     solrleft: [SOL_R_LAYOUT, SOL_R_LEFT],
+    x56stick: [X56_STICK_LAYOUT, X56_STICK],
+    x56throttle: [X56_THROTTLE_LAYOUT, X56_THROTTLE],
+    xboxcontroller: [XBOX_LAYOUT, XBOX_PAD],
+    xboxelite: [XBOX_LAYOUT, XBOX_ELITE_PAD],
+    dualshock4: [parseDescriptor(DUALSHOCK_4_DESCRIPTOR).layout, DUALSHOCK_4],
+    dualsense: [parseDescriptor(DUALSENSE_DESCRIPTOR).layout, DUALSENSE],
   };
   // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
   const skins = Object.values(SKINS).map((s) => s.id);
@@ -614,15 +968,22 @@ test('every photo layout points only at controls its stick has, each one once', 
   for (const [i, a] of dots.entries()) {
     for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS.orion2throttle.image.scale >= 24, `${a} and ${b}`);
   }
-  // Both Sol-R photos show every button on the chart and every axis the stick has, on labels
-  // that all fit above the bottom of the stage, with a dot each clear of the others.
-  for (const skin of ['solrright', 'solrleft']) {
+  // Both Sol-R photos show every button the stick sends and every axis it has, on labels
+  // that all fit above the bottom of the stage, with a dot each clear of the others. The
+  // POV is the right hat on the right stick and the left hat on the left one, each with its
+  // own push button; the other hat is the four buttons after its push.
+  for (const [skin, sent, povHat, povPush] of [
+    ['solrright', range(1, 40), 'righthat', 'btn40'],
+    ['solrleft', [...range(1, 30), ...range(35, 44)], 'lefthat', 'btn30'],
+  ]) {
     const layout = LAYOUTS[skin];
     const shown = shownBy(layout.callouts);
     for (const id of ['x', 'y', 'z', 'rx', 'ry', 'rz']) assert.ok(shown.includes(id), `${skin}: ${id}`);
-    for (const id of ['hat1_up', 'hat1_right', 'hat1_down', 'hat1_left']) assert.ok(shown.includes(id), `${skin}: ${id}`);
+    const pov = layout.callouts.find((c) => c.id === povHat);
+    assert.deepEqual(pov.group.map((item) => item.id), ['hat1_up', 'hat1_right', 'hat1_down', 'hat1_left', povPush], skin);
+    assert.equal(pov.tag, 'POV');
     const buttons = shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((x, y) => x - y);
-    assert.deepEqual(buttons, [...range(1, 30), ...range(35, 44)], skin); // 31–34 aren't on the chart
+    assert.deepEqual(buttons, sent, skin);
     assert.equal(layout.folded, undefined);
     const rows = (c) => Math.ceil(c.group ? c.group.reduce((n, item) => n + (item.wide ? 1 : 1 / (c.columns ?? 1)), 0) : 1);
     for (const side of ['left', 'right']) {
@@ -632,6 +993,29 @@ test('every photo layout points only at controls its stick has, each one once', 
     const spots = layout.callouts.map((c) => c.at);
     for (const [i, a] of spots.entries()) {
       for (const b of spots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * layout.image.scale >= 24, `${skin}: ${a} and ${b}`);
+    }
+  }
+  // The X56 throttle's photo shows all 36 buttons and all eight axes, the stick's the 14
+  // buttons on its chart, its POV and its five axes, and each gamepad's everything it has.
+  // Their labels fit above the bottom of the stage too.
+  for (const [skin, buttons, axes] of [
+    ['x56throttle', range(1, 36), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
+    ['x56stick', range(1, 14), ['x', 'y', 'rz', 'rx', 'ry']],
+    ['xboxcontroller', range(1, 10), ['x', 'y', 'rx', 'ry', 'z', 'rz']],
+    ['xboxelite', range(1, 10), ['x', 'y', 'rx', 'ry', 'z', 'rz']],
+    // The triggers are shown as axes: the buttons they also press (7 and 8) are left out.
+    ['dualshock4', [...range(1, 6), ...range(9, 14)], ['x', 'y', 'z', 'rz', 'rx', 'ry']],
+    ['dualsense', [...range(1, 6), ...range(9, 15)], ['x', 'y', 'z', 'rz', 'rx', 'ry']],
+  ]) {
+    const layout = LAYOUTS[skin];
+    const shown = shownBy(layout.callouts);
+    assert.deepEqual(shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((x, y) => x - y), buttons, skin);
+    for (const id of axes) assert.ok(shown.includes(id), `${skin}: ${id}`);
+    if (skin !== 'x56throttle') for (const dir of ['up', 'right', 'down', 'left']) assert.ok(shown.includes(`hat1_${dir}`), `${skin}: hat1_${dir}`);
+    const rows = (c) => Math.ceil(c.group ? c.group.reduce((n, item) => n + (item.wide ? 1 : 1 / (c.columns ?? 1)), 0) : 1);
+    for (const side of ['left', 'right']) {
+      const last = layout.callouts.filter((c) => c.side === side).at(-1);
+      assert.ok(last.y + 23 + rows(last) * 32 <= (side === 'left' ? 915 : 985), `${skin}: the ${side} labels run off the stage`);
     }
   }
 });

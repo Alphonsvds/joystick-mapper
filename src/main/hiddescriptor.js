@@ -10,10 +10,11 @@ import path from 'node:path';
 
 const PAGE_GENERIC = 0x01;
 const PAGE_BUTTON = 0x09;
-// Top-level collections read as a joystick: Joystick and Multi-axis Controller (as in
-// joystick.js). A device's other collections (a keyboard, LEDs…) are left out, as they
-// are on Windows, where each collection is a device of its own.
-const JOYSTICK_USAGES = new Set([0x04, 0x08]);
+// Top-level collections read as a joystick: Joystick, Game Pad and Multi-axis Controller
+// (joystick.js decides which gamepads are opened at all). A device's other collections (a
+// keyboard, LEDs…) are left out, as they are on Windows, where each collection is a device
+// of its own.
+const JOYSTICK_USAGES = new Set([0x04, 0x05, 0x08]);
 
 // Item types and tags (HID 1.11, section 6.2.2).
 const MAIN = 0;

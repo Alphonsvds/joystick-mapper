@@ -8,21 +8,29 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import HID from 'node-hid';
 import { ROLES, rolePrefix } from '../shared/controls.js';
-import { assignRoles, deviceKey, describeDevice, isCentered, mergeInputs, normalizeInput } from '../shared/devices.js';
+import { assignRoles, deviceKey, describeDevice, isCentered, isKnownGamepad, mergeInputs, normalizeInput } from '../shared/devices.js';
 import { HidDescriptorParser } from './hiddescriptor.js';
 import { HidParser } from './hidp.js';
+import { XboxPadParser, isXboxPad, listXboxPads, openXboxPad } from './xinput.js';
 import { EXTREME_3D_PRO_IDS, Extreme3DProParser } from './devices/extreme3dpro.js';
 
 const RESCAN_MS = 1500;
 const USAGE_PAGE_GENERIC = 0x01;
 const USAGE_JOYSTICK = 0x04;
+const USAGE_GAMEPAD = 0x05;
 const USAGE_MULTI_AXIS = 0x08;
 const VIRTUAL_PAD = { vendorId: 0x045e, productId: 0x028e }; // our own ViGEm Xbox 360 pad
 
-// Flight sticks, throttles and pedals — not gamepads. XInput pads (like the virtual pad
-// this app creates) show up with "&IG_" in their path; reading them would loop.
+// Flight sticks, throttles and pedals, plus two kinds of gamepad: the Xbox controllers
+// XInput lists (see xinput.js), and the ones with a skin of their own, which describe
+// themselves over HID as a stick does (PlayStation controllers). Over HID an Xbox
+// controller shows up with "&IG_" in its path, as does the virtual pad this app creates:
+// reading them there would lose a trigger, or loop.
 function isJoystick(d) {
-  if (d.usagePage !== USAGE_PAGE_GENERIC || (d.usage !== USAGE_JOYSTICK && d.usage !== USAGE_MULTI_AXIS)) return false;
+  if (isXboxPad(d)) return true;
+  if (d.usagePage !== USAGE_PAGE_GENERIC) return false;
+  const gamepad = d.usage === USAGE_GAMEPAD && isKnownGamepad(d.vendorId, d.productId);
+  if (d.usage !== USAGE_JOYSTICK && d.usage !== USAGE_MULTI_AXIS && !gamepad) return false;
   if (/&ig_/i.test(d.path ?? '')) return false;
   return !(d.vendorId === VIRTUAL_PAD.vendorId && d.productId === VIRTUAL_PAD.productId);
 }
@@ -55,6 +63,7 @@ function identify(listing) {
 const closeQuietly = (hid) => Promise.resolve().then(() => hid.close()).catch(() => {});
 
 function createParser(info) {
+  if (isXboxPad(info)) return new XboxPadParser();
   if (process.platform === 'win32') return HidParser.open(info.path);
   if (process.platform === 'linux') return HidDescriptorParser.open(info.path);
   if (info.vendorId === EXTREME_3D_PRO_IDS.vendorId && info.productId === EXTREME_3D_PRO_IDS.productId) {
@@ -77,9 +86,10 @@ function openHid(path) {
 }
 
 // How devices are listed, opened and understood. Tests swap in a fake.
+// `skipPad(slot)` says which XInput slots aren't real controllers (see xinput.js).
 const hidBackend = {
-  list: () => HID.devicesAsync(),
-  open: openHid,
+  list: async (skipPad) => [...(await HID.devicesAsync()), ...listXboxPads(skipPad)],
+  open: (path) => (isXboxPad({ path }) ? openXboxPad(path) : openHid(path)),
   createParser,
 };
 
@@ -93,6 +103,9 @@ export class JoystickManager extends EventEmitter {
     this.savedRoles = {}; // roles remembered or chosen before, owned by main.js
     this.preferredId = null; // the device the UI shows, while it's plugged in
     this.settings = {}; // per-device { centered, calibration }, owned by main.js
+    // The XInput slot of this app's own virtual pad: a number, 'unknown' while it has one
+    // that can't be told yet, or null. Owned by main.js.
+    this.padSlot = () => null;
     // id -> { info, hid, parser, model, role, lastRaw, lastButtons, lastReport, state }
     this.open = new Map();
     this.problems = new Map(); // id -> { state, message } for devices that couldn't be opened
@@ -171,6 +184,13 @@ export class JoystickManager extends EventEmitter {
     this.emit('status', this.status);
   }
 
+  // The virtual pad's slot is never read. While that slot can't be told, neither is any
+  // controller that wasn't being read before the virtual pad appeared.
+  skipPad(slot) {
+    const own = this.padSlot();
+    return own === slot || (own === 'unknown' && ![...this.open.values()].some((d) => d.info.path === `xinput:${slot}`));
+  }
+
   scheduleScan() {
     clearTimeout(this.timer);
     if (!this.stopped) this.timer = setTimeout(() => this.scan(), RESCAN_MS);
@@ -186,7 +206,7 @@ export class JoystickManager extends EventEmitter {
   async scan() {
     if (this.stopped) return;
     try {
-      const devices = identify(await this.backend.list());
+      const devices = identify(await this.backend.list((slot) => this.skipPad(slot)));
       this.fault = null;
       await this.serial(() => this.sync(devices));
     } catch (err) {

@@ -660,6 +660,9 @@ if (!app.requestSingleInstanceLock()) {
       if (s.state === 'connected') pad.submit(output);
       sendStatus();
     });
+    // The virtual pad is an Xbox controller too; the joystick side must never read it.
+    joystick.padSlot = () => pad.slot;
+    pad.on('slot', () => joystick.scan());
 
     registerIpc();
     if (process.platform !== 'darwin') Menu.setApplicationMenu(null);

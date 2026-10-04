@@ -223,6 +223,16 @@ function resetRegistries() {
   live = {};
 }
 
+// The connected stick's photo layout, if it has one whose every label points at a control
+// this stick really reports. A stick that turns out to lack one (a layout drawn from a
+// chart, a stick reprogrammed to send less) shows as the list rather than a broken photo.
+function photoLayout() {
+  const photo = LAYOUTS[model.skin];
+  if (!photo) return null;
+  const known = new Set(controlIds());
+  return photo.callouts.every((c) => calloutControls(c).every((id) => known.has(id))) ? photo : null;
+}
+
 // Rebuilds the stage for the connected stick: the photo layout for sticks with a skin,
 // the universal layout for everything else, or a prompt when nothing is plugged in.
 function buildStage() {
@@ -233,7 +243,8 @@ function buildStage() {
   stage.classList.remove('has-open');
   openCallout = null;
   summaryEl = {};
-  layout = (model && !inListView(model.key) && LAYOUTS[model.skin]) || null;
+  const photo = model ? photoLayout() : null;
+  layout = (photo && !inListView(model.key) && photo) || null;
   const mode = !model ? 'empty' : layout ? 'photo' : 'generic';
   stage.dataset.mode = mode;
   stage.dataset.skin = layout ? model.skin : '';
@@ -246,7 +257,7 @@ function buildStage() {
     buildLeaders();
     buildCallouts();
   } else if (mode === 'generic') {
-    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks, { photo: Boolean(LAYOUTS[model.skin]) }));
+    ({ drawHud } = buildGeneric($('#generic'), model, deviceSettings(), genericHooks, { photo: Boolean(photo) }));
     endIntro();
   } else {
     const empty = htmlEl('div', 'gen-empty', $('#generic'));
@@ -975,7 +986,7 @@ function openDeviceMenu() {
   }
   if (model) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
-    if (LAYOUTS[model.skin]) {
+    if (photoLayout()) {
       const listed = inListView(model.key);
       const view = button('ghost', listed ? 'Photo view' : 'List view', actions, () => {
         closeMenus();
