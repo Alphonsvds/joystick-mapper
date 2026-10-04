@@ -1,12 +1,15 @@
-// Finds and reads joysticks over raw HID. Any stick is understood through Windows' HID
-// parser (hidp.js), so sticks we've never seen work without per-model code. Every
+// Finds and reads joysticks over raw HID. Any stick is understood from its own
+// description, through Windows' HID parser (hidp.js) or, on Linux, ours
+// (hiddescriptor.js), so sticks we've never seen work without per-model code. Every
 // joystick plugged in is read at once (a stick, a throttle, pedals…) and they are merged
 // into one input, each under its role. Runs in the main process so input keeps flowing
 // while a game has focus.
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
 import HID from 'node-hid';
 import { ROLES, rolePrefix } from '../shared/controls.js';
 import { assignRoles, deviceKey, describeDevice, isCentered, mergeInputs, normalizeInput } from '../shared/devices.js';
+import { HidDescriptorParser } from './hiddescriptor.js';
 import { HidParser } from './hidp.js';
 import { EXTREME_3D_PRO_IDS, Extreme3DProParser } from './devices/extreme3dpro.js';
 
@@ -53,16 +56,30 @@ const closeQuietly = (hid) => Promise.resolve().then(() => hid.close()).catch(()
 
 function createParser(info) {
   if (process.platform === 'win32') return HidParser.open(info.path);
+  if (process.platform === 'linux') return HidDescriptorParser.open(info.path);
   if (info.vendorId === EXTREME_3D_PRO_IDS.vendorId && info.productId === EXTREME_3D_PRO_IDS.productId) {
     return new Extreme3DProParser();
   }
   throw new Error('Only the Logitech Extreme 3D Pro is supported on this OS so far');
 }
 
+// On Linux a joystick opens only once the Allow access rule covers it (see
+// linux-access.js). hidapi's own error doesn't say why, so check first.
+function openHid(path) {
+  if (process.platform === 'linux') {
+    try {
+      fs.accessSync(path, fs.constants.R_OK | fs.constants.W_OK);
+    } catch {
+      throw Object.assign(new Error('click Allow access to use it'), { code: 'EACCES' });
+    }
+  }
+  return HID.HIDAsync.open(path);
+}
+
 // How devices are listed, opened and understood. Tests swap in a fake.
 const hidBackend = {
   list: () => HID.devicesAsync(),
-  open: (path) => HID.HIDAsync.open(path),
+  open: openHid,
   createParser,
 };
 
@@ -132,6 +149,8 @@ export class JoystickManager extends EventEmitter {
     this.status = {
       state: this.open.size ? 'connected' : (problem?.state ?? 'searching'),
       message: this.open.size ? '' : (problem?.message ?? ''),
+      // Linux: a device is waiting for the Allow access button.
+      needsAccess: [...this.problems.values()].some((p) => p.state === 'needs-access'),
       device: view ? { ...view.model, role: view.role } : null,
       devices: this.devices.map((d) => {
         const model = this.open.get(d.id)?.model;
@@ -228,7 +247,8 @@ export class JoystickManager extends EventEmitter {
       hid = await this.backend.open(info.path);
     } catch (err) {
       parser.close();
-      this.problems.set(info.id, { state: 'error', message: `${info.name}: ${err.message}` });
+      const state = err.code === 'EACCES' ? 'needs-access' : 'error';
+      this.problems.set(info.id, { state, message: `${info.name}: ${err.message}` });
       return;
     }
     if (this.stopped) {
@@ -330,6 +350,8 @@ export class JoystickManager extends EventEmitter {
         role: dev.role,
       },
       layout: parser.layout,
+      // Linux: the raw description, so a stick can become a test fixture as it is.
+      descriptor: parser.descriptor ? Buffer.from(parser.descriptor).toString('hex') : undefined,
       controls: {
         axes: model.axes.map(({ id, name, min, max, centered, invert }) => ({ id, name, min, max, centered, invert })),
         hats: model.hats.map(({ id, min, max }) => ({ id, min, max })),

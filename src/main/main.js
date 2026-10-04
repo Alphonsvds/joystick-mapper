@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JoystickManager } from './joystick.js';
+import { grantAccess } from './linux-access.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
 import { readJson, writeJsonAtomic } from './store.js';
 import { ROLES, emptyBindings, sanitizeBinding } from '../shared/controls.js';
@@ -42,12 +43,14 @@ const LEGACY_EXTREME_KEY = '046d:c215';
 const UPDATE_CHECK_MS = 6 * 60 * 60 * 1000;
 // JOYMAP_VERSION pretends to be another version, to see the update button (e.g. 0.1.0).
 const currentVersion = () => process.env.JOYMAP_VERSION || app.getVersion();
-// The installed Windows app can download a release's installer and run it. Anywhere else
-// (from source, macOS) the update button opens the release page instead.
+// The installed Windows app can download a release's installer and run it, and the Linux
+// AppImage can replace itself. Anywhere else (from source, a Linux .deb or .rpm, macOS)
+// the update button opens the release page instead.
 // JOYMAP_UPDATE_FEED points the updater at a folder of build output served over HTTP,
 // to try an update without publishing a release.
 const { autoUpdater } = electronUpdater;
-const canSelfUpdate = () => app.isPackaged && process.platform === 'win32';
+const canSelfUpdate = () =>
+  app.isPackaged && (process.platform === 'win32' || (process.platform === 'linux' && Boolean(process.env.APPIMAGE)));
 
 // JOYMAP_GENERIC=1 shows even known sticks with the generic layout (tests that path).
 const joystick = new JoystickManager({ ignoreSkins: process.env.JOYMAP_GENERIC === '1' });
@@ -524,6 +527,12 @@ function registerIpc() {
   ipcMain.handle('joymap:recenter', () => recenter({ onlyIfResting: false }));
 
   ipcMain.handle('joymap:install-driver', async () => {
+    // Linux has nothing to install: the joysticks and uinput only need permission.
+    if (process.platform === 'linux') {
+      const result = await grantAccess(joystick.devices);
+      if (result === 'granted' && emulating()) pad.connect();
+      return result;
+    }
     // The installed app carries the official ViGEmBus installer; Windows asks for admin.
     if (app.isPackaged && fs.existsSync(bundledDriver())) {
       const error = await shell.openPath(bundledDriver());

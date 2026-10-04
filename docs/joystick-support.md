@@ -1,7 +1,7 @@
 # Getting your joystick supported
 
-Any USB flight stick, throttle or pedals already works on Windows: plug it in and the
-app builds its screen from what the stick reports. A report from someone who owns the
+Any USB flight stick, throttle or pedals already works on Windows (and on Linux, still
+experimental): plug it in and the app builds its screen from what the stick reports. A report from someone who owns the
 stick is what gets it named controls and a photo layout.
 
 ## Send a report
@@ -13,7 +13,7 @@ stick is what gets it named controls and a photo layout.
 4. Paste into **Device info**, and fill in the model and how it went.
 
 Device info is the stick's name, USB IDs and control layout, plus your app and Windows
-versions.
+(or Linux) versions.
 
 Not detected at all? Open the issue anyway with the model name.
 
