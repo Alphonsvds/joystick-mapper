@@ -488,23 +488,21 @@ body.is-intro * {
   color: #fff;
 }
 
-/* Fixed width so the label doesn't shift while the slider moves. */
+/* "DZ/Sens" on every axis: the values themselves are in its popover. */
 .dz {
   width: 62px;
   padding: 0;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
 }
 
 .dz.is-open {
   border-color: #fff;
 }
 
-/* With an anti-deadzone set the label carries both numbers ("DZ 4% +20%"). */
-.dz.has-anti {
-  width: auto;
-  padding: 0 9px;
+/* Brighter once sensitivity or anti-deadzone is set, so a tuned axis stands out. */
+.dz.is-tuned {
+  border-color: rgba(255, 255, 255, 0.32);
   color: var(--ink);
 }
 
@@ -1479,7 +1477,7 @@ body.is-intro * {
 }
 
 .pop-option-value {
-  width: 34px;
+  width: 40px;
   text-align: right;
   color: var(--ink);
   letter-spacing: 0.08em;
@@ -1497,6 +1495,11 @@ body.is-intro * {
 .slider::-webkit-slider-runnable-track {
   height: 2px;
   background: rgba(255, 255, 255, 0.18);
+}
+
+/* A slider that runs from minus to plus marks its 0 (linear) in the middle. */
+.slider.is-signed {
+  background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)) center / 1px 10px no-repeat;
 }
 
 .slider::-webkit-slider-thumb {
@@ -1839,12 +1842,9 @@ body.reference {
   letter-spacing: 0.09em;
 }
 
-/* Wide enough for "DZ 10% +50%", so the rows stay lined up whichever axes use it. */
-.gen-axis .gen-controls .dz,
-.gen-axis .gen-controls .dz.has-anti {
+/* Wider here so each axis row fills its column, like the hat rows below it. */
+.gen-axis .gen-controls .dz {
   width: 88px;
-  padding: 0;
-  letter-spacing: 0.08em;
 }
 
 .gen-axis .meter {

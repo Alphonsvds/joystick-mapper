@@ -48,6 +48,20 @@ export function applyAntiDeadzone(mag, floor) {
   return mag > 0 ? floor + (1 - floor) * mag : 0;
 }
 
+// Sensitivity bends a 0..1 magnitude into a curve that still runs from 0 to 1: above 0
+// small movements do more, below 0 they do less (finer control near rest). At ±1 the
+// curve is a cube root or a cube; at 0 it's a straight line.
+const SENSITIVITY_CURVE = 3;
+export function applySensitivity(mag, sensitivity) {
+  return sensitivity ? mag ** (SENSITIVITY_CURVE ** -sensitivity) : mag;
+}
+
+// Everything after the deadzone, on a 0..1 magnitude: the curve, then the anti-deadzone
+// lift (so the lift stays where it's set whatever the curve).
+function shape(mag, binding) {
+  return applyAntiDeadzone(applySensitivity(mag, binding.sensitivity ?? 0), binding.antiDeadzone ?? 0);
+}
+
 export function mapInput(input, bindings) {
   const acc = { buttons: 0, lt: 0, rt: 0, lx: 0, ly: 0, rx: 0, ry: 0 };
 
@@ -74,16 +88,15 @@ export function mapInput(input, bindings) {
     let v = clamp(raw, -1, 1);
     if (binding.invert) v = -v;
     const dz = binding.deadzone;
-    const floor = binding.antiDeadzone ?? 0;
 
     if (STICK_AXIS[target.id]) {
       const d = applyDeadzone(v, dz);
-      acc[STICK_AXIS[target.id]] += Math.sign(d) * applyAntiDeadzone(Math.abs(d), floor);
+      acc[STICK_AXIS[target.id]] += Math.sign(d) * shape(Math.abs(d), binding);
     } else if (target.id === 'lt' || target.id === 'rt') {
-      acc[target.id] = Math.max(acc[target.id], applyAntiDeadzone(applyLowDeadzone((v + 1) / 2, dz), floor));
+      acc[target.id] = Math.max(acc[target.id], shape(applyLowDeadzone((v + 1) / 2, dz), binding));
     } else if (target.id === 'lt_rt') {
       const d = applyDeadzone(v, dz);
-      const pull = applyAntiDeadzone(Math.abs(d), floor);
+      const pull = shape(Math.abs(d), binding);
       if (d < 0) acc.lt = Math.max(acc.lt, pull);
       else acc.rt = Math.max(acc.rt, pull);
     } else if (SPLIT_BUTTONS[target.id]) {

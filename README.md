@@ -187,12 +187,16 @@ many sticks and games yet, so if something's off, please
   running. Create a profile per game (**Profile ▾ → New profile**). **Ace Combat 8** is
   available as a starting point that matches the game's default gamepad layout.
 - **Mapping.** Hover a label or hotspot to highlight its line. Click **NOT MAPPED** to
-  pick an Xbox input. Axes also have **INV** (invert) and a **DZ** button with two sliders.
+  pick an Xbox input. Axes also have **INV** (invert) and a **DZ/SENS** button that opens
+  their deadzone, sensitivity and anti-deadzone sliders.
 - **Folded labels.** A device with a lot of controls shows each one as a name with its own
   line. Click a name, or its dot, to open its dropdowns.
-- **Deadzone and anti-deadzone.** **Deadzone** ignores small movement, for an axis that
-  drifts. **Anti-deadzone** starts the output at a set level the moment the axis moves, to
-  cancel a deadzone the game applies itself. Off until you set it.
+- **Deadzone, sensitivity and anti-deadzone.** **Deadzone** ignores small movement, for an
+  axis that drifts. **Sensitivity** bends the response curve: above 0 small movements do
+  more, below 0 they do less, for finer control near centre. Full travel still reaches
+  100% either way. **Anti-deadzone** starts the output at a set level the moment the axis
+  moves, to cancel a deadzone the game applies itself. Sensitivity and anti-deadzone are
+  off until you set them, and only apply to analog outputs (sticks and triggers).
 - **AC8 controls.** Opens Ace Combat 8's own gamepad layout in a separate window (e.g.
   "Fire missile → B"), so you can decide where each action goes on the stick.
 - **Save.** Changes apply live so you can test right away. **Save** (or Ctrl+S) keeps them.

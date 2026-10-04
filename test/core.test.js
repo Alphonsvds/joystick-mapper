@@ -1510,6 +1510,58 @@ test('anti-deadzone is clamped, dropped at zero, and not kept for button-style o
   assert.equal(fromExport(toExport(p)).bindings.x.antiDeadzone, 0.2);
 });
 
+test('sensitivity bends the curve but keeps rest and full travel', () => {
+  const ly = (sensitivity, y) => mapInput(input({}, { y }), bindingsWith({ y: { target: 'ls_y', deadzone: 0, sensitivity } })).ly;
+  for (const s of [-1, -0.4, 0.4, 1]) {
+    assert.equal(ly(s, 0), 0);
+    assert.equal(ly(s, 1), 32767);
+    assert.equal(ly(s, -1), -32767);
+    assert.equal(ly(s, -0.25), -ly(s, 0.25));
+  }
+  // Above 0 a small movement does more, below 0 it does less.
+  assert.ok(ly(0.4, 0.25) > Math.round(0.25 * 32767));
+  assert.ok(ly(-0.4, 0.25) < Math.round(0.25 * 32767));
+  // At the ends the curve is a cube root or a cube.
+  assert.equal(ly(1, 0.125), Math.round(0.5 * 32767));
+  assert.equal(ly(-1, 0.5), Math.round(0.125 * 32767));
+
+  // The deadzone comes first, so drift stays swallowed and the curve starts at its edge.
+  const p = bindingsWith({ y: { target: 'ls_y', deadzone: 0.1, sensitivity: -1 } });
+  assert.equal(mapInput(input({}, { y: 0.08 }), p).ly, 0);
+  assert.equal(mapInput(input({}, { y: 0.55 }), p).ly, Math.round(0.125 * 32767));
+});
+
+test('sensitivity shapes triggers and the split, before the anti-deadzone', () => {
+  const rt = (raw, slider) => mapInput(input({}, { slider }), bindingsWith({ slider: { target: 'rt', deadzone: 0, ...raw } })).rt;
+  assert.equal(rt({ sensitivity: -1 }, -1), 0);
+  assert.equal(rt({ sensitivity: -1 }, 0), Math.round(0.125 * 255));
+  assert.equal(rt({ sensitivity: -1 }, 1), 255);
+  // The anti-deadzone lifts the curved value, so the output still starts at its floor.
+  assert.equal(rt({ sensitivity: -1, antiDeadzone: 0.2 }, 0), Math.round((0.2 + 0.8 * 0.125) * 255));
+
+  const split = bindingsWith({ slider: { target: 'lt_rt', deadzone: 0, sensitivity: 1 } });
+  const out = mapInput(input({}, { slider: -0.125 }), split);
+  assert.deepEqual([out.lt, out.rt], [Math.round(0.5 * 255), 0]);
+
+  // Without the setting an axis maps exactly as before.
+  const plain = bindingsWith({ y: { target: 'ls_y', deadzone: 0.1 } });
+  assert.equal(plain.y.sensitivity, undefined);
+  assert.equal(mapInput(input({}, { y: 0.55 }), plain).ly, Math.round(0.5 * 32767));
+});
+
+test('sensitivity is clamped, dropped at zero, and not kept for button-style outputs', () => {
+  assert.equal(sanitizeBinding('x', { target: 'ls_x', sensitivity: 3 }).sensitivity, 1);
+  assert.equal(sanitizeBinding('x', { target: 'ls_x', sensitivity: -3 }).sensitivity, -1);
+  assert.equal(sanitizeBinding('x', { target: 'ls_x', sensitivity: -0.3 }).sensitivity, -0.3);
+  assert.equal('sensitivity' in sanitizeBinding('x', { target: 'ls_x', sensitivity: 0 }), false);
+  assert.equal('sensitivity' in sanitizeBinding('x', { target: 'ls_x', sensitivity: 'lots' }), false);
+  assert.equal('sensitivity' in sanitizeBinding('rz', { target: 'dpad_x', sensitivity: 0.5 }), false);
+  assert.equal('sensitivity' in sanitizeBinding('x', { target: null, sensitivity: 0.5 }), false);
+  // It survives a save / export round trip.
+  const p = { name: 'P', bindings: bindingsWith({ x: { target: 'ls_x', sensitivity: -0.4 } }) };
+  assert.equal(fromExport(toExport(p)).bindings.x.sensitivity, -0.4);
+});
+
 test('invert flips an axis', () => {
   const p = bindingsWith({ y: { target: 'ls_y', invert: true } });
   assert.equal(mapInput(input({}, { y: 1 }), p).ly, -32767);

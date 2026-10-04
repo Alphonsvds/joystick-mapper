@@ -147,6 +147,9 @@ export const DEFAULT_DEADZONE = 0.04;
 // Anti-deadzone: where an axis's output starts once it moves, to cancel a deadzone the
 // game applies to the Xbox stick or trigger itself. Off (0) unless the user sets it.
 export const MAX_ANTI_DEADZONE = 0.5;
+// Sensitivity: the response curve, from -1 (softer near rest) through 0 (linear) to 1
+// (sharper near rest). Off (0) unless the user sets it.
+export const MAX_SENSITIVITY = 1;
 
 // Bindings are sparse ({ [controlId]: binding }): a stick's controls vary, and a
 // profile keeps working on another stick for the controls they share.
@@ -175,9 +178,13 @@ export function sanitizeBinding(controlId, raw) {
     invert: raw.invert === true,
     deadzone: Number.isFinite(dz) ? Math.min(MAX_DEADZONE, Math.max(0, dz)) : DEFAULT_DEADZONE,
   };
-  // Kept only when it's in use, so bindings saved before it existed are unchanged.
+  // Kept only when they're in use, so bindings saved before they existed are unchanged.
   const anti = Number(raw.antiDeadzone);
   if (def && !def.digital && anti > 0) clean.antiDeadzone = Math.min(MAX_ANTI_DEADZONE, anti);
+  const sens = Number(raw.sensitivity);
+  if (def && !def.digital && Number.isFinite(sens) && sens !== 0) {
+    clean.sensitivity = Math.min(MAX_SENSITIVITY, Math.max(-MAX_SENSITIVITY, sens));
+  }
   return clean;
 }
 

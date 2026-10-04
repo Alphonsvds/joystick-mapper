@@ -1,6 +1,7 @@
 import {
   MAX_ANTI_DEADZONE,
   MAX_DEADZONE,
+  MAX_SENSITIVITY,
   ROLES,
   ROLE_NAMES,
   TARGET_BY_ID,
@@ -40,7 +41,7 @@ let layout = null; // that device's photo layout, when it has one and it's showi
 let layoutKey = null; // what the stage was last built for
 let focused = null; // callout / row id currently highlighted
 let openControl = null; // control id whose picker (or response popover) is open
-let openKind = 'picker'; // picker | deadzone (the response popover, behind the DZ button)
+let openKind = 'picker'; // picker | deadzone (the response popover, behind the DZ/Sens button)
 let drawHud = null; // generic layout's live readout
 
 const isLocked = () => status?.profile.locked ?? true;
@@ -55,7 +56,7 @@ let calloutEl = {}; // callout / row id -> element
 let leaderEl = {}; // callout id -> svg group (photo layout only)
 let chipEl = {}; // control id -> chip button
 let invEl = {}; // control id -> invert toggle
-let dzEl = {}; // control id -> deadzone button
+let dzEl = {}; // control id -> DZ/Sens button
 let liveEl = {}; // control id -> element that lights when pressed
 let meterEl = {}; // control id -> meter fill
 let guideEl = {}; // axis id -> { group, dot } (photo layout only)
@@ -346,9 +347,10 @@ function buildInv(axisId, parent) {
   return inv;
 }
 
+// The values live in its popover (and its tooltip), so the label stays short and the
+// same on every axis.
 function buildDz(axisId, parent) {
-  const dz = button('dz', 'DZ', parent, () => openDeadzone(axisId));
-  dz.title = 'Deadzone and anti-deadzone: how the axis responds as it leaves its resting point';
+  const dz = button('dz', 'DZ/Sens', parent, () => openDeadzone(axisId));
   dz.setAttribute('aria-haspopup', 'dialog');
   dzEl[axisId] = dz;
   return dz;
@@ -491,15 +493,13 @@ function renderChip(controlId) {
 
   const dz = dzEl[controlId];
   if (dz) {
-    const percent = Math.round((binding.deadzone ?? 0) * 100);
-    const anti = Math.round((binding.antiDeadzone ?? 0) * 100);
-    dz.disabled = !target;
-    dz.textContent = anti ? `DZ ${percent}% +${anti}%` : `DZ ${percent}%`;
-    dz.classList.toggle('has-anti', anti > 0);
-    dz.setAttribute(
-      'aria-label',
-      `${controlInfo(controlId).name} deadzone: ${percent}%${anti ? `, anti-deadzone: ${anti}%` : ''}`,
+    const values = responseSettings(controlId).map(
+      (setting) => `${setting.name} ${formatResponse(setting, binding[setting.key] ?? 0)}`,
     );
+    dz.disabled = !target;
+    dz.classList.toggle('is-tuned', Boolean(binding.sensitivity || binding.antiDeadzone));
+    dz.title = values.join(' · ');
+    dz.setAttribute('aria-label', `${controlInfo(controlId).name} response: ${values.join(', ').toLowerCase()}`);
   }
 }
 
@@ -599,8 +599,7 @@ function openPicker(controlId) {
 
   if (control.kind === 'axis') {
     const options = htmlEl('div', 'pop-options', popover);
-    responseSlider(options, controlId, DEADZONE);
-    if (antiDeadzoneApplies(controlId)) responseSlider(options, controlId, ANTI_DEADZONE);
+    for (const setting of responseSettings(controlId)) responseSlider(options, controlId, setting);
 
     // Throttles read end to end; sticks, twists and pedals spring back to a calibrated middle.
     if (control.axis) {
@@ -632,46 +631,74 @@ function openPicker(controlId) {
   (popover.querySelector('.tile.is-selected') ?? popover.querySelector('.tile'))?.focus({ preventScroll: true });
 }
 
-// The two settings that shape how an axis responds as it leaves its resting point.
+// The settings that shape how an axis responds as it leaves its resting point, in the
+// order the mapper applies them.
 // Deadzone is about the stick: it ignores small movement (drift, a worn sensor).
+// Sensitivity is about feel: it bends the response curve, so small movements do more
+// (or less) while full travel still reaches 100%.
 // Anti-deadzone is about the game: output starts at this level the moment the axis
 // moves, which cancels a deadzone the game applies to the Xbox stick itself.
+// `analog`: only means something when the axis drives an analog output.
 const DEADZONE = {
   key: 'deadzone',
   name: 'Deadzone',
+  min: 0,
   max: MAX_DEADZONE,
   note: 'Movement smaller than this is ignored. Raise it if the axis drifts.',
+};
+const SENSITIVITY = {
+  key: 'sensitivity',
+  name: 'Sensitivity',
+  min: -MAX_SENSITIVITY,
+  max: MAX_SENSITIVITY,
+  signed: true,
+  analog: true,
+  note: 'Above 0, small movements do more. Below 0, they do less, for finer control. Full travel still reaches 100%.',
 };
 const ANTI_DEADZONE = {
   key: 'antiDeadzone',
   name: 'Anti-deadzone',
+  min: 0,
   max: MAX_ANTI_DEADZONE,
+  analog: true,
   note: 'Output starts here the moment the axis moves.',
 };
+const RESPONSE = [DEADZONE, SENSITIVITY, ANTI_DEADZONE];
 
-// Anti-deadzone needs an analog output: it means nothing for an axis that presses buttons.
-function antiDeadzoneApplies(controlId) {
+// The analog settings mean nothing for an axis that presses buttons (or isn't mapped).
+function hasAnalogOutput(controlId) {
   const target = TARGET_BY_ID[currentBinding(controlId).target];
   return Boolean(target) && !target.digital;
 }
 
-// One response slider, shared by the picker and the DZ popover. Returns a setter so the
-// popover's Reset button can move it. `onInput` gets the new value (0–max) as it changes.
-function responseSlider(parent, controlId, { key, name, max, note }, onInput) {
+const responseSettings = (controlId) => RESPONSE.filter((setting) => !setting.analog || hasAnalogOutput(controlId));
+
+// "4%", or "+20%" / "−35%" for a setting that runs both ways.
+function formatResponse(setting, fraction) {
+  const percent = Math.round(fraction * 100);
+  const sign = percent < 0 ? '−' : setting.signed && percent > 0 ? '+' : '';
+  return `${sign}${Math.abs(percent)}%`;
+}
+
+// One response slider, shared by the picker and the DZ/Sens popover. Returns a setter so
+// the popover's Reset button can move it. `onInput` gets the new value (min–max) as it changes.
+function responseSlider(parent, controlId, setting, onInput) {
+  const { key, name, min, max, note } = setting;
   const label = htmlEl('label', 'pop-option', parent);
   label.title = note;
   htmlEl('span', 'pop-option-name', label).textContent = name;
-  const slider = htmlEl('input', 'slider', label);
+  const slider = htmlEl('input', `slider${min < 0 ? ' is-signed' : ''}`, label);
   slider.type = 'range';
-  slider.min = '0';
+  slider.min = String(min * 100);
   slider.max = String(max * 100);
   slider.step = '1';
   slider.value = String(Math.round((currentBinding(controlId)[key] ?? 0) * 100));
   const value = htmlEl('output', 'pop-option-value', label);
-  value.textContent = `${slider.value}%`;
+  const show = () => (value.textContent = formatResponse(setting, Number(slider.value) / 100));
+  show();
   let timer = null;
   slider.addEventListener('input', () => {
-    value.textContent = `${slider.value}%`;
+    show();
     onInput?.(Number(slider.value) / 100);
     clearTimeout(timer);
     timer = setTimeout(() => updateBinding(controlId, { [key]: Number(slider.value) / 100 }), 120);
@@ -681,12 +708,12 @@ function responseSlider(parent, controlId, { key, name, max, note }, onInput) {
     set(fraction) {
       clearTimeout(timer);
       slider.value = String(Math.round(fraction * 100));
-      value.textContent = `${slider.value}%`;
+      show();
     },
   };
 }
 
-// A small popover with the response sliders, opened from the DZ button beside an axis.
+// A small popover with the response sliders, opened from the DZ/Sens button beside an axis.
 function openDeadzone(controlId) {
   if (openControl === controlId && openKind === 'deadzone') return closePicker();
   if (isLocked()) return;
@@ -694,8 +721,8 @@ function openDeadzone(controlId) {
   closePicker({ restoreFocus: false });
   const control = controlInfo(controlId);
   const binding = currentBinding(controlId);
-  const defaults = { deadzone: axisDefaultDeadzone(controlId), antiDeadzone: 0 };
-  const values = { deadzone: binding.deadzone, antiDeadzone: binding.antiDeadzone ?? 0 };
+  const defaults = { deadzone: axisDefaultDeadzone(controlId), sensitivity: 0, antiDeadzone: 0 };
+  const values = { deadzone: binding.deadzone, sensitivity: binding.sensitivity ?? 0, antiDeadzone: binding.antiDeadzone ?? 0 };
   openControl = controlId;
   openKind = 'deadzone';
   setFocus(calloutOf[controlId]);
@@ -712,17 +739,18 @@ function openDeadzone(controlId) {
   const atDefaults = () => Object.keys(defaults).every((key) => Math.round(values[key] * 100) === Math.round(defaults[key] * 100));
   const options = htmlEl('div', 'pop-options', popover);
   const fields = {};
-  for (const setting of [DEADZONE, ANTI_DEADZONE]) {
+  const analog = hasAnalogOutput(controlId);
+  for (const setting of RESPONSE) {
     fields[setting.key] = responseSlider(options, controlId, setting, (fraction) => {
       values[setting.key] = fraction;
       reset.disabled = atDefaults();
     });
-    htmlEl('p', 'pop-note', options).textContent = setting.note;
+    if (setting.analog && !analog) fields[setting.key].slider.disabled = true;
+    else htmlEl('p', 'pop-note', options).textContent = setting.note;
   }
-  if (!antiDeadzoneApplies(controlId)) {
-    fields.antiDeadzone.slider.disabled = true;
+  if (!analog) {
     const output = TARGET_BY_ID[binding.target]?.name ?? 'This output';
-    options.lastChild.textContent = `${output} only presses buttons, so there is no analog output to start higher.`;
+    htmlEl('p', 'pop-note', options).textContent = `${output} only presses buttons, so there is no analog output to shape.`;
   }
 
   const foot = htmlEl('div', 'pop-foot', popover);
@@ -740,11 +768,11 @@ function openDeadzone(controlId) {
   fields.deadzone.slider.focus({ preventScroll: true });
 }
 
-// The button the open popover hangs off: the DZ button, or the mapping chip.
+// The button the open popover hangs off: the DZ/Sens button, or the mapping chip.
 const pickerAnchor = (controlId) => (openKind === 'deadzone' ? dzEl[controlId] : chipEl[controlId]);
 
 // Opens beside its button, on whichever side has more room. The response popover clears
-// the whole row (chip, INV and DZ) so the axis it edits stays visible.
+// the whole row (chip, INV and DZ/Sens) so the axis it edits stays visible.
 function positionPicker(controlId) {
   const anchor = pickerAnchor(controlId);
   if (!anchor) return;
