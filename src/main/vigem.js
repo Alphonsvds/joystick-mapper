@@ -7,6 +7,7 @@
 // Closing the handle makes the driver unplug our target, so a crash never leaves a ghost pad.
 import { EventEmitter } from 'node:events';
 import { createRequire } from 'node:module';
+import { VirtualUinputPad } from './uinput.js';
 
 export const VIGEM_DOWNLOAD_URL = 'https://github.com/nefarius/ViGEmBus/releases/latest';
 
@@ -270,7 +271,7 @@ class VirtualX360 extends EventEmitter {
 class UnsupportedPad extends EventEmitter {
   constructor() {
     super();
-    this.status = { state: 'unsupported', message: 'Virtual Xbox controllers need Windows (ViGEmBus)' };
+    this.status = { state: 'unsupported', message: 'Virtual Xbox controllers need Windows (ViGEmBus) or Linux (uinput)' };
   }
   connect() {}
   submit() {}
@@ -278,5 +279,7 @@ class UnsupportedPad extends EventEmitter {
 }
 
 export function createVirtualPad() {
-  return process.platform === 'win32' ? new VirtualX360() : new UnsupportedPad();
+  if (process.platform === 'win32') return new VirtualX360();
+  if (process.platform === 'linux') return new VirtualUinputPad();
+  return new UnsupportedPad();
 }

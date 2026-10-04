@@ -9,11 +9,13 @@
   "repository": "github:Alphonsvds/joystick-mapper",
   "type": "module",
   "main": "src/main/main.js",
+  "desktopName": "joystick-mapper.desktop",
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "fetch-driver": "node scripts/fetch-vigembus.mjs",
-    "dist": "npm run fetch-driver && electron-builder --win --publish never"
+    "dist": "npm run fetch-driver && electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -70,6 +72,34 @@
       "shortcutName": "Joystick Mapper",
       "artifactName": "Joystick-Mapper-Setup-${version}.${ext}",
       "include": "build/installer.nsh"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "syncDesktopName": true,
+      "maintainer": "Halston",
+      "synopsis": "Map a flight stick to a virtual Xbox 360 controller",
+      "artifactName": "Joystick-Mapper-${version}.${ext}"
     },
     "mac": {
       "target": "dmg",

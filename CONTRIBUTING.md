@@ -23,7 +23,8 @@ the direction. That saves you from writing a PR that doesn't fit.
 ## Setup
 
 You need Windows, [Node.js 22+](https://nodejs.org) and, to test the virtual controller,
-the [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest) driver.
+the [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest) driver. Linux works
+too (experimental): no driver needed, just click **Allow access** in the app once.
 
 ```bash
 npm install
@@ -54,8 +55,8 @@ to approve that run before it starts.
 
 ## Reporting bugs
 
-Open an issue with your joystick model, Windows version, what you expected, and what
-happened instead. A screenshot of the app helps a lot.
+Open an issue with your joystick model, Windows version (or Linux distro), what you
+expected, and what happened instead. A screenshot of the app helps a lot.
 
 ## License
 

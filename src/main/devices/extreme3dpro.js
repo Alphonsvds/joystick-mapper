@@ -1,6 +1,6 @@
-// Hand-written reader for the Logitech Extreme 3D Pro (USB 046D:C215), used where
-// Windows' HID parser isn't available (macOS / Linux). On Windows every stick,
-// this one included, is read through src/main/hidp.js.
+// Hand-written reader for the Logitech Extreme 3D Pro (USB 046D:C215), used where no
+// HID parser is available (macOS). On Windows every stick, this one included, is read
+// through src/main/hidp.js, and on Linux through src/main/hiddescriptor.js.
 //
 // Input report (7 bytes; 8 on Windows' raw HID API, which prefixes report ID 0).
 // Verified against Windows' HID parser (HidP_GetUsageValue) on a real stick:

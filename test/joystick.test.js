@@ -176,3 +176,30 @@ test('a device that cannot be opened is reported, and the others still work', as
   assert.equal(manager.status.device, null);
   await manager.stop();
 });
+
+test('on Linux, a device without permission asks for access instead of failing', async () => {
+  const { backend, manager, report } = rig(STICK, THROTTLE);
+  const open = backend.open;
+  let allowed = false;
+  backend.open = async (path) => {
+    if (path === THROTTLE.path && !allowed) throw Object.assign(new Error('click Allow access to use it'), { code: 'EACCES' });
+    return open(path);
+  };
+  await manager.scan();
+  assert.equal(manager.status.state, 'connected');
+  assert.equal(manager.status.needsAccess, true);
+  assert.match(manager.status.devices[1].problem, /Allow access/);
+
+  // Only the throttle, still locked: the whole status says so.
+  backend.listing = [THROTTLE];
+  await manager.scan();
+  assert.equal(manager.status.state, 'needs-access');
+
+  // Access granted: the next scan opens it.
+  allowed = true;
+  await manager.scan();
+  assert.equal(manager.status.state, 'connected');
+  assert.equal(manager.status.needsAccess, false);
+  report(THROTTLE, [1023, 0], []);
+  await manager.stop();
+});

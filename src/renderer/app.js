@@ -1025,10 +1025,25 @@ document.addEventListener('keydown', (event) => {
 const PAD_PROBLEM = {
   connecting: 'Connecting',
   'driver-missing': 'Driver needed',
-  unsupported: 'Windows only',
+  'needs-access': 'Access needed', // Linux
+  unsupported: 'Windows or Linux only',
   error: 'Error',
 };
 let lastPadError = '';
+
+// The joystick button's words when no device could be opened.
+const DEVICE_PROBLEM = {
+  unsupported: 'Unsupported',
+  'needs-access': 'Access needed', // Linux
+};
+
+// What the driver button's click led to.
+const DRIVER_TOASTS = {
+  launched: 'Driver installer opened — approve the Windows prompt',
+  granted: 'Access granted — your devices connect in a moment', // Linux
+  cancelled: 'Access wasn’t granted',
+  failed: 'Couldn’t ask for access — the README’s Linux section has the manual steps',
+};
 
 // What each support level means, for the joystick button's tooltip.
 const SUPPORT_TIPS = {
@@ -1073,7 +1088,7 @@ function renderStatus(next) {
   stick.dataset.state = connected ? 'connected' : next.joystick.state;
   stick.dataset.several = String(several);
   $('#device-key').textContent = connected && (several || model.role !== 'stick') ? ROLE_NAMES[model.role] : 'Joystick';
-  $('#device-name').textContent = connected ? model.name : next.joystick.state === 'unsupported' ? 'Unsupported' : 'Not detected';
+  $('#device-name').textContent = connected ? model.name : (DEVICE_PROBLEM[next.joystick.state] ?? 'Not detected');
   stick.title =
     next.joystick.message ||
     (!connected
@@ -1093,7 +1108,8 @@ function renderStatus(next) {
   pad.title = locked
     ? 'Default profile leaves the joystick alone. Pick or create a game profile to emulate an Xbox controller.'
     : next.pad.message || (next.emulation ? 'Emulating an Xbox 360 controller — click to pause' : 'Paused — click to emulate again');
-  $('#get-driver').hidden = padState !== 'driver-missing';
+  // Windows: the ViGEmBus driver is missing. Linux: the pad or a joystick needs permission.
+  $('#get-driver').hidden = padState !== 'driver-missing' && padState !== 'needs-access' && !next.joystick.needsAccess;
   $('#monitor').dataset.state = padState;
 
   // Driver/FFI failures would otherwise only live in a tooltip.
@@ -1143,7 +1159,7 @@ function wireTopbar() {
   $('#profile-picker').addEventListener('click', () => (profileMenu.hidden ? openProfileMenu('list') : closeMenus()));
   $('#device-picker').addEventListener('click', () => (deviceMenu.hidden ? openDeviceMenu() : closeMenus()));
   $('#stat-pad').addEventListener('click', async () => {
-    if (status.pad.state === 'unsupported') return showToast('Virtual Xbox controllers need Windows');
+    if (status.pad.state === 'unsupported') return showToast('Virtual Xbox controllers need Windows or Linux');
     if (isLocked()) {
       showToast('Default leaves your joystick alone — pick or create a game profile to emulate');
       return openProfileMenu(profiles.length > 1 ? 'list' : 'new');
@@ -1152,7 +1168,7 @@ function wireTopbar() {
   });
   $('#get-driver').addEventListener('click', async () => {
     const how = await api.installDriver().catch(() => null);
-    showToast(how === 'launched' ? 'Driver installer opened — approve the Windows prompt' : 'Opened the ViGEmBus download page');
+    showToast(DRIVER_TOASTS[how] ?? 'Opened the ViGEmBus download page');
   });
   $('#recenter').addEventListener('click', async () => {
     const ok = await api.recenter().catch(() => false);
@@ -1313,6 +1329,11 @@ function drawFrame() {
 
 const boot = await api.init();
 presets = boot.presets;
+// Linux has no driver to install; the same button grants access to the devices instead.
+if (boot.platform === 'linux') {
+  $('#get-driver').textContent = 'Allow access';
+  $('#get-driver').title = 'Lets Joystick Mapper read your joysticks and create the virtual controller (asks for your password once)';
+}
 
 fitStage();
 window.addEventListener('resize', () => {

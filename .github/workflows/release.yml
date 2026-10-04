@@ -1,4 +1,4 @@
-# Builds the Windows installer and attaches it to a GitHub Release.
+# Builds the Windows installer and the Linux packages and attaches them to a GitHub Release.
 # Trigger: push a version tag, e.g.  git tag v0.1.0 && git push origin v0.1.0
 name: Release
 
@@ -48,3 +48,44 @@ jobs:
             dist/latest.yml
           fail_on_unmatched_files: true
           generate_release_notes: true
+
+  # The Linux packages join the same release once the Windows installer is out, so a
+  # problem here can never hold up (or touch) the Windows release. latest-linux.yml is
+  # the AppImage updater's own file; Windows keeps reading latest.yml.
+  linux-packages:
+    needs: windows-installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      # rpmbuild, for the Fedora / openSUSE package.
+      - run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:linux
+
+      - name: Upload build (for manual runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/Joystick-Mapper-*.AppImage
+            dist/Joystick-Mapper-*.deb
+            dist/Joystick-Mapper-*.rpm
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Joystick-Mapper-*.AppImage
+            dist/Joystick-Mapper-*.deb
+            dist/Joystick-Mapper-*.rpm
+            dist/latest-linux.yml
+          fail_on_unmatched_files: true
