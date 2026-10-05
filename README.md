@@ -42,6 +42,7 @@ Map the stick once and fly with it in any game that only understands gamepads.
   you can decide what goes where while you map.
 - **Calibrates itself** the first time the stick is at rest, with **Recenter** if it ever
   drifts.
+- **Larger text** with the **Aa** button.
 - **Updates itself** when a new release is out.
 - **Windows and Linux** (experimental).
 
@@ -236,6 +237,7 @@ many sticks and games yet, so if something's off, please
   their deadzone, sensitivity and anti-deadzone sliders.
 - **Folded labels.** A device with a lot of controls shows each one as a name with its own
   line. Click a name, or its dot, to open its dropdowns.
+- **Larger text.** **Aa**, bottom left. Every label folds, as above.
 - **Deadzone, sensitivity and anti-deadzone.** **Deadzone** ignores small movement, for an
   axis that drifts. **Sensitivity** bends the response curve: above 0 small movements do
   more, below 0 they do less, for finer control near centre. Full travel still reaches

@@ -166,13 +166,75 @@ const usesAlternate = (m) => Boolean(ALTERNATES[m.skin]) && storedKeys(ALTERNATE
 // The skin whose photo a stick shows: its own, or the product its owner says it has become.
 const photoSkin = (m) => (usesAlternate(m) ? ALTERNATES[m.skin].skin : m.skin);
 
+// ─── Larger text ─────────────────────────────────────────────────────────────
+
+// The Aa button, for anyone who finds the labels hard to read. Every label stays where it
+// is, so the lines and dots don't move: it folds to its heading (see Folded labels) and
+// the heading, its dropdowns and the menus are drawn LARGE_TEXT times the size (the same
+// number as --large in styles.css). Remembered on this computer.
+const LARGE_TEXT_KEY = 'joymap.largeText';
+const LARGE_TEXT = 1.4;
+
+function storedLargeText() {
+  try {
+    return localStorage.getItem(LARGE_TEXT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+let largeText = storedLargeText();
+
+function applyTextSize() {
+  document.documentElement.dataset.text = largeText ? 'large' : '';
+  $('#text-size').setAttribute('aria-pressed', String(largeText));
+}
+
+function setLargeText(on) {
+  largeText = on;
+  try {
+    localStorage.setItem(LARGE_TEXT_KEY, on ? '1' : '0');
+  } catch {
+    // Storage unavailable: the choice just won't be remembered.
+  }
+  closeMenus();
+  applyTextSize();
+  buildStage({ instant: true });
+}
+
+// The menus sit outside the stage, so they don't grow with the window as it does. With
+// larger text they do, as far as the window has room for them.
+function menuScale(menu) {
+  if (!largeText) return 1;
+  const room = Math.min((window.innerWidth - 24) / menu.offsetWidth, (window.innerHeight - 24) / menu.offsetHeight);
+  return Math.max(1, Math.min(stageScale() * LARGE_TEXT, room));
+}
+
 // ─── Folded labels ───────────────────────────────────────────────────────────
 
 // A stick with more controls than there is room to show dropdowns for (see `folded` in
 // layout.js) shows each label as its heading alone, with the outputs it is mapped to
 // beside it. Clicking a label, or its dot, opens its dropdowns over the labels below.
+// With larger text there is no room on any stick, so they all fold.
+const isFolded = () => layout !== null && (largeText || layout.folded === true);
 let openCallout = null; // id of the label that is open
 let summaryEl = {}; // callout id -> the icons beside its heading
+
+// Keeps an open label's dropdowns on the stage: above the heading when there is no room
+// below it, and nudged in from the side they would run off.
+function placeBody(id) {
+  const body = calloutEl[id]?.querySelector('.callout-body');
+  if (!body) return;
+  body.classList.remove('is-above');
+  body.style.translate = '';
+  const frame = stage.getBoundingClientRect();
+  const margin = 28 * stageScale();
+  if (body.getBoundingClientRect().bottom > frame.bottom - margin) body.classList.add('is-above');
+  const box = body.getBoundingClientRect();
+  const shift = Math.max(0, frame.left + margin - box.left) - Math.max(0, box.right - (frame.right - margin));
+  // The nudge is in the label's own pixels, which the stage (and larger text) scale up.
+  if (shift) body.style.translate = `${shift / (box.width / body.offsetWidth)}px`;
+}
 
 function setOpenCallout(id) {
   if (openCallout === id) return;
@@ -186,6 +248,7 @@ function setOpenCallout(id) {
   if (id) {
     calloutEl[id].classList.add('is-open');
     calloutEl[id].querySelector('.callout-head').setAttribute('aria-expanded', 'true');
+    placeBody(id);
   }
   setFocus(id);
 }
@@ -210,9 +273,10 @@ function renderSummary(c) {
 
 // ─── Stage ────────────────────────────────────────────────────────────────────
 
+const stageScale = () => Math.min(window.innerWidth / STAGE.width, window.innerHeight / STAGE.height);
+
 function fitStage() {
-  const scale = Math.min(window.innerWidth / STAGE.width, window.innerHeight / STAGE.height);
-  stage.style.setProperty('--scale', scale);
+  stage.style.setProperty('--scale', stageScale());
 }
 
 const endIntro = () => document.body.classList.remove('is-intro');
@@ -244,10 +308,12 @@ function photoLayout() {
 
 // Rebuilds the stage for the connected stick: the photo layout for sticks with a skin,
 // the universal layout for everything else, or a prompt when nothing is plugged in.
-function buildStage() {
+// `instant` skips the entrance, for a stage that is only being redrawn at another size.
+function buildStage({ instant = false } = {}) {
   closePicker({ restoreFocus: false });
   resetRegistries();
   for (const id of ['#leaders', '#guides', '#callouts', '#generic']) $(id).replaceChildren();
+  stage.classList.toggle('is-instant', instant);
   stage.classList.remove('has-focus');
   stage.classList.remove('has-open');
   openCallout = null;
@@ -258,7 +324,10 @@ function buildStage() {
   stage.dataset.mode = mode;
   stage.dataset.skin = layout ? photoSkin(model) : '';
   stage.dataset.density = layout?.dense ? 'dense' : '';
-  stage.dataset.fold = layout?.folded ? 'folded' : '';
+  stage.dataset.fold = isFolded() ? 'folded' : '';
+  // Labels folded only for larger text keep the room their dropdowns had, so a label's
+  // tag goes under its name instead of beside it.
+  stage.dataset.tags = isFolded() && !layout.folded ? 'below' : '';
 
   if (mode === 'photo') {
     buildImage();
@@ -311,7 +380,7 @@ function buildLeaders() {
 
     ring.addEventListener('pointerenter', () => setFocus(c.id));
     ring.addEventListener('pointerleave', () => setFocus(null));
-    ring.addEventListener('click', () => (layout.folded ? toggleCallout(c.id) : openPicker(c.group ? c.group[0].id : c.id)));
+    ring.addEventListener('click', () => (isFolded() ? toggleCallout(c.id) : openPicker(c.group ? c.group[0].id : c.id)));
     leaderEl[c.id] = g;
   });
 }
@@ -366,14 +435,16 @@ function buildDz(axisId, parent) {
 
 function buildCallouts() {
   const layer = $('#callouts');
+  const folded = isFolded();
   layout.callouts.forEach((c, i) => {
-    const folded = layout.folded === true;
     const node = htmlEl('div', `callout side-${c.side}${folded ? ' is-folded' : ''}`, layer);
     node.dataset.callout = c.id;
     node.style.setProperty('--i', i);
     node.style.top = `${c.y - 11}px`;
     if (c.side === 'left') node.style.right = `${STAGE.width - layout.columns.left.edge}px`;
     else node.style.left = `${layout.columns.right.edge}px`;
+    // How far the heading can run before it leaves the stage.
+    node.style.setProperty('--room', `${c.side === 'left' ? layout.columns.left.edge : STAGE.width - layout.columns.right.edge}px`);
 
     const head = htmlEl('div', 'callout-head', node);
     htmlEl('span', 'callout-name', head).textContent = calloutName(c);
@@ -513,7 +584,7 @@ function renderChip(controlId) {
 
 function renderAllChips() {
   for (const id of Object.keys(chipEl)) renderChip(id);
-  for (const c of layout?.folded ? layout.callouts : []) renderSummary(c);
+  for (const c of isFolded() ? layout.callouts : []) renderSummary(c);
 }
 
 function applySnapshot(snap) {
@@ -787,8 +858,10 @@ function positionPicker(controlId) {
   const rect = (openKind === 'deadzone' ? anchor.parentElement : anchor).getBoundingClientRect();
   const onLeftHalf = rect.left + rect.width / 2 < window.innerWidth / 2;
   const gap = 18;
-  const width = popover.offsetWidth;
-  const height = popover.offsetHeight;
+  const scale = menuScale(popover);
+  popover.style.scale = scale;
+  const width = popover.offsetWidth * scale;
+  const height = popover.offsetHeight * scale;
   let x = onLeftHalf ? rect.right + gap : rect.left - gap - width;
   let y = rect.top + rect.height / 2 - 48;
   x = Math.max(12, Math.min(window.innerWidth - width - 12, x));
@@ -842,7 +915,9 @@ function openMenu(menu, anchor) {
   menu.hidden = false;
   anchor.classList.add('is-open');
   const rect = anchor.getBoundingClientRect();
-  const width = menu.offsetWidth;
+  const scale = menuScale(menu);
+  menu.style.scale = scale;
+  const width = menu.offsetWidth * scale;
   menu.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, rect.left))}px`;
   menu.style.top = `${rect.bottom + 10}px`;
 }
@@ -1213,6 +1288,7 @@ function wireTopbar() {
   $('#save').addEventListener('click', save);
   $('#open-controls').addEventListener('click', () => api.openControls());
   $('#update').addEventListener('click', () => api.installUpdate().catch((err) => showToast(errorText(err))));
+  $('#text-size').addEventListener('click', () => setLargeText(!largeText));
   $('#profile-picker').addEventListener('click', () => (profileMenu.hidden ? openProfileMenu('list') : closeMenus()));
   $('#device-picker').addEventListener('click', () => (deviceMenu.hidden ? openDeviceMenu() : closeMenus()));
   $('#stat-pad').addEventListener('click', async () => {
@@ -1376,7 +1452,7 @@ function drawFrame() {
     if (!c.group) continue;
     const any = c.group.some((item) => live[item.id] === true);
     leaderEl[c.id].classList.toggle('is-live', any);
-    if (layout.folded) calloutEl[c.id].classList.toggle('has-live', any);
+    if (isFolded()) calloutEl[c.id].classList.toggle('has-live', any);
   }
   drawHud?.(axes);
   drawPad(output);
@@ -1392,9 +1468,11 @@ if (boot.platform === 'linux') {
   $('#get-driver').title = 'Lets Joystick Mapper read your joysticks and create the virtual controller (asks for your password once)';
 }
 
+applyTextSize();
 fitStage();
 window.addEventListener('resize', () => {
   fitStage();
+  if (openCallout) placeBody(openCallout);
   if (openControl) positionPicker(openControl);
   closeMenus();
 });

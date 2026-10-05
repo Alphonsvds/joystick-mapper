@@ -6,6 +6,19 @@ import { targetIcon } from './icons.js';
 const game = GAMES.find((g) => g.id === new URLSearchParams(location.search).get('game')) ?? GAMES[0];
 const $ = (selector) => document.querySelector(selector);
 
+// Follows the mapper's Aa button (see Larger text in app.js), also while this window is open.
+function applyTextSize() {
+  let large = false;
+  try {
+    large = localStorage.getItem('joymap.largeText') === '1';
+  } catch {
+    // Storage unavailable: the normal size.
+  }
+  document.documentElement.dataset.text = large ? 'large' : '';
+}
+applyTextSize();
+window.addEventListener('storage', applyTextSize);
+
 document.title = `${game.name} controls`;
 $('#ref-title').textContent = game.name;
 $('#ref-sub').textContent = game.source;
