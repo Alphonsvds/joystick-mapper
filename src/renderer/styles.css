@@ -1777,6 +1777,7 @@ body.is-intro * {
 :root[data-text='large'] .gen-panel {
   width: calc(100% / var(--large));
   height: calc(100% / var(--large));
+  padding-top: 0;
   scale: var(--large);
   transform-origin: 0 0;
 }
@@ -2009,9 +2010,12 @@ body.reference {
   gap: 32px;
 }
 
+/* The lists start a little below the top bar, level with the readout between them. The
+   space scrolls away with a long list. */
 .gen-panel {
   overflow-x: hidden;
   overflow-y: auto;
+  padding-top: 48px;
   padding-right: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
