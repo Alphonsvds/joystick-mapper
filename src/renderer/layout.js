@@ -2016,6 +2016,224 @@ const VELOCITYONE_DUAL_THROTTLE = {
   },
 };
 
+// ─── WINCTRL URSA MINOR Combat (joystick and throttle) ───────────────────────
+
+// Seen from behind and to the right: the pilot sits bottom left and forward is up and to
+// the right. The trigger and the paddle above it are on the front of the grip, peeking out
+// beside it; the pinkie button, low on the front, is out of sight and points at the grip's
+// edge. Each cluster of base buttons has one label, the left one mostly hidden behind the
+// slider's hump.
+const URSA_MINOR_COMBAT_STICK = {
+  alt: 'WINCTRL URSA MINOR Combat Joystick, seen from behind',
+  dense: true,
+  image: { src: 'assets/ursa-minor-combat-stick.png', width: 943, height: 1420, x: 551, y: 100, scale: 0.53 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 88, [
+      { id: 'btn20', at: [466, 85] },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'ANALOG OR BUTTONS',
+        at: [436, 198],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, ...fourWay(45), { id: 'btn34', dir: 'push' }],
+      },
+      { id: 'lowerhat', name: 'Lower Hat', at: [539, 222], columns: 2, group: pushHat(29) },
+      {
+        id: 'griphat',
+        name: 'Grip Hat',
+        at: [396, 435],
+        columns: 2,
+        group: [
+          { id: 'btn43', dir: 'up' },
+          { id: 'btn44', dir: 'right' },
+          { id: 'btn41', dir: 'down' },
+          { id: 'btn42', dir: 'left' },
+          { id: 'btn40', dir: 'push' },
+        ],
+      },
+      {
+        id: 'leftbuttons',
+        name: 'Base Buttons',
+        tag: 'LEFT',
+        at: [146, 930],
+        columns: 2,
+        group: leftToRight(labelled(['btn1', 'B1'], ['btn2', 'B2'], ['btn3', 'B3'], ['btn4', 'B4'], ['btn5', 'B5'], ['btn6', 'B6'], ['btn7', 'B7'])),
+      },
+      { id: 'slider', at: [156, 1195] },
+    ]),
+    ...stack('right', 88, [
+      { id: 'hat1', tag: 'POV', at: [554, 98], columns: 2, group: hatSwitch('hat1') },
+      { id: 'btn22', at: [654, 133] },
+      {
+        id: 'sidehat',
+        name: 'Side Hat',
+        at: [854, 208],
+        columns: 2,
+        group: [
+          { id: 'btn27', dir: 'up' },
+          { id: 'btn24', dir: 'right' },
+          { id: 'btn25', dir: 'down' },
+          { id: 'btn26', dir: 'left' },
+          { id: 'btn23', dir: 'push' },
+        ],
+      },
+      { id: 'btn28', at: [636, 242] },
+      {
+        id: 'trigger',
+        name: 'Trigger',
+        tag: 'TWO STAGE · PADDLE',
+        at: [681, 355],
+        columns: 2,
+        group: [...labelled(['btn37', '1st'], ['btn38', '2nd']), { id: 'btn35', dir: 'up' }, { id: 'btn36', dir: 'down' }],
+      },
+      { id: 'btn39', tag: 'FRONT', at: [649, 750] },
+      {
+        id: 'stick',
+        name: 'Stick',
+        at: [481, 900],
+        columns: 2,
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'z', label: 'Yaw', wide: true }],
+      },
+      {
+        id: 'rightbuttons',
+        name: 'Base Buttons',
+        tag: 'RIGHT',
+        at: [741, 1115],
+        columns: 2,
+        group: labelled(['btn8', 'B8'], ['btn9', 'B9'], ['btn10', 'B10'], ['btn11', 'B11'], ['btn12', 'B12'], ['btn13', 'B13'], ['btn14', 'B14']),
+      },
+    ]),
+  ],
+  guides: {
+    x: across(760, 920, 84),
+    y: upDown(1010, 300, 440),
+    // An arc under the grip's collar, around the lit ring.
+    z: {
+      path: 'M 704.5 540.4 A 112 34 0 0 0 921.5 540.4',
+      arrows: [
+        [704.5, 540.4, -130.1],
+        [921.5, 540.4, -49.9],
+      ],
+      point: (v) => {
+        const a = Math.PI / 2 - v * (Math.PI / 2 - 0.25);
+        return [813 + 112 * Math.cos(a), 532 + 34 * Math.sin(a)];
+      },
+    },
+    // Up the slider's slot, towards MAX.
+    slider: {
+      path: 'M 680.9 728.1 L 710 655.4',
+      arrows: [
+        [680.9, 728.1, 111.8],
+        [710, 655.4, -68.2],
+      ],
+      point: (v) => [695.45 + v * 14.55, 691.75 - v * 36.35],
+    },
+  },
+};
+
+// Seen from behind and to the right, like the stick: the pilot sits bottom left and forward
+// is up and to the right. The right handle's end, under the thumb, faces the camera. The
+// ministick, the finger wheel and the two finger buttons are on the front of the handles
+// and the toggle is on the left handle's far end: all out of sight, they point at the
+// handles' top edge above where each one sits. The ministick and the wheel come in from
+// the right, as lines from the left to that edge would cross. The labels on the right are
+// in the order that keeps their lines from crossing. The base and its knobs have no
+// labels: WINWING's diagram doesn't number them.
+const URSA_MINOR_COMBAT_THROTTLE = {
+  alt: 'WINCTRL URSA MINOR Combat Throttle, seen from behind',
+  dense: true,
+  image: { src: 'assets/ursa-minor-combat-throttle.png', width: 1100, height: 1101, x: 450, y: 160, scale: 0.6 },
+  columns: {
+    left: { edge: 430, anchor: 444, elbow: 500 },
+    right: { edge: 1170, anchor: 1156, elbow: 1100 },
+  },
+  callouts: [
+    ...stack('left', 88, [
+      {
+        id: 'fingerbuttons',
+        name: 'Finger Buttons',
+        tag: 'FRONT',
+        at: [565, 68],
+        columns: 2,
+        group: leftToRight(labelled(['btn29', 'Outer'], ['btn28', 'Inner'])),
+      },
+      { id: 'toggle', name: 'Toggle', tag: 'FAR END', at: [405, 150], columns: 2, group: threeWay(33) },
+      { id: 'slide', name: 'Slide Switch', at: [494, 253], columns: 2, group: leftToRight(labelled(['btn60', 'Left'], ['btn61', 'Right'])) },
+      { id: 'btn27', at: [833, 316] },
+      { id: 'rearhat', name: 'Rear Hat', at: [784, 379], columns: 2, group: buttonHat(36) },
+      { id: 'ry', at: [529, 445] },
+      { id: 'rx', at: [651, 512] },
+    ]),
+    ...stack('right', 88, [
+      {
+        id: 'fingerwheel',
+        name: 'Finger Wheel',
+        tag: 'FRONT',
+        at: [823, 95],
+        columns: 2,
+        group: [{ id: 'z', wide: true }, { id: 'btn58', dir: 'up' }, { id: 'btn59', dir: 'down' }, { id: 'btn57', dir: 'push' }],
+      },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'FRONT · BUTTONS OR ANALOG',
+        at: [933, 116],
+        columns: 2,
+        group: [{ id: 'slider', label: 'X', wide: true }, { id: 'dial', label: 'Y', wide: true }, ...pushHat(51)],
+      },
+      { id: 'knob', name: 'Knob', at: [1047, 141], columns: 2, group: [{ id: 'rz', wide: true }, { id: 'btn56', dir: 'push' }] },
+      { id: 'thumbswitch', name: 'Thumb Switch', at: [991, 291], columns: 2, group: threeWay(30) },
+      {
+        id: 'tophat',
+        name: 'Top Hat',
+        at: [889, 239],
+        columns: 2,
+        group: [
+          { id: 'btn47', dir: 'up' },
+          { id: 'btn48', dir: 'right' },
+          { id: 'btn49', dir: 'down' },
+          { id: 'btn46', dir: 'left' },
+          { id: 'btn50', dir: 'push' },
+        ],
+      },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        at: [907, 354],
+        columns: 2,
+        group: [
+          { id: 'btn42', dir: 'up' },
+          { id: 'btn43', dir: 'right' },
+          { id: 'btn44', dir: 'down' },
+          { id: 'btn41', dir: 'left' },
+          { id: 'btn45', dir: 'push' },
+        ],
+      },
+    ]),
+  ],
+  // Along each lever's slot; forward is up, towards the handles.
+  guides: {
+    ry: {
+      path: 'M 733.8 485.8 L 748.8 427',
+      arrows: [
+        [733.8, 485.8, 104.3],
+        [748.8, 427, -75.7],
+      ],
+      point: (v) => [741.3 + v * 7.5, 456.4 - v * 29.4],
+    },
+    rx: {
+      path: 'M 809.4 529.6 L 822 469',
+      arrows: [
+        [809.4, 529.6, 101.7],
+        [822, 469, -78.3],
+      ],
+      point: (v) => [815.7 + v * 6.3, 499.3 - v * 30.3],
+    },
+  },
+};
+
 // ─── Gamepads ────────────────────────────────────────────────────────────────
 
 // All seen from above, with the triggers behind the bumpers and out of sight: each points
@@ -2343,6 +2561,8 @@ export const LAYOUTS = {
   flightdeckthrottle: FLIGHTDECK_THROTTLE,
   orion2f16ex: ORION2_F16EX,
   orion2throttle: ORION2_THROTTLE,
+  ursaminorcombatstick: URSA_MINOR_COMBAT_STICK,
+  ursaminorcombatthrottle: URSA_MINOR_COMBAT_THROTTLE,
   solrright: SOLR_RIGHT,
   solrleft: SOLR_LEFT,
 };

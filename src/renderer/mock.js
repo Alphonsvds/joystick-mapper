@@ -4,20 +4,21 @@
 // Beach VelocityOne Flightstick and the WINWING Orion 2 stick and throttle, the
 // Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and throttle, the Turtle
 // Beach VelocityOne Flightstick II, Dual Throttle and Flightdeck stick and throttle, an
-// Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the Virpil
-// ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its published
-// layout (universal layout).
+// Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense, the WINCTRL URSA MINOR
+// Combat stick and throttle (photo layouts), the Virpil ACE-Torq pedals (named, no photo),
+// and a Thrustmaster T.16000M built from its published layout (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
 // ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
 // ?device=x56stick, ?device=x56throttle, ?device=flightdeckstick,
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
-// ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle or
-// ?device=t16000m to plug in one of the others.
+// ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle,
+// ?device=ursastick, ?device=ursathrottle or ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
-// pair from issues #13 and #23; any comma-separated list works too (?device=gladiator,twcs).
+// pair from issues #13 and #23, ?device=ursaminor the pair from issues #24 and #25; any
+// comma-separated list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
@@ -431,6 +432,54 @@ const SIMULATED = [
       buttonCount: 47,
     },
   },
+  // The WINCTRL URSA MINOR Combat pair, as real ones report (GitHub issues #24 and #25).
+  // The stick twists on Z and has its throttle slider on Slider; the throttle's levers are
+  // taken to be on Rx and Ry. R / F move the slider and the levers, Q / E the twist.
+  {
+    vendorId: 0x4098,
+    productId: 0xbc2a,
+    name: 'Winwing WINCTRL URSA MINOR Combat Joystick R',
+    alias: 'ursastick',
+    throttle: 'slider',
+    twist: 'z',
+    layout: {
+      values: [
+        hat,
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 4095 },
+        { page: 1, usage: 0x34, min: 0, max: 4095 },
+        { page: 1, usage: 0x36, min: 0, max: 4095 },
+        { page: 255, usage: 1, min: 0, max: 255 },
+      ],
+      buttonCount: 128,
+    },
+  },
+  {
+    vendorId: 0x4098,
+    productId: 0xb970,
+    name: 'WINCTRL URSA MINOR Combat Throttle Metal.EX',
+    alias: 'ursathrottle',
+    throttle: ['rx', 'ry'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 255, usage: 1, min: 0, max: 255 },
+        { page: 255, usage: 209, min: 0, max: 255 },
+        { page: 255, usage: 208, min: 0, max: 255 },
+        { page: 255, usage: 3, min: 0, max: 255 },
+      ],
+      buttonCount: 90,
+    },
+  },
   // The Turtle Beach VelocityOne Flightdeck pair, as real ones report (GitHub issues #14
   // and #15). The stick twists on Z and has its pinkie lever on Rz; the throttle's two
   // levers are on X and Y. R / F move the levers, Q / E the twist.
@@ -577,6 +626,7 @@ const RIGS = {
   x56: ['x56stick', 'x56throttle'],
   flightdeck: ['flightdeckstick', 'flightdeckthrottle'],
   velocityone: ['flightstick2', 'dualthrottle'],
+  ursaminor: ['ursastick', 'ursathrottle'],
 };
 
 const KEY_BUTTONS = {

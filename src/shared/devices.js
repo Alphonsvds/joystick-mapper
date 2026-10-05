@@ -594,6 +594,116 @@ export const SKINS = Object.freeze({
       rz: { centered: false, deadzone: 0.02 },
     },
   },
+  // WINCTRL (WINWING) URSA MINOR Combat Joystick, right hand (reports as "Winwing WINCTRL
+  // URSA MINOR Combat Joystick R", GitHub issue #24). Its twist is on Z, which would read
+  // as a reversed throttle lever; the stick, the ministick and the slider on the base are
+  // where the generic defaults expect them, so they need names only.
+  // Button numbers and axis directions are WINWING's diagram for this stick. It draws the
+  // twist reading 65535 to the left, so Z stays reversed to read right as positive, and
+  // the slider reading 0 at MAX. The twist can be locked with a screw, as on the URSA MINOR
+  // Fighter; the owner's rested at 0xb1d4, part way over, with every other axis centred,
+  // so Recenter may be needed before it is mapped. Switched to buttons, the ministick sends
+  // 45 to 48 instead of Rx and Ry. Beta until an owner has confirmed every label.
+  '4098:bc2a': {
+    id: 'ursaminorcombatstick',
+    name: 'URSA MINOR Combat Stick',
+    support: 'beta',
+    names: {
+      ...numbered(1, 14, (n) => `Base Button ${n}`),
+      btn20: 'Red Button',
+      btn22: 'Upper Grey Button',
+      ...positions(23, 'Side Hat', 'Push', 'Right', 'Down', 'Left', 'Up'),
+      btn28: 'Lower Grey Button',
+      ...pushHat('Lower Hat', 29),
+      btn34: 'Ministick Push',
+      ...positions(35, 'Paddle', 'Up', 'Down'),
+      btn37: 'Trigger Stage 1',
+      btn38: 'Trigger Stage 2',
+      btn39: 'Pinkie Button',
+      ...positions(40, 'Grip Hat', 'Push', 'Down', 'Left', 'Up', 'Right'),
+      ...positions(45, 'Ministick', 'Up', 'Right', 'Down', 'Left'),
+      hat1: 'POV Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      z: 'Yaw',
+      rx: 'Ministick X',
+      ry: 'Ministick Y',
+      slider: 'Throttle',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      z: 'Twist the stick',
+      rx: 'Ministick',
+      ry: 'Ministick',
+      slider: 'Slider on the base',
+    },
+    axes: {
+      z: { centered: true, invert: true, deadzone: 0.1 },
+    },
+  },
+  // WINCTRL (WINWING) URSA MINOR Combat Throttle Metal.EX (GitHub issue #25). Button
+  // numbers and axis directions are WINWING's diagram for the handles, which numbers 27 to
+  // 61. It leaves out the base (B1 to B8, the MODE and E1 to E4 knobs, the levers' detents)
+  // and the EX module beside it, so their buttons keep their generic names.
+  // The diagram gives the finger wheel on Z, which would read as a lever (the owner's
+  // rested in the middle, on 57: taken to spring back), the knob on Rz, which would read as
+  // a twist (taken to stay where it is turned, like the Orion 2's), and the ministick on
+  // Slider and Dial, which only move once it is switched from buttons to analog and sit at
+  // 0 until then. That leaves X, Y, Rx and Ry for the two levers and the EX module's two
+  // thumb wheels, and nothing says which pair is which: the levers are taken to be Rx
+  // (right) and Ry (left), as on the Orion 2 throttle, whose wheel and knob are on Z and Rz
+  // too. None of the four springs back, so each reads as a lever, and each reads the
+  // owner's resting position (Rx and Ry at the top of their range, X and Y at the bottom)
+  // as pulled right back.
+  // Not confirmed: which way the small switch under the left handle slides (the diagram's
+  // order is taken as left to right). Beta until an owner has confirmed every label and
+  // named the rest.
+  '4098:b970': {
+    id: 'ursaminorcombatthrottle',
+    name: 'URSA MINOR Combat Throttle',
+    support: 'beta',
+    names: {
+      btn27: 'Thumb Button',
+      btn28: 'Inner Finger Button',
+      btn29: 'Outer Finger Button',
+      ...positions(30, 'Thumb Switch', 'Up', 'Middle', 'Down'),
+      ...positions(33, 'Toggle', 'Up', 'Middle', 'Down'),
+      ...buttonHat('Rear Hat', 36),
+      ...positions(41, 'Front Hat', 'Left', 'Up', 'Right', 'Down', 'Push'),
+      ...positions(46, 'Top Hat', 'Left', 'Up', 'Right', 'Down', 'Push'),
+      ...pushHat('Ministick', 51),
+      btn56: 'Knob Push',
+      ...positions(57, 'Finger Wheel', 'Middle', 'Up', 'Down'),
+      ...positions(60, 'Slide Switch', 'Left', 'Right'),
+      z: 'Finger Wheel',
+      rx: 'Right Throttle',
+      ry: 'Left Throttle',
+      rz: 'Knob',
+      slider: 'Ministick X',
+      dial: 'Ministick Y',
+    },
+    hints: {
+      x: '',
+      y: '',
+      z: 'Wheel on the front of the right handle',
+      rx: 'Throttle lever',
+      ry: 'Throttle lever',
+      rz: 'Knob on the end of the right handle',
+      slider: 'Ministick in analog mode',
+      dial: 'Ministick in analog mode',
+    },
+    axes: {
+      x: { centered: false, invert: false },
+      y: { centered: false, invert: false },
+      z: { centered: true },
+      rx: { centered: false, invert: true },
+      ry: { centered: false, invert: true },
+      rz: { centered: false, deadzone: 0.02 },
+      slider: { centered: true, invert: false },
+      dial: { centered: true, invert: true },
+    },
+  },
   // Virpil ACE-Torq rudder pedals (reports as "VPC ACE-Torq Rudder"). The rudder is on Z,
   // which would read as a reversed throttle lever (GitHub issue #7). The pedals have no
   // toe brakes but still report an X and a Y, parked at the bottom of their range: read as
