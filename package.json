@@ -1,7 +1,7 @@
 {
   "name": "joystick-mapper",
   "productName": "Joystick Mapper",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "private": true,
   "description": "Map a flight stick to a virtual Xbox 360 controller.",
   "author": "Halston",
