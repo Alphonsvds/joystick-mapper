@@ -1898,6 +1898,97 @@ const VELOCITYONE_FLIGHTSTICK_2 = {
   },
 };
 
+// ─── Turtle Beach VelocityOne Dual Throttle ──────────────────────────────────
+
+// Seen from behind and to the right: the pilot sits bottom left and forward is up and to
+// the right, so the left throttle is the far half of the handle. The front hat, the finger
+// wheel and the two finger buttons are on the front of the handle, out of sight: they
+// point at its top edge, above where each one sits. The throttle lock on the back of the
+// handle isn't reported, so it has no label.
+const VELOCITYONE_DUAL_THROTTLE = {
+  alt: 'Turtle Beach VelocityOne Dual Throttle, seen from behind',
+  dense: true,
+  image: { src: 'assets/velocityone-dual-throttle.png', width: 1211, height: 902, x: 470, y: 240, scale: 0.545 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 210, [
+      { id: 'fingerbuttons', name: 'Finger Buttons', tag: 'FRONT', at: [535, 30], columns: 2, group: labelled(['btn8', 'B8'], ['btn9', 'B9']) },
+      {
+        id: 'throttles',
+        name: 'Throttles',
+        tag: 'DETENTS',
+        at: [540, 150],
+        columns: 2,
+        group: [
+          { id: 'x', label: 'Left', wide: true },
+          { id: 'y', label: 'Right', wide: true },
+          ...leftToRight(labelled(['btn24', 'L Up'], ['btn25', 'L Dn'], ['btn26', 'R Up'], ['btn27', 'R Dn'])),
+        ],
+      },
+      {
+        id: 'toggles',
+        name: 'Toggles',
+        at: [375, 525],
+        columns: 2,
+        group: leftToRight(labelled(['btn15', '1 Up'], ['btn16', '1 Dn'], ['btn17', '2 Up'], ['btn18', '2 Dn'], ['btn19', '3 Up'], ['btn20', '3 Dn'])),
+      },
+      { id: 'basebuttons', name: 'Base Buttons', at: [335, 590], columns: 2, group: leftToRight(labelled(['btn12', 'B12'], ['btn13', 'B13'], ['btn14', 'B14'])) },
+      { id: 'basedial', name: 'Dial', at: [567, 598], columns: 2, group: [{ id: 'btn21', dir: 'up' }, { id: 'btn22', dir: 'down' }, { id: 'btn23', dir: 'push' }] },
+    ]),
+    ...stack('right', 121, [
+      {
+        id: 'fingerwheel',
+        name: 'Finger Wheel',
+        tag: 'FRONT',
+        at: [630, 14],
+        columns: 2,
+        group: [{ id: 'dial', wide: true }, { id: 'btn5', dir: 'up' }, { id: 'btn6', dir: 'down' }, { id: 'btn7', dir: 'push' }],
+      },
+      { id: 'hat2', tag: 'FRONT', at: [700, 12], columns: 2, group: hatSwitch('hat2') },
+      { id: 'rz', at: [952, 98] },
+      { id: 'hat1', tag: 'H1', at: [912, 135], columns: 2, group: hatSwitch('hat1') },
+      {
+        id: 'pov',
+        name: 'Analog POV',
+        tag: 'P1',
+        at: [789, 157],
+        columns: 2,
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn1', dir: 'push' }],
+      },
+      { id: 'thumbbuttons', name: 'Thumb Buttons', at: [865, 292], columns: 2, group: labelled(['btn2', 'B2'], ['btn3', 'B3'], ['btn4', 'B4']) },
+      { id: 'lever', name: 'Small Lever', at: [745, 505], columns: 2, group: [{ id: 'z', wide: true }, { id: 'btn10', dir: 'up' }, { id: 'btn11', dir: 'down' }] },
+    ]),
+  ],
+  // Along the lit strip beside each throttle's slot, and the scale beside the small lever's;
+  // forward is up and to the right.
+  guides: {
+    x: {
+      path: 'M 701.6 467.8 L 737.1 439.5',
+      arrows: [
+        [701.6, 467.8, 141.4],
+        [737.1, 439.5, -38.6],
+      ],
+      point: (v) => [719.35 + v * 17.75, 453.65 - v * 14.15],
+    },
+    y: {
+      path: 'M 818.8 491.2 L 850.4 465.6',
+      arrows: [
+        [818.8, 491.2, 141],
+        [850.4, 465.6, -39],
+      ],
+      point: (v) => [834.6 + v * 15.8, 478.4 - v * 12.8],
+    },
+    z: {
+      path: 'M 904.9 617.1 L 934.3 584.4',
+      arrows: [
+        [904.9, 617.1, 132],
+        [934.3, 584.4, -48],
+      ],
+      point: (v) => [919.6 + v * 14.7, 600.75 - v * 16.35],
+    },
+  },
+};
+
 // ─── Gamepads ────────────────────────────────────────────────────────────────
 
 // All seen from above, with the triggers behind the bumpers and out of sight: each points
@@ -2220,6 +2311,7 @@ export const LAYOUTS = {
   stecsspace: STECS_SPACE,
   velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
   velocityoneflightstick2: VELOCITYONE_FLIGHTSTICK_2,
+  velocityonedualthrottle: VELOCITYONE_DUAL_THROTTLE,
   flightdeckstick: FLIGHTDECK_STICK,
   flightdeckthrottle: FLIGHTDECK_THROTTLE,
   orion2f16ex: ORION2_F16EX,

@@ -731,6 +731,7 @@ body.is-intro * {
 .stage[data-skin='flightdeckstick'] .stick,
 .stage[data-skin='flightdeckthrottle'] .stick,
 .stage[data-skin='velocityoneflightstick2'] .stick,
+.stage[data-skin='velocityonedualthrottle'] .stick,
 .stage[data-skin='stecsspace'] .stick,
 .stage[data-skin='stecsmax'] .stick,
 .stage[data-skin='stecsstandard'] .stick {
@@ -749,6 +750,7 @@ body.is-intro * {
 .stage[data-skin='flightdeckstick'].has-focus .stick,
 .stage[data-skin='flightdeckthrottle'].has-focus .stick,
 .stage[data-skin='velocityoneflightstick2'].has-focus .stick,
+.stage[data-skin='velocityonedualthrottle'].has-focus .stick,
 .stage[data-skin='stecsspace'].has-focus .stick,
 .stage[data-skin='stecsmax'].has-focus .stick,
 .stage[data-skin='stecsstandard'].has-focus .stick {

@@ -25,7 +25,7 @@ import {
   normalizeInput,
 } from '../src/shared/devices.js';
 import { HidDescriptorParser, parseDescriptor } from '../src/main/hiddescriptor.js';
-import { logicalMax } from '../src/main/hidp.js';
+import { logicalMax, sharedUsages } from '../src/main/hidp.js';
 import { XboxPadParser, isEliteProduct } from '../src/main/xinput.js';
 import { GAMES } from '../src/shared/games.js';
 import { ALTERNATES, LAYOUTS } from '../src/renderer/layout.js';
@@ -269,6 +269,30 @@ const FLIGHTDECK_THROTTLE_LAYOUT = {
 const FLIGHTDECK_THROTTLE = { vendorId: 0x10f5, productId: 0x7085, name: 'Turtle Beach Flightdeck Throttle' };
 const FLIGHTDECK_THROTTLE_REST = [0, 0, 0, 0x77ff, 0xffff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0];
 const FLIGHTDECK_THROTTLE_HELD = [16, 20, 22, 36, 39];
+
+// A Turtle Beach VelocityOne Dual Throttle, from an owner's "Copy device info" (GitHub
+// issue #23): two hats that report alike, then x, y, dial, slider, rz, ry, rx, z and a
+// vendor byte. DUAL_THROTTLE_REST is the axis part of its last report, taking it to pack
+// the axes as the Flightdeck throttle's does: both levers four fifths of the way up X and
+// Y, the small lever a third of the way up Z, nothing held.
+const DUAL_THROTTLE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x39, link: 0, min: 1, max: 8 },
+    { page: 1, usage: 0x39, link: 0, min: 1, max: 8 },
+    { page: 1, usage: 0x30, link: 1, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, link: 1, min: 0, max: 65535 },
+    { page: 1, usage: 0x37, link: 0, min: 0, max: 65535 },
+    { page: 1, usage: 0x36, link: 0, min: 0, max: 65535 },
+    { page: 1, usage: 0x35, link: 0, min: 0, max: 65535 },
+    { page: 1, usage: 0x34, link: 0, min: 0, max: 65535 },
+    { page: 1, usage: 0x33, link: 0, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, link: 0, min: 0, max: 65535 },
+    { page: 65281, usage: 40, link: 2, min: 0, max: 255 },
+  ],
+  buttonCount: 47,
+};
+const DUAL_THROTTLE = { vendorId: 0x10f5, productId: 0x7154, name: 'Turtle Beach VelocityOne Dual Throttle' };
+const DUAL_THROTTLE_REST = [0, 0, 0xcce0, 0xcce0, 0x80ff, 0, 0x7fff, 0x7fff, 0x7fff, 0x5600, 0];
 
 // A WINWING Orion 2 stick and throttle and Virpil ACE-Torq pedals, from one owner's "Copy
 // device info" (GitHub issue #7). Each *_REST is the axis part of that device's last
@@ -710,6 +734,16 @@ test('a range Windows hands back as 0 to -1 is read as the unsigned range the st
   assert.equal(logicalMax(-127, -1, 8), -1);
 });
 
+test('values that share a usage are picked out, to be read by their place in the report', () => {
+  // The Dual Throttle's two hats (GitHub issue #23) and the Flightdeck stick's three.
+  assert.deepEqual(sharedUsages(DUAL_THROTTLE_LAYOUT.values), [0, 1]);
+  assert.deepEqual(sharedUsages(FLIGHTDECK_STICK_LAYOUT.values), [8, 9, 10]);
+  assert.deepEqual(sharedUsages(FLIGHTDECK_THROTTLE_LAYOUT.values), []);
+  assert.deepEqual(sharedUsages(EXTREME_LAYOUT.values), []);
+  // The same usage in another collection, or on another page, is a value of its own.
+  assert.deepEqual(sharedUsages([{ page: 1, usage: 0x30, link: 1 }, { page: 1, usage: 0x30, link: 2 }, { page: 2, usage: 0x30, link: 1 }]), []);
+});
+
 test('the VelocityOne Flightstick II keeps its X and Y, which Windows reports as 0 to -1', () => {
   // As reported, both read as having no range and were dropped: six axes, no stick.
   const before = describeDevice(FLIGHTSTICK_2_REPORTED, { ...FLIGHTSTICK_2, ignoreSkin: true });
@@ -885,6 +919,78 @@ test('the Flightdeck throttle reads its two levers and its flap lever as levers,
   const generic = describeDevice(FLIGHTDECK_THROTTLE_LAYOUT, { ...FLIGHTDECK_THROTTLE, ignoreSkin: true });
   const loose = normalizeInput(decoded(FLIGHTDECK_THROTTLE_REST), generic, {});
   assert.deepEqual([loose.axes.x, loose.axes.y], [-1, 1]);
+});
+
+test('the Dual Throttle reads its levers as levers, forward reading high, and names its two hats', () => {
+  const model = describeDevice(DUAL_THROTTLE_LAYOUT, DUAL_THROTTLE);
+  assert.equal(model.key, '10f5:7154');
+  assert.equal(model.skin, 'velocityonedualthrottle');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'VelocityOne Dual Throttle');
+  assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
+  assert.deepEqual(axis.x, ['Left Throttle', false, false, undefined]);
+  assert.deepEqual(axis.y, ['Right Throttle', false, false, undefined]);
+  assert.deepEqual(axis.z, ['Small Lever', false, false, undefined]);
+  // The two wheels keep the generic settings, and so does the Slider, which isn't on
+  // Turtle Beach's control list.
+  assert.deepEqual(axis.rz, ['Thumb Wheel', true, false, 0.1]);
+  assert.deepEqual(axis.dial, ['Finger Wheel', false, true, undefined]);
+  assert.deepEqual(axis.slider, ['Slider', false, true, undefined]);
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['rz', 'ry', 'rx']);
+  assert.deepEqual(model.hats.map((h) => [h.id, h.name, h.index]), [['hat1', 'Thumb Hat', 0], ['hat2', 'Front Hat', 1]]);
+  assert.equal(model.buttons, 47);
+  assert.deepEqual([1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28].map((b) => model.buttonNames[`btn${b}`]), [
+    'Analog POV Push',
+    'B2 Button',
+    'B4 Button',
+    'Finger Wheel Up',
+    'Finger Wheel Down',
+    'Finger Wheel Push',
+    'Ring Finger Button',
+    'Pinkie Button',
+    'Small Lever Up',
+    'Small Lever Down',
+    'B12 Button',
+    'B14 Button',
+    'Toggle 1 Up',
+    'Toggle 2 Down',
+    'Toggle 3 Down',
+    'Dial Up',
+    'Dial Down',
+    'Dial Push',
+    'Left Throttle Detent Up',
+    'Left Throttle Detent Down',
+    'Right Throttle Detent Up',
+    'Right Throttle Detent Down',
+    'Button 28', // not on Turtle Beach's control list
+  ]);
+
+  // The owner's last report: both levers four fifths of the way forward, nothing held.
+  const rest = normalizeInput(decoded(DUAL_THROTTLE_REST), model, {});
+  for (const [id, value] of [['x', 0.6006], ['y', 0.6006], ['z', -0.3281]]) assert.ok(Math.abs(rest.axes[id] - value) < 0.001, `${id} = ${rest.axes[id]}`);
+  for (const id of ['rx', 'ry', 'rz']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
+  assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), []);
+  const forward = normalizeInput(decoded([0, 0, 65535, 65535, 0x80ff, 0, 0x7fff, 0x7fff, 0x7fff, 65535, 0]), model, {}).axes;
+  assert.deepEqual([forward.x, forward.y, forward.z], [1, 1, 1]);
+  // A Recenter with the levers anywhere leaves them their whole travel.
+  assert.equal(normalizeInput(decoded(DUAL_THROTTLE_REST), model, { calibration: { x: 0xcce0, y: 0xcce0 } }).axes.x, rest.axes.x);
+  // Each hat presses its own directions: the thumb hat up, the front hat down.
+  const hats = normalizeInput(decoded([1, 5, ...DUAL_THROTTLE_REST.slice(2)]), model, {}).buttons;
+  assert.deepEqual(['hat1_up', 'hat1_down', 'hat2_up', 'hat2_down'].map((id) => hats[id]), [true, false, false, true]);
+  // Without the skin the levers read as a stick, the right one the other way to the left.
+  const generic = describeDevice(DUAL_THROTTLE_LAYOUT, { ...DUAL_THROTTLE, ignoreSkin: true });
+  const loose = normalizeInput(decoded(DUAL_THROTTLE_REST), generic, {});
+  assert.ok(loose.axes.x > 0.6 && loose.axes.y < -0.6, `${loose.axes.x}, ${loose.axes.y}`);
+  assert.deepEqual(generic.hats.map((h) => h.name), ['Hat Switch', 'Hat 2']);
+});
+
+test('the Flightstick II and the Dual Throttle take the stick and throttle roles whichever order they are found in', () => {
+  const stick = { id: '10f5:7150', name: FLIGHTSTICK_2.name };
+  const throttle = { id: '10f5:7154', name: DUAL_THROTTLE.name };
+  const roles = { [stick.id]: 'stick', [throttle.id]: 'throttle' };
+  assert.deepEqual(assignRoles([stick, throttle]), roles);
+  assert.deepEqual(assignRoles([throttle, stick]), roles);
 });
 
 test('the Flightdeck pair take the stick and throttle roles whichever order they are found in', () => {
@@ -1379,6 +1485,7 @@ test('every photo layout points only at controls its stick has, each one once', 
     stecsspace: [STECS_SPACE_LAYOUT, STECS_SPACE],
     velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
     velocityoneflightstick2: [FLIGHTSTICK_2_LAYOUT, FLIGHTSTICK_2],
+    velocityonedualthrottle: [DUAL_THROTTLE_LAYOUT, DUAL_THROTTLE],
     flightdeckstick: [FLIGHTDECK_STICK_LAYOUT, FLIGHTDECK_STICK],
     flightdeckthrottle: [FLIGHTDECK_THROTTLE_LAYOUT, FLIGHTDECK_THROTTLE],
     orion2f16ex: [ORION_STICK_LAYOUT, ORION_STICK],
@@ -1526,14 +1633,16 @@ test('every photo layout points only at controls its stick has, each one once', 
   }
   // The X56 throttle's photo shows all 36 buttons and all eight axes, the stick's the 14
   // buttons on its chart, its POV and its five axes, and each gamepad's everything it has.
-  // The Flightstick II's and both Flightdeck photos show every button and axis on Turtle
-  // Beach's control lists: 34 buttons, the hat and all eight axes on the Flightstick II, 33
-  // buttons, both hats and seven axes on the Flightdeck stick, 41 buttons, the hat and all
-  // eight axes on its throttle. Their labels fit above the bottom of the stage too.
+  // The Flightstick II's, the Dual Throttle's and both Flightdeck photos show every button
+  // and axis on Turtle Beach's control lists: 34 buttons, the hat and all eight axes on the
+  // Flightstick II, 27 buttons, both hats and seven axes on the Dual Throttle, 33 buttons,
+  // both hats and seven axes on the Flightdeck stick, 41 buttons, the hat and all eight
+  // axes on its throttle. Their labels fit above the bottom of the stage too.
   for (const [skin, buttons, axes] of [
     ['x56throttle', range(1, 36), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
     ['x56stick', range(1, 14), ['x', 'y', 'rz', 'rx', 'ry']],
     ['velocityoneflightstick2', range(1, 34), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
+    ['velocityonedualthrottle', range(1, 27), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'dial']],
     ['flightdeckstick', range(1, 33), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider']],
     ['flightdeckthrottle', range(1, 41), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']],
     ['xboxcontroller', range(1, 10), ['x', 'y', 'rx', 'ry', 'z', 'rz']],
@@ -1553,10 +1662,18 @@ test('every photo layout points only at controls its stick has, each one once', 
       assert.ok(last.y + 23 + rows(last) * 32 <= (side === 'left' ? 915 : 985), `${skin}: the ${side} labels run off the stage`);
     }
   }
-  // The Flightdeck stick's second hat is on its photo too, every control these three
-  // photos' skins name is shown, and each line has its own dot, clear of the others.
-  for (const dir of ['up', 'right', 'down', 'left']) assert.ok(shownBy(LAYOUTS.flightdeckstick.callouts).includes(`hat2_${dir}`), `hat2_${dir}`);
-  for (const [key, skin] of [['10f5:7150', 'velocityoneflightstick2'], ['10f5:7084', 'flightdeckstick'], ['10f5:7085', 'flightdeckthrottle']]) {
+  // The Flightdeck stick's and the Dual Throttle's second hats are on their photos too,
+  // every control these four photos' skins name is shown, and each line has its own dot,
+  // clear of the others.
+  for (const skin of ['flightdeckstick', 'velocityonedualthrottle']) {
+    for (const dir of ['up', 'right', 'down', 'left']) assert.ok(shownBy(LAYOUTS[skin].callouts).includes(`hat2_${dir}`), `${skin}: hat2_${dir}`);
+  }
+  for (const [key, skin] of [
+    ['10f5:7150', 'velocityoneflightstick2'],
+    ['10f5:7154', 'velocityonedualthrottle'],
+    ['10f5:7084', 'flightdeckstick'],
+    ['10f5:7085', 'flightdeckthrottle'],
+  ]) {
     const shown = shownBy(LAYOUTS[skin].callouts);
     for (const id of Object.keys(SKINS[key].names)) assert.ok(/^hat/.test(id) ? shown.includes(`${id}_up`) : shown.includes(id), `${skin}: ${id}`);
     assert.equal(LAYOUTS[skin].folded, undefined);

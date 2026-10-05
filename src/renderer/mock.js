@@ -3,21 +3,21 @@
 // sticks and Omni Throttles, the VKB STECS Standard, Max and Space throttles, the Turtle
 // Beach VelocityOne Flightstick and the WINWING Orion 2 stick and throttle, the
 // Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and throttle, the Turtle
-// Beach VelocityOne Flightstick II and Flightdeck stick and throttle, an Xbox controller,
-// an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the Virpil ACE-Torq pedals
-// (named, no photo), and a Thrustmaster T.16000M built from its published layout
-// (universal layout).
+// Beach VelocityOne Flightstick II, Dual Throttle and Flightdeck stick and throttle, an
+// Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the Virpil
+// ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its published
+// layout (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
 // ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
 // ?device=x56stick, ?device=x56throttle, ?device=flightdeckstick,
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
-// ?device=dualsense, ?device=acetorq, ?device=flightstick2 or ?device=t16000m to plug in
-// one of the others.
+// ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle or
+// ?device=t16000m to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
-// issue #16, ?device=flightdeck the pair from issues #14 and #15; any comma-separated list
-// works too (?device=gladiator,twcs).
+// issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
+// pair from issues #13 and #23; any comma-separated list works too (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
@@ -406,6 +406,31 @@ const SIMULATED = [
       buttonCount: 54,
     },
   },
+  // As reported by a real VelocityOne Dual Throttle (GitHub issue #23): two hats that
+  // report alike, and its two levers on X and Y. R / F move the levers.
+  {
+    vendorId: 0x10f5,
+    productId: 0x7154,
+    name: 'Turtle Beach VelocityOne Dual Throttle',
+    alias: 'dualthrottle',
+    throttle: ['x', 'y', 'z'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 1, usage: 0x39, min: 1, max: 8 },
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x37, min: 0, max: 65535 },
+        { page: 1, usage: 0x36, min: 0, max: 65535 },
+        { page: 1, usage: 0x35, min: 0, max: 65535 },
+        { page: 1, usage: 0x34, min: 0, max: 65535 },
+        { page: 1, usage: 0x33, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+        { page: 65281, usage: 40, min: 0, max: 255 },
+      ],
+      buttonCount: 47,
+    },
+  },
   // The Turtle Beach VelocityOne Flightdeck pair, as real ones report (GitHub issues #14
   // and #15). The stick twists on Z and has its pinkie lever on Rz; the throttle's two
   // levers are on X and Y. R / F move the levers, Q / E the twist.
@@ -551,6 +576,7 @@ const RIGS = {
   solr: ['solrright', 'solrleft'],
   x56: ['x56stick', 'x56throttle'],
   flightdeck: ['flightdeckstick', 'flightdeckthrottle'],
+  velocityone: ['flightstick2', 'dualthrottle'],
 };
 
 const KEY_BUTTONS = {

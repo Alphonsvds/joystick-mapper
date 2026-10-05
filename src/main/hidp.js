@@ -15,6 +15,8 @@ const FILE_SHARE_READ_WRITE = 0x3;
 // Offsets inside HIDP_CAPS and HIDP_VALUE_CAPS / HIDP_BUTTON_CAPS (72 bytes each).
 const CAPS_SIZE = 64;
 const CAP_SIZE = 72;
+// HIDP_DATA: a data index (2 bytes), 2 spare, then the raw value (4).
+const DATA_SIZE = 8;
 
 let api = null;
 function load() {
@@ -38,6 +40,8 @@ function load() {
     HidP_GetUsages: hid.func(
       'int32_t __stdcall HidP_GetUsages(int32_t type, uint16_t page, uint16_t link, void *list, void *len, intptr_t pp, void *report, uint32_t reportLen)',
     ),
+    HidP_MaxDataListLength: hid.func('uint32_t __stdcall HidP_MaxDataListLength(int32_t type, intptr_t pp)'),
+    HidP_GetData: hid.func('int32_t __stdcall HidP_GetData(int32_t type, void *list, void *len, intptr_t pp, void *report, uint32_t reportLen)'),
   };
   return api;
 }
@@ -56,7 +60,21 @@ export function logicalMax(min, max, bits) {
   return fits.length ? Math.max(...fits) : largest;
 }
 
-// Parses the capability arrays into plain data: the device's layout.
+// HidP_GetUsageValue finds a value by its usage, so of two values with the same usage in
+// the same collection it only ever returns the first: the VelocityOne Dual Throttle's two
+// hats both read as one, and the hat on the front of its handle never showed (GitHub issue
+// #23). Returns the places in `values` of the ones that share their usage, which are read
+// by their data index instead.
+export function sharedUsages(values) {
+  const key = (v) => `${v.page}:${v.link}:${v.usage}`;
+  const count = new Map();
+  for (const v of values) count.set(key(v), (count.get(key(v)) ?? 0) + 1);
+  return values.flatMap((v, i) => (count.get(key(v)) > 1 ? [i] : []));
+}
+
+// Parses the capability arrays into plain data: the device's layout, and each value's data
+// index (its place among everything HidP_GetData returns, or null when it isn't there), in
+// the order of `values`.
 function readLayout(a, pp) {
   const caps = Buffer.alloc(CAPS_SIZE);
   if (!ok(a.HidP_GetCaps(pp, caps))) throw new Error('HidP_GetCaps failed');
@@ -65,6 +83,7 @@ function readLayout(a, pp) {
   const valueCapCount = caps.readUInt16LE(48);
 
   const values = [];
+  const dataIndexes = [];
   if (valueCapCount) {
     const buf = Buffer.alloc(CAP_SIZE * valueCapCount);
     const len = Buffer.alloc(2);
@@ -89,6 +108,9 @@ function readLayout(a, pp) {
           min,
           max,
         });
+        // A range's data indexes run in step with its usages. A value array (several
+        // fields under one usage) isn't in that list at all.
+        dataIndexes.push(buf.readUInt16LE(o + 20) > 1 ? null : buf.readUInt16LE(o + 68) + usage - usageMin);
       }
     }
   }
@@ -111,7 +133,7 @@ function readLayout(a, pp) {
   }
   buttonReportIds = [...new Set(buttonReportIds)];
 
-  return { reportLength, values, buttonCount, buttonReportIds };
+  return { layout: { reportLength, values, buttonCount, buttonReportIds }, dataIndexes };
 }
 
 export class HidParser {
@@ -127,17 +149,25 @@ export class HidParser {
     if (!got) throw new Error('The device did not describe its controls');
     const pp = Number(out.readBigUInt64LE(0));
     try {
-      return new HidParser(a, pp, readLayout(a, pp));
+      const { layout, dataIndexes } = readLayout(a, pp);
+      return new HidParser(a, pp, layout, dataIndexes);
     } catch (err) {
       a.HidD_FreePreparsedData(pp);
       throw err;
     }
   }
 
-  constructor(a, pp, layout) {
+  constructor(a, pp, layout, dataIndexes) {
     this.a = a;
     this.pp = pp;
     this.layout = layout;
+    // The values that share a usage, by data index, and the places in layout.values of the
+    // rest, which are read by usage.
+    const shared = sharedUsages(layout.values).filter((i) => dataIndexes[i] !== null);
+    this.shared = new Map(shared.map((i) => [dataIndexes[i], i]));
+    this.unshared = layout.values.map((_, i) => i).filter((i) => !shared.includes(i));
+    this.data = Buffer.alloc(DATA_SIZE * Math.max(1, a.HidP_MaxDataListLength(HIDP_INPUT, pp)));
+    this.dataCount = Buffer.alloc(4);
     this.usesReportIds = layout.values.some((v) => v.reportId !== 0) || layout.buttonReportIds.some((id) => id !== 0);
     this.report = Buffer.alloc(layout.reportLength);
     this.value = Buffer.alloc(4);
@@ -157,13 +187,23 @@ export class HidParser {
     else data.copy(report, 1, 0, Math.min(data.length, report.length - 1));
     const length = report.length;
 
-    layout.values.forEach((field, i) => {
-      if (!ok(a.HidP_GetUsageValue(HIDP_INPUT, field.page, field.link, field.usage, this.value, pp, report, length))) return;
-      let raw = this.value.readUInt32LE(0);
-      // HidP returns the raw bit field; sign-extend fields whose logical range is signed.
-      if (field.min < 0 && field.bits < 32 && raw >= 2 ** (field.bits - 1)) raw -= 2 ** field.bits;
-      this.values[i] = raw;
-    });
+    // HidP returns the raw bit field; sign-extend fields whose logical range is signed.
+    const signed = (field, raw) => (field.min < 0 && field.bits < 32 && raw >= 2 ** (field.bits - 1) ? raw - 2 ** field.bits : raw);
+    for (const i of this.unshared) {
+      const field = layout.values[i];
+      if (!ok(a.HidP_GetUsageValue(HIDP_INPUT, field.page, field.link, field.usage, this.value, pp, report, length))) continue;
+      this.values[i] = signed(field, this.value.readUInt32LE(0));
+    }
+
+    if (this.shared.size) {
+      this.dataCount.writeUInt32LE(this.data.length / DATA_SIZE);
+      if (ok(a.HidP_GetData(HIDP_INPUT, this.data, this.dataCount, pp, report, length))) {
+        for (let n = 0; n < this.dataCount.readUInt32LE(0); n++) {
+          const i = this.shared.get(this.data.readUInt16LE(n * DATA_SIZE));
+          if (i !== undefined) this.values[i] = signed(layout.values[i], this.data.readUInt32LE(n * DATA_SIZE + 4));
+        }
+      }
+    }
 
     if (layout.buttonCount) {
       this.usageCount.writeUInt32LE(layout.buttonCount);

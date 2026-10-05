@@ -890,6 +890,63 @@ export const SKINS = Object.freeze({
       slider: { invert: false },
     },
   },
+  // Turtle Beach VelocityOne Dual Throttle (GitHub issue #23). Like the Flightdeck
+  // throttle its two levers are the X and Y axes, which would read as a stick: Y reversed
+  // next to X, and Recenter taking wherever they sit as the middle.
+  // Axis roles and button numbers are Turtle Beach's "Default functions and controls on
+  // PC" list. It gives no directions: forward is taken to read high on the two levers and
+  // the small one, as it does on the Flightdeck throttle. The thumb wheel (the ring around
+  // the thumb hat) and the finger wheel keep the generic settings: whether they spring back
+  // isn't known. The throttle also reports a Slider axis and buttons 28 to 47, which
+  // aren't on that list and keep their generic names.
+  // Its two hats report alike, so nothing says which comes first. While the app could
+  // only read the first of them, an owner found the front hat was the one that didn't
+  // show: the first is taken to be the thumb hat. Beta until an owner has confirmed every
+  // label.
+  '10f5:7154': {
+    id: 'velocityonedualthrottle',
+    name: 'VelocityOne Dual Throttle',
+    support: 'beta',
+    names: {
+      btn1: 'Analog POV Push',
+      ...numbered(2, 3, (n) => `B${n + 1} Button`),
+      ...positions(5, 'Finger Wheel', 'Up', 'Down', 'Push'),
+      btn8: 'Ring Finger Button',
+      btn9: 'Pinkie Button',
+      ...positions(10, 'Small Lever', 'Up', 'Down'),
+      ...numbered(12, 3, (n) => `B${n + 11} Button`),
+      ...positions(15, 'Toggle 1', 'Up', 'Down'),
+      ...positions(17, 'Toggle 2', 'Up', 'Down'),
+      ...positions(19, 'Toggle 3', 'Up', 'Down'),
+      ...positions(21, 'Dial', 'Up', 'Down', 'Push'),
+      ...positions(24, 'Left Throttle Detent', 'Up', 'Down'),
+      ...positions(26, 'Right Throttle Detent', 'Up', 'Down'),
+      hat1: 'Thumb Hat',
+      hat2: 'Front Hat',
+      x: 'Left Throttle',
+      y: 'Right Throttle',
+      z: 'Small Lever',
+      rx: 'Analog POV X',
+      ry: 'Analog POV Y',
+      rz: 'Thumb Wheel',
+      dial: 'Finger Wheel',
+    },
+    hints: {
+      x: 'Throttle lever',
+      y: 'Throttle lever',
+      z: 'Lever on the right of the base',
+      rx: 'Analog POV',
+      ry: 'Analog POV',
+      rz: 'Ring around the thumb hat',
+      dial: 'Wheel on the front of the handle',
+      slider: '',
+    },
+    axes: {
+      x: { centered: false, invert: false },
+      y: { centered: false, invert: false },
+      z: { invert: false },
+    },
+  },
   // VKB Gladiator NXT EVO, right hand (reports as "VKBsim Gladiator EVO R"), with the
   // Premium / Space Combat grip. Button numbers are VKB's factory profile; the stick
   // advertises 128 buttons and two spare axes (Slider, Dial) that it doesn't use.
