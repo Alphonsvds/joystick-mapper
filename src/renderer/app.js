@@ -755,7 +755,7 @@ const PRESS_POINT = {
   max: MAX_PRESS_POINT,
   initial: DEFAULT_PRESS_POINT,
   digital: true,
-  note: 'The button presses once the axis is this far past its deadzone. Lower presses it sooner.',
+  note: 'How far the axis moves, past its deadzone, before the Xbox button presses. Lower presses it sooner.',
 };
 const RESPONSE = [DEADZONE, SENSITIVITY, ANTI_DEADZONE, PRESS_POINT];
 
@@ -848,10 +848,12 @@ function openDeadzone(controlId) {
     });
     htmlEl('p', 'pop-note', options).textContent = setting.note;
   }
-  // Say where the curve and the lift went, so they don't look missing.
+  // Say where the curve and the lift went, so they don't look missing: it is still the
+  // axis doing the work, only what it drives on the Xbox side is a pair of buttons.
   if (outputKind(controlId) === 'digital') {
-    const output = TARGET_BY_ID[binding.target].name;
-    htmlEl('p', 'pop-note', options).textContent = `${output} presses buttons. Sensitivity and anti-deadzone are for stick and trigger outputs.`;
+    const { presses } = TARGET_BY_ID[binding.target];
+    htmlEl('p', 'pop-note', options).textContent =
+      `${control.name} presses ${presses} on the Xbox controller instead of moving a stick, so sensitivity and anti-deadzone don't apply.`;
   }
 
   const foot = htmlEl('div', 'pop-foot', popover);

@@ -2198,6 +2198,15 @@ test('a press point sets how far an axis on buttons moves before it presses', ()
   assert.equal(pressed({ ...dpad, target: 'dpad_y' }, -0.3), XUSB.DPAD_DOWN);
 });
 
+test('every button-style axis output names the Xbox buttons it presses', () => {
+  const digital = Object.values(TARGET_BY_ID).filter((t) => t.digital);
+  assert.deepEqual(digital.map((t) => [t.id, t.presses]), [
+    ['lb_rb', 'LB or RB'],
+    ['dpad_x', 'D-pad left or right'],
+    ['dpad_y', 'D-pad down or up'],
+  ]);
+});
+
 test('a press point is clamped, dropped at halfway, and only kept for button-style outputs', () => {
   assert.equal(sanitizeBinding('rz', { target: 'lb_rb', pressPoint: 0.25 }).pressPoint, 0.25);
   assert.equal(sanitizeBinding('rz', { target: 'dpad_y', pressPoint: 0.99 }).pressPoint, 0.95);

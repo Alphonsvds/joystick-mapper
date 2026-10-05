@@ -117,10 +117,25 @@ export const TARGETS = Object.freeze([
   { id: 'rs_y', name: 'Right Stick Y', accepts: ['axis'], hint: 'Right stick, down ↔ up' },
   { id: 'lt_rt', name: 'LT / RT Split', accepts: ['axis'], hint: 'Back half → LT, forward half → RT' },
   // `digital`: the axis only presses buttons, so there is no analog output to shape, only
-  // the point where the button presses.
-  { id: 'lb_rb', name: 'LB / RB Split', accepts: ['axis'], digital: true, hint: 'Past halfway: left → LB, right → RB' },
-  { id: 'dpad_x', name: 'D-Pad Left / Right', accepts: ['axis'], digital: true, hint: 'Past halfway: left / right on the D-pad' },
-  { id: 'dpad_y', name: 'D-Pad Down / Up', accepts: ['axis'], digital: true, hint: 'Past halfway: down / up on the D-pad' },
+  // the point where the button presses. `presses`: those buttons, as the response popover
+  // names them.
+  { id: 'lb_rb', name: 'LB / RB Split', accepts: ['axis'], digital: true, presses: 'LB or RB', hint: 'Past its press point: left → LB, right → RB' },
+  {
+    id: 'dpad_x',
+    name: 'D-Pad Left / Right',
+    accepts: ['axis'],
+    digital: true,
+    presses: 'D-pad left or right',
+    hint: 'Past its press point: left / right on the D-pad',
+  },
+  {
+    id: 'dpad_y',
+    name: 'D-Pad Down / Up',
+    accepts: ['axis'],
+    digital: true,
+    presses: 'D-pad down or up',
+    hint: 'Past its press point: down / up on the D-pad',
+  },
 ]);
 
 export const TARGET_BY_ID = Object.freeze(Object.fromEntries(TARGETS.map((t) => [t.id, t])));
