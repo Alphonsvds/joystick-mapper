@@ -20,14 +20,13 @@ Map the stick once and fly with it in any game that only understands gamepads.
 
 ## How to install
 
-Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** (by the green tag) on the right side, then download the file for your computer from the
-latest release:
+First, click this button -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** (by the green tag) on the right side, then download the file for your computer from the latest release. This is the only time you need to do this. Updates are then fed through the app:
 
-- **Windows:** Click `Joystick-Mapper-Setup-x.y.z.exe` to download from the latest release.
+- **For Windows:** Click `Joystick-Mapper-Setup-x.y.z.exe` to download from the latest release.
 > Windows may show **"Windows protected your PC"** because the installer isn't code-signed
 > (signing certificates cost money). Click **More info → Run anyway**.
 
-- **Linux** (experimental), one of:
+- **For Linux** (experimental), one of:
   - **Fedora / openSUSE:** `Joystick-Mapper-x.y.z.rpm`
   - **Ubuntu / Mint / Pop!_OS / Debian:** `Joystick-Mapper-x.y.z.deb`
   - **Anything else** (Bazzite, Arch, SteamOS on the Steam Deck…): `Joystick-Mapper-x.y.z.AppImage`
