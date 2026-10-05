@@ -24,7 +24,7 @@
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
 import { ROLES, sanitizeBinding, emptyBindings, rolePrefix } from '../shared/controls.js';
-import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, describeDevice, mergeInputs } from '../shared/devices.js';
+import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, changeRole, describeDevice, mergeInputs } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -614,6 +614,22 @@ const SIMULATED = [
       buttonCount: 0,
     },
   },
+  // Racing gear, which Windows also lists as joysticks, for trying a rig with more devices
+  // than there are roles (`?device=racing`). Made up: the names, IDs and layouts are no real product's.
+  ...['Racing Wheel Base', 'Racing Pedals', 'Shifter', 'Handbrake'].map((name, i) => ({
+    vendorId: 0x1209,
+    productId: 0x7001 + i,
+    name,
+    alias: ['wheel', 'racingpedals', 'shifter', 'handbrake'][i],
+    throttle: null,
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+      ],
+      buttonCount: 8,
+    },
+  })),
 ].map((d) => {
   const model = describeDevice(d.layout, d);
   return { ...d, id: model.key, model: { ...model, id: model.key } };
@@ -626,6 +642,7 @@ const RIGS = {
   x56: ['x56stick', 'x56throttle'],
   flightdeck: ['flightdeckstick', 'flightdeckthrottle'],
   velocityone: ['flightstick2', 'dualthrottle'],
+  racing: ['wheel', 'racingpedals', 'shifter', 'handbrake', 'orionstick', 'orionthrottle'],
   ursaminor: ['ursastick', 'ursathrottle'],
 };
 
@@ -693,7 +710,12 @@ export function createMockApi() {
   const roles = () => assignRoles(plugged, savedRoles);
   const view = () => {
     const assigned = roles();
-    return plugged.find((d) => d.id === preferredId) ?? ROLES.map((role) => plugged.find((d) => assigned[d.id] === role)).find(Boolean);
+    // As in the app, a device with no role isn't read, so it can't be the one on screen.
+    return (
+      plugged.find((d) => d.id === preferredId && assigned[d.id]) ??
+      ROLES.map((role) => plugged.find((d) => assigned[d.id] === role)).find(Boolean) ??
+      null
+    );
   };
   const deviceSettings = {};
   const held = new Set();
@@ -718,9 +740,9 @@ export function createMockApi() {
     const device = view();
     return {
       joystick: {
-        state: 'connected',
+        state: device ? 'connected' : 'searching',
         message: '',
-        device: { ...device.model, role: assigned[device.id] },
+        device: device ? { ...device.model, role: assigned[device.id] } : null,
         devices: plugged.map(({ id, model }) => ({
           id,
           key: model.key,
@@ -730,7 +752,7 @@ export function createMockApi() {
           support: model.support,
           problem: '',
         })),
-        settings: deviceSettings[device.id] ?? {},
+        settings: deviceSettings[device?.id] ?? {},
       },
       pad: { state: emulating() ? 'connected' : 'off', message: '' },
       profile: { id: p.id, name: p.name, locked: p.locked },
@@ -904,17 +926,14 @@ export function createMockApi() {
       emitStatus();
       return true;
     },
-    // Whichever device had the role takes this one's in exchange.
     async setDeviceRole(id, role) {
-      const current = roles();
-      const next = { ...current, [id]: role };
-      for (const [other, held] of Object.entries(current)) if (held === role) next[other] = current[id];
-      savedRoles = next;
+      savedRoles = changeRole(savedRoles, roles(), id, role);
       emitStatus();
       return true;
     },
     async setAxisCentered(axisId, centered) {
-      const { id } = view();
+      const id = view()?.id;
+      if (!id) return false;
       deviceSettings[id] = { ...deviceSettings[id], centered: { ...deviceSettings[id]?.centered, [axisId]: centered } };
       emitStatus();
       return true;

@@ -165,6 +165,28 @@ test('swapping roles moves each device’s controls at once', async () => {
   await manager.stop();
 });
 
+test('a fifth device is left unread until it is given a role, and one set aside is closed', async () => {
+  const racing = [1, 2, 3, 4].map((n) => device(`usb-r${n}`, 0x0eb7, n, `Racing gear ${n}`));
+  const { manager, seen, report, handles } = rig(...racing, STICK);
+  await manager.scan();
+  assert.equal(roleOf(manager, '046d:c215'), null);
+  assert.equal(handles.has(STICK.path), false); // not opened
+  // Choosing it while it has no role changes nothing on screen.
+  manager.select('046d:c215');
+  assert.equal(manager.status.device.id, '0eb7:0001');
+
+  // Given the stick's role, with the wheel set aside: it is opened and read, the wheel isn't.
+  await manager.setRoles({ ...manager.roles, '046d:c215': 'stick', '0eb7:0001': 'off' });
+  assert.equal(roleOf(manager, '046d:c215'), 'stick');
+  assert.equal(roleOf(manager, '0eb7:0001'), null);
+  assert.equal(manager.open.has('0eb7:0001'), false);
+  assert.equal(manager.status.device.id, '046d:c215');
+  report(STICK, [1023, 0], [1]);
+  assert.equal(seen.state.axes.x, 1);
+  assert.equal(seen.state.buttons.btn1, true);
+  await manager.stop();
+});
+
 test('the screen follows the chosen device while it is plugged in', async () => {
   const { backend, manager } = rig(STICK, THROTTLE);
   manager.preferredId = '044f:b687';

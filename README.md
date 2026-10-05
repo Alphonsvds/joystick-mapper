@@ -132,6 +132,10 @@ The joystick button in the top bar gains an arrow: click it to pick which device
 mapping. Each one gets a role (**Stick**, **Throttle**, **Pedals** or **Extra**), guessed
 from its name; change it in the same menu if the guess is wrong. They work independently and togeher.
 
+Four devices can have a role at once. The rest (racing gear left plugged in, say) show as
+**Not in use**: click one and pick its role, and the device that had it steps aside. Any
+device can be set to **Not in use** the same way, and stays so until you give it a role.
+
 ## Xbox and PlayStation controllers
 
 A controller shows up like any stick. Start a profile from its own template, then change

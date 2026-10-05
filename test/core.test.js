@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Extreme3DProParser } from '../src/main/devices/extreme3dpro.js';
 import {
+  ROLE_OFF,
   TARGET_BY_ID,
   XUSB,
   controlKind,
@@ -16,6 +17,7 @@ import {
   XBOX_LAYOUT,
   XBOX_PAD,
   assignRoles,
+  changeRole,
   describeDevice,
   deviceKey,
   guessRole,
@@ -2396,6 +2398,57 @@ test('a device on its own is the stick; with several, names and saved choices de
     [stick.id]: 'stick',
     [twin(1).id]: 'throttle',
   });
+});
+
+test('a device set aside takes no role, and the rest are placed as if it were unplugged', () => {
+  const wheel = { id: '0eb7:0001', name: 'Racing Wheel' };
+  const shifter = { id: '0eb7:0002', name: 'Shifter' };
+  const stick = { id: '046d:c215', name: 'Logitech Extreme 3D' };
+  const throttle = { id: '044f:b687', name: 'Thrustmaster TWCS Throttle' };
+  const off = { [wheel.id]: ROLE_OFF, [shifter.id]: ROLE_OFF };
+  assert.deepEqual(assignRoles([wheel, shifter, stick, throttle], off), { [stick.id]: 'stick', [throttle.id]: 'throttle' });
+  // With the others set aside, the one left is on its own: the stick, whatever its name.
+  assert.deepEqual(assignRoles([wheel, shifter, throttle], off), { [throttle.id]: 'stick' });
+  assert.deepEqual(assignRoles([wheel], off), {});
+});
+
+test('giving a device a role swaps with its holder, or sets the holder aside when there is nothing to swap', () => {
+  const [wheel, pedals, shifter, brake, stick, throttle] = ['0eb7:0001', '0eb7:0002', '0eb7:0003', '0eb7:0004', '3344:0001', '3344:0002'];
+  const plugged = [wheel, pedals, shifter, brake, stick, throttle].map((id) => ({ id, name: 'Device' }));
+  // Racing gear listed first fills every role: the flight gear gets none.
+  let saved = {};
+  let roles = assignRoles(plugged, saved);
+  assert.deepEqual(roles, { [wheel]: 'stick', [pedals]: 'throttle', [shifter]: 'pedals', [brake]: 'extra' });
+
+  // The stick takes over as the stick. It had no role to hand back, so the wheel is set aside.
+  saved = changeRole(saved, roles, stick, 'stick');
+  roles = assignRoles(plugged, saved);
+  assert.equal(roles[stick], 'stick');
+  assert.equal(roles[wheel], undefined);
+  assert.equal(saved[wheel], ROLE_OFF);
+  // The same for the throttle. Nothing else moves.
+  saved = changeRole(saved, roles, throttle, 'throttle');
+  roles = assignRoles(plugged, saved);
+  assert.deepEqual(roles, { [stick]: 'stick', [throttle]: 'throttle', [shifter]: 'pedals', [brake]: 'extra' });
+  // Unplugging the flight gear doesn't hand its roles to what was set aside.
+  assert.deepEqual(assignRoles(plugged.slice(0, 4), saved), { [shifter]: 'pedals', [brake]: 'extra' });
+
+  // Two devices that both have roles swap them, as before.
+  saved = changeRole(saved, roles, stick, 'throttle');
+  roles = assignRoles(plugged, saved);
+  assert.deepEqual([roles[stick], roles[throttle]], ['throttle', 'stick']);
+
+  // Setting one aside frees its role and moves nothing else. Nobody is waiting, so it stays free.
+  saved = changeRole(saved, roles, shifter, ROLE_OFF);
+  roles = assignRoles(plugged, saved);
+  assert.deepEqual(roles, { [stick]: 'throttle', [throttle]: 'stick', [brake]: 'extra' });
+  // A device set aside comes back by being given a role, here a free one.
+  saved = changeRole(saved, roles, wheel, 'pedals');
+  assert.equal(assignRoles(plugged, saved)[wheel], 'pedals');
+
+  // A role saved for a device that is unplugged goes to whoever is given it.
+  const taken = changeRole({ [throttle]: 'throttle' }, { [stick]: 'stick', [wheel]: 'extra' }, wheel, 'throttle');
+  assert.deepEqual(taken, { [stick]: 'stick', [wheel]: 'throttle' });
 });
 
 // ─── Profiles ─────────────────────────────────────────────────────────────────

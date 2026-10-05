@@ -7,6 +7,7 @@ import {
   MIN_PRESS_POINT,
   ROLES,
   ROLE_NAMES,
+  ROLE_OFF,
   TARGET_BY_ID,
   TARGET_MENUS,
   XUSB,
@@ -1073,7 +1074,8 @@ function renderNameForm(kind) {
   });
 }
 
-function openDeviceMenu() {
+// `pickedId`: a device with no role, clicked in the list to give it one.
+function openDeviceMenu(pickedId = null) {
   closePicker({ restoreFocus: false });
   closeMenus();
   deviceMenu.replaceChildren();
@@ -1081,6 +1083,8 @@ function openDeviceMenu() {
   const list = htmlEl('div', 'profile-list', deviceMenu);
   const plugged = devices();
   const several = plugged.length > 1;
+  // The device the role buttons are about: the picked one, or the one on screen.
+  const subject = plugged.find((d) => d.id === (pickedId ?? model?.id)) ?? null;
   // Roles matter with several devices, or for one that was a throttle in a HOTAS and is
   // now plugged in alone (it stays the throttle until it's made the stick here).
   const roles = several || plugged.some((d) => d.role !== 'stick');
@@ -1090,7 +1094,7 @@ function openDeviceMenu() {
     const current = d.id === model?.id;
     const item = htmlEl('button', 'profile-item', list);
     item.type = 'button';
-    item.classList.toggle('is-active', current);
+    item.classList.toggle('is-active', d.id === subject?.id);
     item.setAttribute('aria-pressed', String(current));
     htmlEl('span', 'profile-check', item).textContent = current ? '●' : '';
     const text = htmlEl('span', 'profile-text', item);
@@ -1099,27 +1103,35 @@ function openDeviceMenu() {
       d.problem || [d.support && SUPPORT_LABELS[d.support], d.key].filter(Boolean).join(' · ');
     if (roles) htmlEl('span', 'profile-role', item).textContent = d.role ? ROLE_NAMES[d.role] : 'Not in use';
     item.addEventListener('click', async () => {
+      // A device with no role isn't being read, so there is nothing to show: it needs a role first.
+      if (!d.role) return openDeviceMenu(d.id);
       closeMenus();
       if (!current) await api.selectDevice(d.id);
     });
   }
-  // What the device on screen is in the rig. Picking a role another device has swaps them.
-  if (model && roles) {
+  // What that device is in the rig. Picking a role another device has swaps them; a device
+  // with no role to give in exchange takes it over, and the other is set aside.
+  if (subject && roles) {
+    const held = subject.role ?? ROLE_OFF;
     const row = htmlEl('div', 'role-row', deviceMenu);
-    htmlEl('h3', 'pop-heading', row).textContent = `Use ${model.name} as`;
+    htmlEl('h3', 'pop-heading', row).textContent = `Use ${subject.name} as`;
     const options = htmlEl('div', 'role-options', row);
-    for (const role of ROLES) {
-      const holder = plugged.find((d) => d.role === role && d.id !== model.id);
-      const option = button('role-option', ROLE_NAMES[role], options, async () => {
+    for (const role of [...ROLES, ROLE_OFF]) {
+      if (role === ROLE_OFF && !several && subject.role) continue; // the only device stays in use
+      const holder = role !== ROLE_OFF && plugged.find((d) => d.role === role && d.id !== subject.id);
+      const option = button('role-option', ROLE_NAMES[role] ?? 'Not in use', options, async () => {
         closeMenus();
-        if (role !== model.role) await api.setDeviceRole(model.id, role);
+        if (role === held) return;
+        await api.setDeviceRole(subject.id, role);
+        if (role !== ROLE_OFF && subject.id !== model?.id) await api.selectDevice(subject.id);
       });
-      option.classList.toggle('is-selected', role === model.role);
-      option.setAttribute('aria-pressed', String(role === model.role));
-      if (holder) option.title = `Swaps with ${holder.name}`;
+      option.classList.toggle('is-selected', role === held);
+      option.setAttribute('aria-pressed', String(role === held));
+      if (holder) option.title = subject.role ? `Swaps with ${holder.name}` : `Takes over from ${holder.name}`;
     }
   }
-  if (model) {
+  // These are about the device on screen, so they step aside while another is picked.
+  if (model && subject?.id === model.id) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
     const alternate = ALTERNATES[model.skin];
     if (alternate && LAYOUTS[model.skin]) {
@@ -1148,6 +1160,7 @@ function openDeviceMenu() {
     });
   }
   openMenu(deviceMenu, $('#device-picker'));
+  if (pickedId) deviceMenu.querySelector('.role-option.is-selected')?.focus({ preventScroll: true });
 }
 
 async function copyDeviceInfo() {
@@ -1241,16 +1254,20 @@ function renderStatus(next) {
   // With more than one device the button names the one on screen by its role, and
   // gains an arrow: the menu is where the others are.
   const several = next.joystick.devices.length > 1;
+  // Plugged in, but every device is set aside: the menu is where one is put back to use.
+  const idle = !connected && next.joystick.state === 'searching' && next.joystick.devices.length > 0;
   stick.dataset.state = connected ? 'connected' : next.joystick.state;
   stick.dataset.several = String(several);
   $('#device-key').textContent = connected && (several || model.role !== 'stick') ? ROLE_NAMES[model.role] : 'Joystick';
-  $('#device-name').textContent = connected ? model.name : (DEVICE_PROBLEM[next.joystick.state] ?? 'Not detected');
+  $('#device-name').textContent = connected ? model.name : idle ? 'Not in use' : (DEVICE_PROBLEM[next.joystick.state] ?? 'Not detected');
   stick.title =
     next.joystick.message ||
-    (!connected
-      ? 'Plug in a joystick'
-      : `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` +
-        (several ? ` · ${next.joystick.devices.length} devices working together, click to see another` : ''));
+    (idle
+      ? 'Click to put a device to use'
+      : !connected
+        ? 'Plug in a joystick'
+        : `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` +
+          (several ? ` · ${next.joystick.devices.length} devices working together, click to see another` : ''));
   $('#device-tag').hidden = !(connected && model.support === 'beta');
   $('#recenter').disabled = !connected;
 

@@ -1,7 +1,7 @@
 // Turns a joystick's self-described layout (see src/main/hidp.js) into the controls the
 // app maps: axes, hat directions and numbered buttons, with sensible defaults per axis
 // type. Pure and shared, so it's unit-tested with layouts from sticks we don't own.
-import { ROLES } from './controls.js';
+import { ROLES, ROLE_OFF } from './controls.js';
 
 const PAGE_GENERIC = 0x01;
 const PAGE_SIMULATION = 0x02;
@@ -1119,7 +1119,8 @@ export const guessRole = (name) => ROLE_HINTS.find(([, hint]) => hint.test(name 
 // before. A device on its own is the stick unless it was given another role, so a
 // single stick maps exactly as it did before HOTAS support. With several, names decide
 // what they can and the rest fill the free roles in order.
-// Returns { [id]: role }; devices beyond the last role get none.
+// Returns { [id]: role }; devices beyond the last role get none, nor do the ones set
+// aside (saved as ROLE_OFF), which are passed over as if they weren't plugged in.
 export function assignRoles(devices, saved = {}) {
   const roles = {};
   const free = new Set(ROLES);
@@ -1127,14 +1128,32 @@ export function assignRoles(devices, saved = {}) {
     roles[device.id] = role;
     free.delete(role);
   };
-  for (const d of devices) if (free.has(saved[d.id])) give(d, saved[d.id]);
-  if (devices.length > 1) {
-    for (const d of devices) {
+  const used = devices.filter((d) => saved[d.id] !== ROLE_OFF);
+  for (const d of used) if (free.has(saved[d.id])) give(d, saved[d.id]);
+  if (used.length > 1) {
+    for (const d of used) {
       const guess = guessRole(d.name);
       if (!roles[d.id] && free.has(guess)) give(d, guess);
     }
   }
-  for (const d of devices) if (!roles[d.id] && free.size) give(d, ROLES.find((role) => free.has(role)));
+  for (const d of used) if (!roles[d.id] && free.size) give(d, ROLES.find((role) => free.has(role)));
+  return roles;
+}
+
+// The saved roles once the plugged-in device `id` is given `role`, or set aside with
+// ROLE_OFF. `current` is what assignRoles gave the plugged-in devices. Whichever of them
+// had the role takes this device's in exchange, or is set aside when this one had none to
+// give; an unplugged device saved with the role loses its claim to it.
+export function changeRole(saved, current, id, role) {
+  const roles = { ...saved, ...current };
+  if (role !== ROLE_OFF) {
+    for (const [other, held] of Object.entries(roles)) {
+      if (other === id || held !== role) continue;
+      if (current[other]) roles[other] = current[id] ?? ROLE_OFF;
+      else delete roles[other];
+    }
+  }
+  roles[id] = role;
   return roles;
 }
 

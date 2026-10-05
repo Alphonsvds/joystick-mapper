@@ -11,8 +11,8 @@ import { JoystickManager } from './joystick.js';
 import { grantAccess } from './linux-access.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
 import { readJson, writeJsonAtomic } from './store.js';
-import { ROLES, emptyBindings, sanitizeBinding } from '../shared/controls.js';
-import { isCentered } from '../shared/devices.js';
+import { ROLES, ROLE_OFF, emptyBindings, sanitizeBinding } from '../shared/controls.js';
+import { changeRole, isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import { pressHolder } from '../shared/pulses.js';
@@ -267,7 +267,7 @@ function loadDeviceSettings() {
   if (raw && typeof raw === 'object') {
     if (typeof raw.selected === 'string') settings.selected = raw.selected;
     for (const [id, role] of Object.entries(raw.roles ?? {})) {
-      if (isId(id) && ROLES.includes(role)) settings.roles[id] = role;
+      if (isId(id) && (ROLES.includes(role) || role === ROLE_OFF)) settings.roles[id] = role;
     }
     for (const [key, value] of Object.entries(raw.devices ?? {})) {
       if (!isId(key) || !value || typeof value !== 'object') continue;
@@ -316,17 +316,12 @@ function rememberRoles() {
   writeJsonAtomic(devicesFile(), deviceSettings);
 }
 
-// Gives a plugged-in device a role. Whichever device had it takes this one's in exchange.
+// Gives a plugged-in device a role, or sets it aside (ROLE_OFF). Whichever device had the
+// role takes this one's in exchange (see changeRole).
 async function setDeviceRole(id, role) {
-  const previous = joystick.roles[id];
-  if (!ROLES.includes(role) || !joystick.devices.some((d) => d.id === id) || previous === role) return false;
-  const roles = { ...deviceSettings.roles, ...joystick.roles };
-  for (const [other, held] of Object.entries(roles)) {
-    if (held !== role) continue;
-    if (previous && joystick.roles[other]) roles[other] = previous;
-    else delete roles[other];
-  }
-  roles[id] = role;
+  const known = ROLES.includes(role) || role === ROLE_OFF;
+  if (!known || !joystick.devices.some((d) => d.id === id) || joystick.roles[id] === role) return false;
+  const roles = changeRole(deviceSettings.roles, joystick.roles, id, role);
   deviceSettings = { ...deviceSettings, roles };
   writeJsonAtomic(devicesFile(), deviceSettings);
   await joystick.setRoles(roles);

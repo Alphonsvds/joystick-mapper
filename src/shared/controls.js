@@ -33,6 +33,9 @@ export const XUSB = Object.freeze({
 // other devices' controls carry their role: throttle.z, pedals.rz, extra.btn4.
 export const ROLES = Object.freeze(['stick', 'throttle', 'pedals', 'extra']);
 export const ROLE_NAMES = Object.freeze({ stick: 'Stick', throttle: 'Throttle', pedals: 'Pedals', extra: 'Extra' });
+// Saved in a role's place for a device that is set aside: plugged in, but not read (a
+// racing wheel beside the flight gear). It keeps out of the roles until it's given one.
+export const ROLE_OFF = 'off';
 
 const BUTTON_ID = /^btn\d{1,3}$/;
 const HAT_ID = /^hat\d_(up|right|down|left)$/;
