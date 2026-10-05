@@ -20,7 +20,7 @@ Map the stick once and fly with it in any game that only understands gamepads.
 
 ## How to install
 
-Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** on the right side, then download the file for your computer from the
+Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** (by the green tag) on the right side, then download the file for your computer from the
 latest release:
 
 - **Windows:** `Joystick-Mapper-Setup-x.y.z.exe`
