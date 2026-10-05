@@ -21,6 +21,33 @@ export const STAGE = { width: 1600, height: 1000 };
 
 const HAT_DIRECTIONS = ['up', 'right', 'down', 'left'];
 
+// Moves a whole layout `dy` px down the stage: the photo, its labels, their lines and the
+// motion guides together. For a layout drawn high, to centre it between the top bar and
+// the readout under it.
+function lower(dy, layout) {
+  const down = ([x, y, ...rest]) => [x, y + dy, ...rest];
+  // Guide paths are absolute M, L and A commands, each ending on a point's y.
+  const downPath = (path) =>
+    path
+      .replace(/([MLA])([^MLA]+)/g, (_, command, args) => {
+        const numbers = args.trim().split(/\s+/).map(Number);
+        numbers[numbers.length - 1] += dy;
+        return `${command} ${numbers.join(' ')} `;
+      })
+      .trim();
+  return {
+    ...layout,
+    image: { ...layout.image, y: layout.image.y + dy },
+    callouts: layout.callouts.map((c) => ({ ...c, y: c.y + dy, ...(c.via && { via: c.via.map(down) }) })),
+    guides: Object.fromEntries(
+      Object.entries(layout.guides).map(([axis, guide]) => [
+        axis,
+        { ...guide, path: downPath(guide.path), arrows: guide.arrows.map(down), point: (v) => down(guide.point(v)) },
+      ]),
+    ),
+  };
+}
+
 // ─── Logitech Extreme 3D Pro ─────────────────────────────────────────────────
 
 const EXTREME_3D_PRO = {
@@ -123,7 +150,7 @@ function stack(side, top, callouts) {
   });
 }
 
-const GLADIATOR_EVO = {
+const GLADIATOR_EVO = lower(14, {
   alt: 'VKB Gladiator NXT EVO, seen from behind',
   dense: true,
   image: { src: 'assets/gladiator-evo.png', width: 804, height: 1036, x: 506, y: 104, scale: 0.68 },
@@ -255,7 +282,7 @@ const GLADIATOR_EVO = {
       point: (v) => [920, 659 - v * 31],
     },
   },
-};
+});
 
 // ─── VKB Gladiator NXT EVO: the left-hand stick and the Omni Throttles ───────
 
@@ -348,8 +375,8 @@ const OMNI_AXES = { y: { name: 'Throttle' }, x: { name: 'Sideways' }, rz: { name
 
 const GLADIATOR_OT_LEFT = gladiatorPhoto({
   alt: 'VKB Gladiator NXT EVO Omni Throttle, left hand',
-  image: { src: 'assets/gladiator-ot-left.png', width: 818, height: 967, x: 514, y: 120, scale: 0.7 },
-  top: 100,
+  image: { src: 'assets/gladiator-ot-left.png', width: 818, height: 967, x: 514, y: 144, scale: 0.7 },
+  top: 124,
   relabel: OMNI_AXES,
   sides: {
     left: ['btn4', 'rapid', 'trigger', 'y', 'x', 'rz', 'fx', 'sw1', 'z', 'en1'],
@@ -379,8 +406,8 @@ const GLADIATOR_OT_LEFT = gladiatorPhoto({
 // The right-hand one, seen from its left: the same photo the other way round.
 const GLADIATOR_OT_RIGHT = gladiatorPhoto({
   alt: 'VKB Gladiator NXT EVO Omni Throttle, right hand',
-  image: { src: 'assets/gladiator-ot-right.png', width: 831, height: 967, x: 509, y: 120, scale: 0.7 },
-  top: 100,
+  image: { src: 'assets/gladiator-ot-right.png', width: 831, height: 967, x: 509, y: 144, scale: 0.7 },
+  top: 124,
   relabel: OMNI_AXES,
   sides: {
     left: ['a4', 'a3', 'a1', 'btn3', 'c1', 'btn5'],
@@ -720,7 +747,7 @@ const STECS_SPACE = {
 // Seen from straight above, so everything on the base is in view. The trigger is on the
 // far side of the grip's head: its line stops at the head's top edge. The touchpad click
 // and the Xbox and Share buttons aren't labelled, their button numbers aren't known yet.
-const VELOCITYONE_FLIGHTSTICK = {
+const VELOCITYONE_FLIGHTSTICK = lower(30, {
   alt: 'Turtle Beach VelocityOne Flightstick, seen from above',
   dense: true,
   image: { src: 'assets/velocityone-flightstick.png', width: 972, height: 744, x: 489, y: 237, scale: 0.64 },
@@ -855,7 +882,7 @@ const VELOCITYONE_FLIGHTSTICK = {
       point: (v) => [988, 373 - v * 39],
     },
   },
-};
+});
 
 // ─── WINWING Orion 2 with the F-16EX grip ────────────────────────────────────
 
@@ -996,7 +1023,7 @@ const knob = (first) => [
 // second hat and a button on that side, the launch bar switch (behind the handle), the A/G
 // button (behind the Dial lever) and everything on the front of both handles are out of
 // sight: their dots sit on the nearest edge, the front ones along the handles' tops.
-const ORION2_THROTTLE = {
+const ORION2_THROTTLE = lower(24, {
   alt: 'WINWING Orion 2 throttle, seen from the left',
   dense: true,
   folded: true,
@@ -1165,7 +1192,7 @@ const ORION2_THROTTLE = {
       point: (v) => [886.8 + v * 35, 580.5 - v * 23.75],
     },
   },
-};
+});
 
 // ─── Thrustmaster Sol-R (right and left sticks) ──────────────────────────────
 
@@ -1362,7 +1389,7 @@ const X56_COLUMNS = {
 // Seen from the pilot's seat, a little to the left. The trigger, the D button and the
 // pinkie lever are on the front of the grip, out of sight: the trigger's edge shows beside
 // the grip, and the other two point at the grip's edge where they sit behind it.
-const X56_STICK = {
+const X56_STICK = lower(25, {
   alt: 'Logitech X56 stick, seen from behind',
   dense: true,
   image: { src: 'assets/x56-stick.png', width: 846, height: 1115, x: 530, y: 104, scale: 0.64 },
@@ -1426,14 +1453,14 @@ const X56_STICK = {
       },
     },
   },
-};
+});
 
 // Seen from behind and to the right, so forward is up and to the right, and the left lever
 // is the far half of the handle. The H and I buttons, the K1 rocker and the scroll wheel
 // are on the far side of the handle, out of sight: they point at its edge. Each toggle on
 // the left of the base is two SW numbers, up then down. On the two thumb hats, right is
 // forward.
-const X56_THROTTLE = {
+const X56_THROTTLE = lower(14, {
   alt: 'Logitech X56 throttle, seen from behind',
   dense: true,
   image: { src: 'assets/x56-throttle.png', width: 970, height: 816, x: 480, y: 215, scale: 0.66 },
@@ -1517,7 +1544,7 @@ const X56_THROTTLE = {
       point: (v) => [789 + v * 37.8, 494.5 - v * 24.3],
     },
   },
-};
+});
 
 // ─── Turtle Beach VelocityOne Flightdeck (stick and throttle) ────────────────
 
@@ -1535,7 +1562,7 @@ const pushKnob = (push) => [
 // lever are on the front of the grip, out of sight: each points at the grip's left edge
 // where it sits behind it. The Fire button's touchpad is a mouse, and the small switch
 // beside it and the HUD NAV button aren't reported, so none of them has a label.
-const FLIGHTDECK_STICK = {
+const FLIGHTDECK_STICK = lower(10, {
   alt: 'Turtle Beach VelocityOne Flightdeck stick, seen from behind',
   dense: true,
   image: { src: 'assets/flightdeck-stick.png', width: 1018, height: 1258, x: 490, y: 108, scale: 0.61 },
@@ -1627,7 +1654,7 @@ const FLIGHTDECK_STICK = {
       },
     },
   },
-};
+});
 
 // The buttons a throttle lever presses along its travel, from the front of it to the
 // back: `max` and the next are its two ends, `forward` and the next two the detents between.
@@ -1762,7 +1789,7 @@ const FLIGHTDECK_THROTTLE = {
 // the right. The bumper and the trigger are on the front of the head, out of sight: they
 // point at its far edge. The dial sends a different set of three buttons in each of its
 // three modes: turned up, turned down and pressed. Pressing the H1 hat isn't reported.
-const VELOCITYONE_FLIGHTSTICK_2 = {
+const VELOCITYONE_FLIGHTSTICK_2 = lower(20, {
   alt: 'Turtle Beach VelocityOne Flightstick II, seen from behind',
   dense: true,
   image: { src: 'assets/velocityone-flightstick-2.png', width: 915, height: 1170, x: 510, y: 100, scale: 0.633 },
@@ -1896,7 +1923,7 @@ const VELOCITYONE_FLIGHTSTICK_2 = {
       point: (v) => [967 + v * 20.9, 572.15 - v * 19.95],
     },
   },
-};
+});
 
 // ─── Turtle Beach VelocityOne Dual Throttle ──────────────────────────────────
 
@@ -2160,7 +2187,7 @@ const DUALSENSE = playstationPad(
 // button numbers, so its thirteen are listed by number under one label: press one and its
 // row lights. The ministick, the analog wheel, 19, 55 and 56 aren't labelled, as on the
 // Standard.
-const STECS_MAX = {
+const STECS_MAX = lower(54, {
   alt: 'VKB STECS Modern Throttle Max with its ATEM and STEM modules, seen from the front',
   dense: true,
   folded: true,
@@ -2291,7 +2318,7 @@ const STECS_MAX = {
     ]),
   ],
   guides: {},
-};
+});
 
 // Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
 export const LAYOUTS = {
