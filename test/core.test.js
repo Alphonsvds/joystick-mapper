@@ -28,9 +28,10 @@ import { HidDescriptorParser, parseDescriptor } from '../src/main/hiddescriptor.
 import { logicalMax } from '../src/main/hidp.js';
 import { XboxPadParser, isEliteProduct } from '../src/main/xinput.js';
 import { GAMES } from '../src/shared/games.js';
-import { LAYOUTS } from '../src/renderer/layout.js';
+import { ALTERNATES, LAYOUTS } from '../src/renderer/layout.js';
 import { NEUTRAL_INPUT, mapInput } from '../src/shared/mapper.js';
 import { PRESETS } from '../src/shared/presets.js';
+import { MIN_PRESS_MS, pressHolder } from '../src/shared/pulses.js';
 import { isNewer, parseVersion, updateFromRelease } from '../src/shared/updates.js';
 import {
   DEFAULT_PROFILE_ID,
@@ -94,6 +95,28 @@ const GLADIATOR_LAYOUT = {
 };
 const GLADIATOR = { vendorId: 0x231d, productId: 0x0200, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO R' };
 const GLADIATOR_REST = [2048, 2048, 1024, 1010, 512, 512, 1024, 1024, null];
+// The left-hand stick, from an owner's "Copy device info" on 2026-10-04 (GitHub issue #17):
+// the same layout. Theirs is fitted with VKB's Omni Throttle adapter.
+const GLADIATOR_LEFT = { vendorId: 0x231d, productId: 0x0201, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO L' };
+// A right-hand Omni Throttle as VKB sells it, from an owner's on 2026-10-02 (GitHub issue
+// #5): no Slider or Dial, and a 12-bit ministick. The left-hand one is taken to match.
+const OMNI_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 4095 },
+    { page: 1, usage: 0x31, min: 0, max: 4095 },
+    { page: 1, usage: 0x35, min: 0, max: 2047 },
+    { page: 1, usage: 0x32, min: 0, max: 2047 },
+    { page: 1, usage: 0x33, min: 0, max: 4095 },
+    { page: 1, usage: 0x34, min: 0, max: 4095 },
+    { page: 0, usage: 0, min: 0, max: 2047 },
+    { page: 0, usage: 0, min: 0, max: 2047 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+  ],
+  buttonCount: 128,
+};
+const OMNI_RIGHT = { vendorId: 0x231d, productId: 0x3200, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO OT R' };
+const OMNI_LEFT = { vendorId: 0x231d, productId: 0x3201, name: 'VKB-Sim (C) Alex Oz 2023 VKBsim Gladiator EVO OT L' };
+const OMNI_REST = [2048, 2048, 1024, 1111, 2048, 2048, 0, 0, null];
 
 // VKB STECS Modern Throttle Standard (STEM), from an owner's "Copy device info" on
 // 2026-10-02 (GitHub issue #2). The two throttle levers are the 12-bit X and Y axes.
@@ -114,6 +137,37 @@ const STECS_LAYOUT = {
 };
 const STECS = { vendorId: 0x231d, productId: 0x012d, name: 'VKB-Sim (C) Alex Oz 2023 S-TECS MODERN THROTTLE STANDARD STEM' };
 const STECS_REST = [0, 0, 0, 512, 512, 512, 512, 511, null];
+// The Max, from an owner's on 2026-10-03 (GitHub issue #9): the same throttle with an ATEM
+// module added, reporting a Dial where the Standard has a second Slider.
+const STECS_MAX_LAYOUT = { ...STECS_LAYOUT, values: STECS_LAYOUT.values.map((field, i) => (i === 7 ? { ...field, usage: 0x37 } : field)) };
+const STECS_MAX = { vendorId: 0x231d, productId: 0x012e, name: 'VKB-Sim (C) Alex Oz 2023 S-TECS MODERN THROTTLE MAX STEM' };
+const STECS_MAX_REST = [1898, 1898, 0, 512, 512, 512, 512, 510, null];
+
+// VKB STECS Space Throttle Standard, left hand (STEM), from an owner's "Copy device info" on
+// 2026-10-03 (GitHub issue #11): the same base and STEM under a single Space grip.
+// STECS_SPACE_REST is the axis part of its last report. Another owner's (issue #4) reports
+// no Rz or Slider, and rested as STECS_SPACE_REST_2.
+const STECS_SPACE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x32, min: 0, max: 4095 },
+    { page: 1, usage: 0x30, min: 0, max: 4095 },
+    { page: 1, usage: 0x31, min: 0, max: 4095 },
+    { page: 1, usage: 0x33, min: 0, max: 1023 },
+    { page: 1, usage: 0x34, min: 0, max: 1023 },
+    { page: 1, usage: 0x35, min: 0, max: 1023 },
+    { page: 1, usage: 0x36, min: 0, max: 1023 },
+    { page: 0, usage: 0, min: 0, max: 1023 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+  ],
+  buttonCount: 128,
+};
+const STECS_SPACE = { vendorId: 0x231d, productId: 0x0138, name: 'VKB-Sim (C) Alex Oz 2023 S-TECS SPACE-L THROTTLE STANDARD  STEM' };
+const STECS_SPACE_REST = [2042, 2048, 2036, 0, 839, 497, 512, 0, null];
+const STECS_SPACE_LAYOUT_2 = {
+  ...STECS_SPACE_LAYOUT,
+  values: STECS_SPACE_LAYOUT.values.map((field, i) => (i === 5 || i === 6 ? { ...field, page: 0, usage: 0 } : field)),
+};
+const STECS_SPACE_REST_2 = [2771, 2048, 2048, 0, 1023, 0, 0, 0, null];
 
 // Turtle Beach VelocityOne Flightstick, from an owner's "Copy device info" on 2026-10-02
 // (GitHub issue #3). The twist is on Z; the levers are on Rz (left) and Dial (right).
@@ -470,6 +524,40 @@ test('a Gladiator at rest reads centred, including its two spare axes', () => {
   assert.equal(Object.values(buttons).some(Boolean), false);
 });
 
+test('the left-hand Gladiator and the Omni Throttles are the right-hand stick under other names', () => {
+  const right = describeDevice(GLADIATOR_LAYOUT, GLADIATOR);
+  assert.deepEqual([right.skin, right.support, right.name], ['gladiatorevo', 'full', 'VKB Gladiator NXT EVO']);
+  const behaviour = (m) => m.axes.map((a) => [a.id, a.centered, a.invert, a.deadzone]);
+
+  const left = describeDevice(GLADIATOR_LAYOUT, GLADIATOR_LEFT);
+  assert.deepEqual([left.key, left.skin, left.support, left.name], ['231d:0201', 'gladiatorevoleft', 'beta', 'VKB Gladiator EVO Left']);
+  assert.deepEqual(left.buttonNames, right.buttonNames);
+  assert.deepEqual(left.axes, right.axes);
+  assert.deepEqual(left.hats, right.hats);
+
+  for (const [device, key, skin, name] of [
+    [OMNI_RIGHT, '231d:3200', 'gladiatorotright', 'VKB Omni Throttle Right'],
+    [OMNI_LEFT, '231d:3201', 'gladiatorotleft', 'VKB Omni Throttle Left'],
+  ]) {
+    const omni = describeDevice(OMNI_LAYOUT, device);
+    assert.deepEqual([omni.key, omni.skin, omni.support, omni.name], [key, skin, 'beta', name]);
+    assert.deepEqual(omni.buttonNames, right.buttonNames);
+    // The grip is the throttle, so the wheel on the base is no longer called that.
+    assert.deepEqual(omni.axes.map((a) => [a.id, a.name]), [
+      ['x', 'Sideways'],
+      ['y', 'Throttle'],
+      ['rz', 'Twist'],
+      ['z', 'Base Wheel'],
+      ['rx', 'A1 Stick X'],
+      ['ry', 'A1 Stick Y'],
+    ]);
+    // Whether it springs back is its owner's setup: every axis behaves as on a stick.
+    assert.deepEqual(behaviour(omni), behaviour(describeDevice(OMNI_LAYOUT, { ...device, ignoreSkin: true })));
+    const rest = normalizeInput(decoded(OMNI_REST), omni, {});
+    for (const id of ['x', 'y', 'rz', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.01, `${id} = ${rest.axes[id]}`);
+  }
+});
+
 test('the STECS Standard reads its throttle levers on X and Y as levers, not as a stick', () => {
   const model = describeDevice(STECS_LAYOUT, STECS);
   assert.equal(model.key, '231d:012d');
@@ -489,6 +577,26 @@ test('the STECS Standard reads its throttle levers on X and Y as levers, not as 
   assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['rx', 'ry', 'rz']);
 });
 
+test('the STECS Max is the Standard with an ATEM whose buttons are not named yet', () => {
+  const standard = describeDevice(STECS_LAYOUT, STECS);
+  const max = describeDevice(STECS_MAX_LAYOUT, STECS_MAX);
+  assert.deepEqual([max.key, max.skin, max.support, max.name], ['231d:012e', 'stecsmax', 'beta', 'VKB STECS Max']);
+  assert.equal(guessRole(STECS_MAX.name), 'throttle');
+  assert.deepEqual(max.buttonNames, standard.buttonNames);
+  for (let b = 59; b <= 71; b++) assert.equal(max.buttonNames[`btn${b}`], `Button ${b}`);
+  // Its levers are levers too, where the generic defaults would make a stick of them.
+  assert.deepEqual(max.axes.map((a) => a.id), ['x', 'y', 'z', 'rx', 'ry', 'rz', 'slider', 'dial']);
+  assert.deepEqual(max.axes.slice(0, 2).map((a) => [a.name, a.centered, a.invert]), [['Throttle 1', false, false], ['Throttle 2', false, false]]);
+  const generic = describeDevice(STECS_MAX_LAYOUT, { ...STECS_MAX, ignoreSkin: true });
+  assert.deepEqual(generic.axes.slice(0, 2).map((a) => [a.centered, a.invert]), [[true, false], [true, true]]);
+  // The owner's levers sat together a little short of halfway, and read together.
+  const rest = normalizeInput(decoded(STECS_MAX_REST, [5]), max, {});
+  assert.equal(rest.axes.x, rest.axes.y);
+  assert.ok(rest.axes.x > -0.1 && rest.axes.x < 0);
+  const apart = normalizeInput(decoded(STECS_MAX_REST, [5]), generic, {});
+  assert.ok(apart.axes.x < 0 && apart.axes.y > 0);
+});
+
 test('STECS levers read end to end, both the same way, even after a Recenter at idle', () => {
   const model = describeDevice(STECS_LAYOUT, STECS);
   const read = (x, y, settings = {}) => normalizeInput(decoded([x, y, 0, 512, 512, 512, 512, 511, null]), model, settings).axes;
@@ -501,6 +609,52 @@ test('STECS levers read end to end, both the same way, even after a Recenter at 
   assert.equal(read(0, 0, { calibration: { x: 0, y: 0 }, centered: { x: true } }).x, 0);
   const { axes } = normalizeInput({ values: STECS_REST, buttons: new Set() }, model);
   for (const id of ['rx', 'ry', 'rz']) assert.ok(Math.abs(axes[id]) < 0.01, `${id} = ${axes[id]}`);
+});
+
+test('the STECS Space names its base, its STEM and its axes, and leaves its grip buttons numbered', () => {
+  const model = describeDevice(STECS_SPACE_LAYOUT, STECS_SPACE);
+  assert.equal(model.key, '231d:0138');
+  assert.equal(model.skin, 'stecsspace');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.name, 'VKB STECS Space');
+  assert.equal(guessRole(STECS_SPACE.name), 'throttle');
+  // The base and the STEM are the Modern Throttle's, name for name.
+  const modern = describeDevice(STECS_LAYOUT, STECS);
+  // Nobody has said which number each control on the grip sends, so 8 to 34 aren't named.
+  for (let b = 1; b <= 58; b++) {
+    const name = b >= 8 && b <= 34 ? `Button ${b}` : modern.buttonNames[`btn${b}`];
+    assert.equal(model.buttonNames[`btn${b}`], name, `btn${b}`);
+  }
+  assert.equal(model.buttonNames.btn2, 'Red Start');
+  assert.equal(model.buttonNames.btn58, 'Flip Switch Down');
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name]), [
+    ['z', 'Throttle'],
+    ['x', 'Grip X'],
+    ['y', 'Grip Y'],
+    ['rx', 'Brake'],
+    ['ry', 'Laser'],
+    ['rz', 'Twist (Rz)'],
+    ['slider', 'Slider'],
+  ]);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Hat Switch']);
+  // Only the brake and the laser behave differently from the generic defaults: both rest
+  // at an end on two owners' throttles, so neither springs back to a middle.
+  const generic = describeDevice(STECS_SPACE_LAYOUT, { ...STECS_SPACE, ignoreSkin: true });
+  const behaviour = (m) => m.axes.map((a) => [a.id, a.centered, a.invert, a.deadzone]);
+  assert.deepEqual(behaviour(model), behaviour(generic).map(([id, centered, ...rest]) => [id, id === 'rx' || id === 'ry' ? false : centered, ...rest]));
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['x', 'y', 'rz']);
+  // Both owners' throttles at rest: the grip upright, the brake released. Their throttle
+  // levers sat in different places.
+  const first = normalizeInput(decoded(STECS_SPACE_REST, [3]), model, {});
+  const other = describeDevice(STECS_SPACE_LAYOUT_2, STECS_SPACE);
+  const second = normalizeInput(decoded(STECS_SPACE_REST_2, [3]), other, {});
+  assert.deepEqual(other.axes.map((a) => a.id), ['z', 'x', 'y', 'rx', 'ry']);
+  for (const { axes } of [first, second]) {
+    for (const id of ['x', 'y']) assert.ok(Math.abs(axes[id]) < 0.01, `${id} = ${axes[id]}`);
+    assert.equal(axes.rx, -1);
+  }
+  assert.ok(Math.abs(first.axes.z) < 0.01 && Math.abs(second.axes.z) > 0.3);
+  assert.equal(first.buttons.btn3, true);
 });
 
 test('the VelocityOne Flightstick twists on Z and reads its levers on Rz and Dial', () => {
@@ -1166,6 +1320,47 @@ test('an Xbox controller beside a flight stick is an extra device, and on its ow
   assert.deepEqual(assignRoles([pad], { [stick.id]: 'stick', [pad.id]: 'extra' }), { [pad.id]: 'extra' });
 });
 
+test('a press too short to see is held, and an ordinary one is left alone', () => {
+  const hold = pressHolder();
+  const state = (...down) => ({ buttons: { btn19: down.includes(19), btn20: down.includes(20), btn1: down.includes(1) }, axes: { x: 0.5 } });
+  assert.equal(MIN_PRESS_MS, 80);
+
+  // A scroll wheel's click: down for 4 ms. It stays down until 80 ms after it began.
+  let now = 1000;
+  assert.deepEqual(hold(state(19), now), { input: state(19), wait: null });
+  let held = hold(state(), (now += 4));
+  assert.equal(held.input.buttons.btn19, true);
+  assert.equal(held.wait, 76);
+  assert.deepEqual(held.input.axes, { x: 0.5 });
+  assert.equal(hold(state(), now + 40).input.buttons.btn19, true);
+  held = hold(state(), now + 76);
+  assert.deepEqual(held, { input: state(), wait: null });
+
+  // The trigger, held for a quarter of a second, lets go the moment it is released.
+  now = 5000;
+  hold(state(1), now);
+  const released = state();
+  assert.equal(hold(released, now + 250).input, released);
+
+  // Clicks in a row each get their time, and the other direction is its own button.
+  now = 9000;
+  hold(state(19), now);
+  hold(state(), now + 3);
+  hold(state(19), now + 30);
+  held = hold(state(20), now + 33);
+  assert.deepEqual([held.input.buttons.btn19, held.input.buttons.btn20, held.wait], [true, true, 77]);
+  held = hold(state(), now + 36);
+  assert.deepEqual([held.input.buttons.btn19, held.input.buttons.btn20, held.wait], [true, true, 74]);
+  held = hold(state(), now + 111);
+  assert.deepEqual([held.input.buttons.btn19, held.input.buttons.btn20, held.wait], [false, true, 2]);
+  assert.deepEqual(hold(state(), now + 113), { input: state(), wait: null });
+
+  // A device unplugged mid-press takes its buttons with it once the hold is over.
+  hold({ buttons: { 'throttle.btn3': true }, axes: {} }, 20000);
+  assert.equal(hold({ buttons: {}, axes: {} }, 20002).input.buttons['throttle.btn3'], true);
+  assert.deepEqual(hold({ buttons: {}, axes: {} }, 20100), { input: { buttons: {}, axes: {} }, wait: null });
+});
+
 // first..last, inclusive.
 const range =(first, last) => Array.from({ length: last - first + 1 }, (_, i) => first + i);
 
@@ -1176,7 +1371,12 @@ test('every photo layout points only at controls its stick has, each one once', 
   const sticks = {
     extreme3dpro: [EXTREME_LAYOUT, EXTREME],
     gladiatorevo: [GLADIATOR_LAYOUT, GLADIATOR],
+    gladiatorevoleft: [GLADIATOR_LAYOUT, GLADIATOR_LEFT],
+    gladiatorotright: [OMNI_LAYOUT, OMNI_RIGHT],
+    gladiatorotleft: [OMNI_LAYOUT, OMNI_LEFT],
     stecsstandard: [STECS_LAYOUT, STECS],
+    stecsmax: [STECS_MAX_LAYOUT, STECS_MAX],
+    stecsspace: [STECS_SPACE_LAYOUT, STECS_SPACE],
     velocityoneflightstick: [FLIGHTSTICK_LAYOUT, FLIGHTSTICK],
     velocityoneflightstick2: [FLIGHTSTICK_2_LAYOUT, FLIGHTSTICK_2],
     flightdeckstick: [FLIGHTDECK_STICK_LAYOUT, FLIGHTDECK_STICK],
@@ -1213,6 +1413,31 @@ test('every photo layout points only at controls its stick has, each one once', 
   // The Gladiator's photo covers everything the factory profile sends.
   const gladiator = shownBy(LAYOUTS.gladiatorevo.callouts);
   for (let b = 1; b <= 29; b++) assert.ok(gladiator.includes(`btn${b}`), `btn${b}`);
+  // The left-hand stick and both Omni Throttles show exactly what the right-hand stick's
+  // photo shows, under the same labels, each with a dot of its own.
+  for (const skin of ['gladiatorevoleft', 'gladiatorotright', 'gladiatorotleft']) {
+    assert.deepEqual([...shownBy(LAYOUTS[skin].callouts)].sort(), [...gladiator].sort(), skin);
+    assert.deepEqual(LAYOUTS[skin].callouts.map((c) => c.id).sort(), LAYOUTS.gladiatorevo.callouts.map((c) => c.id).sort(), skin);
+    const dots = LAYOUTS[skin].callouts.map((c) => c.at);
+    for (const [i, a] of dots.entries()) {
+      for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS[skin].image.scale >= 20, `${skin}: ${a} and ${b}`);
+    }
+    for (const c of LAYOUTS[skin].callouts) {
+      assert.ok(c.at[0] >= 0 && c.at[0] <= LAYOUTS[skin].image.width && c.at[1] >= 0 && c.at[1] <= LAYOUTS[skin].image.height, `${skin}: ${c.id}`);
+    }
+  }
+  // A stick fitted with the Omni Throttle adapter can show that throttle's photo instead:
+  // the right-hand stick the right-hand throttle, the left the left, and every label on it
+  // is a control the stick has.
+  assert.deepEqual(ALTERNATES, {
+    gladiatorevo: { skin: 'gladiatorotright', label: 'Omni Throttle' },
+    gladiatorevoleft: { skin: 'gladiatorotleft', label: 'Omni Throttle' },
+  });
+  for (const [skin, alternate] of Object.entries(ALTERNATES)) {
+    const model = describeDevice(...sticks[skin]);
+    const known = new Set([...model.axes.map((a) => a.id), 'hat1_up', 'hat1_right', 'hat1_down', 'hat1_left', ...Object.keys(model.buttonNames)]);
+    assert.deepEqual(shownBy(LAYOUTS[alternate.skin].callouts).filter((id) => !known.has(id)), [], skin);
+  }
   // The STECS photo covers every button on its owner’s map, and names each one.
   const stecs = shownBy(LAYOUTS.stecsstandard.callouts);
   const mapped = Array.from({ length: 58 }, (_, i) => i + 1).filter((b) => ![19, 55, 56].includes(b));
@@ -1220,6 +1445,28 @@ test('every photo layout points only at controls its stick has, each one once', 
     assert.ok(stecs.includes(`btn${b}`), `btn${b}`);
     assert.ok(SKINS['231d:012d'].names[`btn${b}`], `btn${b} has a name`);
   }
+  // The Max's photo covers the same buttons, each control under a folded label with a dot
+  // of its own, plus the ATEM's thirteen by number.
+  const max = shownBy(LAYOUTS.stecsmax.callouts);
+  assert.equal(LAYOUTS.stecsmax.folded, true);
+  for (const b of mapped) assert.ok(max.includes(`btn${b}`), `btn${b}`);
+  for (const b of range(59, 71)) assert.ok(max.includes(`btn${b}`), `btn${b}`);
+  assert.deepEqual(max.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((a, b) => a - b), [...mapped, ...range(59, 71)]);
+  assert.ok(max.includes('x') && max.includes('y'));
+  const maxDots = LAYOUTS.stecsmax.callouts.map((c) => c.at);
+  for (const [i, a] of maxDots.entries()) {
+    for (const b of maxDots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS.stecsmax.image.scale >= 24, `${a} and ${b}`);
+  }
+  // The STECS Space photo has a row for every button up to the end of its STEM, bar the
+  // same 55 and 56: the grip's 8 to 34 by number. It shows the hat and the five axes every
+  // one of these throttles reports, so it also fits the owner's whose has no Rz or Slider.
+  const space = shownBy(LAYOUTS.stecsspace.callouts);
+  for (const b of range(1, 58).filter((n) => n !== 55 && n !== 56)) assert.ok(space.includes(`btn${b}`), `btn${b}`);
+  assert.deepEqual(space.filter((id) => !/^btn|^hat/.test(id)).sort(), ['rx', 'ry', 'x', 'y', 'z']);
+  assert.ok(space.includes('hat1_up'));
+  const fewer = describeDevice(STECS_SPACE_LAYOUT_2, STECS_SPACE).axes.map((a) => a.id);
+  for (const id of ['x', 'y', 'z', 'rx', 'ry']) assert.ok(fewer.includes(id), id);
+  assert.deepEqual(LAYOUTS.stecsspace.guides, {}); // which way each axis runs isn't known
   // The Flightstick photo shows every control its skin names.
   const flightstick = shownBy(LAYOUTS.velocityoneflightstick.callouts);
   for (const id of Object.keys(SKINS['10f5:7055'].names)) {

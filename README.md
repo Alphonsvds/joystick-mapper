@@ -64,8 +64,23 @@ latest release:
 ![Photo layout: the VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator.png)
 <sub>**VKB Gladiator NXT EVO**</sub>
 
+![Photo layout: the left-hand VKB Gladiator NXT EVO with an Ace Combat 8 profile loaded](docs/screenshot-gladiator-left.png)
+<sub>**VKB Gladiator NXT EVO, left hand** (beta)</sub>
+
+![Photo layout: the left-hand VKB Gladiator NXT EVO Omni Throttle with an Ace Combat 8 profile loaded](docs/screenshot-omni-left.png)
+<sub>**VKB Gladiator NXT EVO Omni Throttle, left hand** (beta)</sub>
+
+![Photo layout: the right-hand VKB Gladiator NXT EVO Omni Throttle with an Ace Combat 8 profile loaded](docs/screenshot-omni-right.png)
+<sub>**VKB Gladiator NXT EVO Omni Throttle, right hand** (beta)</sub>
+
 ![Photo layout: the VKB STECS Modern Throttle Standard with an Ace Combat 8 profile loaded](docs/screenshot-stecs.png)
 <sub>**VKB STECS Modern Throttle Standard** (beta)</sub>
+
+![Photo layout: the VKB STECS Modern Throttle Max with an Ace Combat 8 profile loaded](docs/screenshot-stecs-max.png)
+<sub>**VKB STECS Modern Throttle Max** (beta)</sub>
+
+![Photo layout: the VKB STECS Space Throttle Standard with an Ace Combat 8 profile loaded](docs/screenshot-stecs-space.png)
+<sub>**VKB STECS Space Throttle Standard** (beta)</sub>
 
 ![Photo layout: the Turtle Beach VelocityOne Flightstick with an Ace Combat 8 profile loaded](docs/screenshot-flightstick.png)
 <sub>**Turtle Beach VelocityOne Flightstick** (beta)</sub>
@@ -118,7 +133,7 @@ latest release:
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB STECS Modern Throttle Standard</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 On Linux every stick is read the same way as on Windows, with the same layouts, but Linux
@@ -126,6 +141,9 @@ itself is still experimental: nothing has been confirmed on a real Linux machine
 
 Beta sticks have a photo layout whose labels haven't all been checked on the real stick
 yet. If a line points at the wrong control, please say so in an issue.
+
+A Gladiator fitted with VKB's Omni Throttle adapter still reports as the stick: pick
+**Omni Throttle photo** in the Joystick menu.
 
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and
 paste it into a
@@ -337,7 +355,9 @@ git push origin main --tags
 **Preview the UI without hardware.** Serve `src/` with any static server and open
 `/renderer/index.html`; the keyboard simulates the stick (WASD pitch/roll, Q/E twist,
 R/F throttle, arrows = hat, Space = trigger, 3–0 = buttons). It simulates an Extreme 3D Pro,
-a VKB Gladiator NXT EVO (add `?device=gladiator`), a VKB STECS throttle (`?device=stecs`),
+a VKB Gladiator NXT EVO (add `?device=gladiator`), its left-hand stick and Omni Throttles
+(`?device=gladiatorleft`, `?device=omnileft`, `?device=omniright`), a VKB STECS Modern Standard,
+Max and Space throttle (`?device=stecs`, `?device=stecsmax`, `?device=stecsspace`),
 a Turtle Beach VelocityOne Flightstick and Flightstick II (`?device=flightstick`,
 `?device=flightstick2`), a WINWING Orion 2 stick
 and throttle (`?device=orionstick`, `?device=orionthrottle`), a Thrustmaster Sol-R right and

@@ -257,6 +257,156 @@ const GLADIATOR_EVO = {
   },
 };
 
+// ─── VKB Gladiator NXT EVO: the left-hand stick and the Omni Throttles ───────
+
+// Motion guides: a straight run for a stick or lever axis, and the arc of a twist collar.
+const across = (x0, x1, y) => ({
+  path: `M ${x0} ${y} L ${x1} ${y}`,
+  arrows: [
+    [x0, y, 180],
+    [x1, y, 0],
+  ],
+  point: (v) => [(x0 + x1) / 2 + (v * (x1 - x0)) / 2, y],
+});
+const upDown = (x, y0, y1) => ({
+  path: `M ${x} ${y0} L ${x} ${y1}`,
+  arrows: [
+    [x, y0, -90],
+    [x, y1, 90],
+  ],
+  point: (v) => [x, (y0 + y1) / 2 - (v * (y1 - y0)) / 2],
+});
+const COLLAR = { rx: 92, ry: 28, end: 0.25 };
+const collar = (cx, cy) => {
+  const dx = COLLAR.rx * Math.cos(COLLAR.end);
+  const y = cy + COLLAR.ry * Math.sin(COLLAR.end);
+  return {
+    path: `M ${cx - dx} ${y} A ${COLLAR.rx} ${COLLAR.ry} 0 0 0 ${cx + dx} ${y}`,
+    arrows: [
+      [cx - dx, y, -129.5],
+      [cx + dx, y, -50.5],
+    ],
+    point: (v) => {
+      const a = Math.PI / 2 - v * (Math.PI / 2 - COLLAR.end);
+      return [cx + COLLAR.rx * Math.cos(a), cy + COLLAR.ry * Math.sin(a)];
+    },
+  };
+};
+
+// The right-hand stick's labels, for the other photos of the same controls.
+const GLADIATOR_LABELS = Object.fromEntries(GLADIATOR_EVO.callouts.map(({ side, y, at, ...label }) => [label.id, label]));
+
+// Another photo of the Gladiator. `sides` lists the labels down each side of the stage,
+// `at` gives each one's hotspot, and `relabel` renames the axes that mean something else
+// when the grip is a throttle.
+function gladiatorPhoto({ alt, image, top = 120, sides, at, relabel = {}, guides }) {
+  const place = (ids) => ids.map((id) => ({ ...GLADIATOR_LABELS[id], ...relabel[id], at: at[id] }));
+  return {
+    alt,
+    dense: true,
+    image,
+    columns: GLADIATOR_EVO.columns,
+    callouts: [...stack('left', top, place(sides.left)), ...stack('right', top, place(sides.right))],
+    guides,
+  };
+}
+
+// The left-hand stick, from the same angle as the right-hand one: the same base under a
+// mirrored grip, so the trigger, B1 and the rapid-fire switch are in view on the left.
+const GLADIATOR_EVO_LEFT = gladiatorPhoto({
+  alt: 'VKB Gladiator NXT EVO, left hand, seen from behind',
+  image: { src: 'assets/gladiator-evo-left.png', width: 794, height: 1028, x: 506, y: 104, scale: 0.68 },
+  sides: {
+    left: ['a4', 'btn4', 'rapid', 'trigger', 'y', 'x', 'btn5', 'rz'],
+    right: ['a1', 'btn3', 'a3', 'c1', 'fx', 'en1', 'z', 'sw1'],
+  },
+  at: {
+    a4: [240, 78],
+    btn4: [90, 168],
+    rapid: [178, 208],
+    trigger: [203, 262],
+    y: [330, 330],
+    x: [360, 440],
+    btn5: [298, 492],
+    rz: [420, 585],
+    a1: [320, 70],
+    btn3: [347, 152],
+    a3: [303, 142],
+    c1: [410, 300],
+    fx: [541, 712],
+    en1: [664, 787],
+    z: [634, 850],
+    sw1: [541, 835],
+  },
+  guides: { x: across(575, 745, 90), y: upDown(800, 140, 300), rz: collar(778, 505), z: upDown(920, 628, 690) },
+});
+
+// The Omni Throttle: the same grip laid over on VKB's adapter, so pushing it forward is
+// the throttle. The trigger, B1 and the rapid-fire switch are on the far side of the head:
+// their lines stop at its edge. The left-hand one, seen from its right.
+const OMNI_AXES = { y: { name: 'Throttle' }, x: { name: 'Sideways' }, rz: { name: 'Twist', tag: 'RZ AXIS' }, z: { name: 'Base Wheel' } };
+
+const GLADIATOR_OT_LEFT = gladiatorPhoto({
+  alt: 'VKB Gladiator NXT EVO Omni Throttle, left hand',
+  image: { src: 'assets/gladiator-ot-left.png', width: 818, height: 967, x: 514, y: 120, scale: 0.7 },
+  top: 100,
+  relabel: OMNI_AXES,
+  sides: {
+    left: ['btn4', 'rapid', 'trigger', 'y', 'x', 'rz', 'fx', 'sw1', 'z', 'en1'],
+    right: ['a4', 'a3', 'a1', 'btn3', 'c1', 'btn5'],
+  },
+  at: {
+    btn4: [596, 26],
+    rapid: [584, 86],
+    trigger: [566, 112],
+    y: [400, 220],
+    x: [330, 285],
+    rz: [268, 352],
+    fx: [220, 652],
+    sw1: [118, 700],
+    z: [150, 745],
+    en1: [195, 785],
+    a4: [624, 58],
+    a3: [567, 157],
+    a1: [625, 187],
+    btn3: [575, 247],
+    c1: [427, 305],
+    btn5: [432, 368],
+  },
+  guides: {},
+});
+
+// The right-hand one, seen from its left: the same photo the other way round.
+const GLADIATOR_OT_RIGHT = gladiatorPhoto({
+  alt: 'VKB Gladiator NXT EVO Omni Throttle, right hand',
+  image: { src: 'assets/gladiator-ot-right.png', width: 831, height: 967, x: 509, y: 120, scale: 0.7 },
+  top: 100,
+  relabel: OMNI_AXES,
+  sides: {
+    left: ['a4', 'a3', 'a1', 'btn3', 'c1', 'btn5'],
+    right: ['btn4', 'rapid', 'trigger', 'y', 'x', 'rz', 'fx', 'en1', 'z', 'sw1'],
+  },
+  at: {
+    a4: [138, 58],
+    a3: [200, 160],
+    a1: [130, 187],
+    btn3: [190, 247],
+    c1: [350, 300],
+    btn5: [400, 370],
+    btn4: [176, 26],
+    rapid: [193, 86],
+    trigger: [215, 112],
+    y: [400, 205],
+    x: [470, 265],
+    rz: [545, 352],
+    fx: [577, 640],
+    en1: [702, 715],
+    z: [655, 745],
+    sw1: [592, 775],
+  },
+  guides: {},
+});
+
 // ─── VKB STECS Modern Throttle Mk.II Standard (twin grips, base and STEM) ────
 
 // Controls that share a label, each with its own short text.
@@ -437,6 +587,132 @@ const STECS_STANDARD = {
       point: (v) => [856 + v * 18, 476.5 - v * 15.5],
     },
   },
+};
+
+// ─── VKB STECS Space Throttle Standard (Space grip, base and STEM) ───────────
+
+// Seen from the front left corner: the STEM is nearest, the base behind it, and the grip's
+// thumb controls face right. Nobody has published the grip's button numbers, so its
+// buttons are listed by number under one label, with the POV hat: press one and its row
+// lights. Where the brake and the laser sit on the grip isn't known either, so they share
+// a label with its tilt. The STEM's 55 and 56 aren't labelled, as on the Modern Throttle,
+// nor are the Rz and Slider that only some of these throttles report.
+const STECS_SPACE = {
+  alt: 'VKB STECS Space Throttle Standard with its STEM module, seen from the front left',
+  dense: true,
+  image: { src: 'assets/stecs-space.png', width: 953, height: 1079, x: 495, y: 140, scale: 0.64 },
+  columns: {
+    left: { edge: 450, anchor: 464, elbow: 520 },
+    right: { edge: 1150, anchor: 1136, elbow: 1080 },
+  },
+  callouts: [
+    ...stack('left', 92, [
+      {
+        id: 'gripaxes',
+        name: 'Grip Axes',
+        at: [450, 160],
+        columns: 2,
+        group: [
+          { id: 'x', label: 'X', wide: true },
+          { id: 'y', label: 'Y', wide: true },
+          { id: 'rx', label: 'Brake', wide: true },
+          { id: 'ry', label: 'Laser', wide: true },
+        ],
+      },
+      { id: 'z', at: [465, 440], tag: 'LEVER' },
+      {
+        id: 'toggle',
+        name: 'Toggle',
+        tag: 'TGL',
+        at: [272, 548],
+        columns: 2,
+        group: [
+          { id: 'btn49', dir: 'up' },
+          { id: 'btn50', dir: 'down' },
+        ],
+      },
+      {
+        id: 'en1',
+        name: 'EN1',
+        tag: 'ENCODER',
+        at: [312, 608],
+        columns: 2,
+        group: [
+          { id: 'btn51', dir: 'left' },
+          { id: 'btn52', dir: 'right' },
+        ],
+      },
+      {
+        id: 'flip',
+        name: 'Flip Switch',
+        at: [148, 605],
+        columns: 2,
+        group: [
+          { id: 'btn57', dir: 'up' },
+          { id: 'btn58', dir: 'down' },
+        ],
+      },
+      {
+        id: 'en2',
+        name: 'EN2',
+        tag: 'ENCODER',
+        at: [195, 696],
+        columns: 2,
+        group: [
+          { id: 'btn53', dir: 'left' },
+          { id: 'btn54', dir: 'right' },
+        ],
+      },
+      {
+        id: 'sw',
+        name: 'SW1 · SW2',
+        tag: 'ROCKERS',
+        at: [427, 688],
+        columns: 2,
+        group: leftToRight(
+          labelled(['btn43', '1 Up'], ['btn46', '2 Up'], ['btn44', '1 In'], ['btn47', '2 In'], ['btn45', '1 Dn'], ['btn48', '2 Dn']),
+        ),
+      },
+    ]),
+    ...stack('right', 92, [
+      {
+        id: 'grip',
+        name: 'Grip Buttons',
+        tag: 'POV · B8–B34',
+        at: [754, 152],
+        columns: 2,
+        group: [
+          ...HAT_DIRECTIONS.map((dir) => ({ id: `hat1_${dir}`, dir })),
+          ...Array.from({ length: 27 }, (_, i) => ({ id: `btn${i + 8}`, label: String(i + 8) })),
+        ],
+      },
+      {
+        id: 'base',
+        name: 'Base',
+        tag: 'ROTARY 1–5',
+        at: [742, 505],
+        columns: 2,
+        group: labelled(['btn1', 'Dot'], ['btn2', 'Red'], ['btn3', '1'], ['btn4', '2'], ['btn5', '3'], ['btn6', '4'], ['btn7', '5']),
+      },
+      {
+        id: 'stembuttons',
+        name: 'STEM Buttons',
+        at: [482, 782],
+        columns: 2,
+        group: labelled(
+          ['btn35', 'A1'],
+          ['btn36', 'A2'],
+          ['btn37', 'C1'],
+          ['btn38', 'B1'],
+          ['btn39', 'B2'],
+          ['btn40', 'B3'],
+          ['btn41', 'B4'],
+          ['btn42', 'B5'],
+        ),
+      },
+    ]),
+  ],
+  guides: {},
 };
 
 // ─── Turtle Beach VelocityOne Flightstick ────────────────────────────────────
@@ -1783,6 +2059,149 @@ const DUALSENSE = playstationPad(
   [{ id: 'btn15', at: [404, 310] }],
 );
 
+// ─── VKB STECS Modern Throttle Mk.II Max (twin grips, base, ATEM and STEM) ───
+
+// Seen from the front right: the ATEM is nearest, on the front of the base, and the STEM
+// stands on its holder to the right. With the ATEM it has more controls than there is room
+// to show dropdowns for, so its labels are folded. The right grip's thumb side faces the
+// camera; the fronts of both grips are in shadow, so the controls there point at about
+// where they sit, and the rear triggers at the far edge. Nobody has published the ATEM's
+// button numbers, so its thirteen are listed by number under one label: press one and its
+// row lights. The ministick, the analog wheel, 19, 55 and 56 aren't labelled, as on the
+// Standard.
+const STECS_MAX = {
+  alt: 'VKB STECS Modern Throttle Max with its ATEM and STEM modules, seen from the front',
+  dense: true,
+  folded: true,
+  image: { src: 'assets/stecs-max.png', width: 958, height: 620, x: 398, y: 190, scale: 0.84 },
+  columns: {
+    left: { edge: 330, anchor: 344, elbow: 400 },
+    right: { edge: 1270, anchor: 1256, elbow: 1200 },
+  },
+  callouts: [
+    ...fold('left', 170, [
+      { id: 'reartriggers', name: 'Rear Triggers', at: [300, 30], columns: 2, group: leftToRight(labelled(['btn8', 'L'], ['btn16', 'R'])) },
+      {
+        id: 'rocker',
+        name: 'Rocker',
+        tag: 'THUMB',
+        at: [410, 98],
+        columns: 2,
+        group: [
+          { id: 'btn34', dir: 'up' },
+          { id: 'btn33', dir: 'down' },
+          { id: 'btn22', dir: 'push' },
+        ],
+      },
+      { id: 'centrewheel', name: 'Centre Wheel', tag: 'FRONT', at: [267, 96], columns: 2, group: labelled(['btn13', 'Fwd'], ['btn12', 'Back']) },
+      { id: 'endwheel', name: 'End Wheel', at: [190, 95], columns: 2, group: labelled(['btn14', 'Fwd'], ['btn15', 'Back']) },
+      {
+        id: 'frontbuttons',
+        name: 'Front Buttons',
+        tag: 'FRONT',
+        at: [232, 146],
+        columns: 2,
+        group: leftToRight(labelled(['btn10', 'Red'], ['btn11', 'RST'], ['btn18', 'ENT'], ['btn23', 'Grey'])),
+      },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        tag: 'FRONT',
+        at: [288, 152],
+        columns: 2,
+        group: [
+          { id: 'btn32', dir: 'up' },
+          { id: 'btn30', dir: 'right' },
+          { id: 'btn31', dir: 'down' },
+          { id: 'btn29', dir: 'left' },
+          { id: 'btn21', dir: 'push' },
+        ],
+      },
+      {
+        id: 'thumbhat',
+        name: 'Thumb Hat',
+        at: [460, 143],
+        columns: 2,
+        group: leftToRight(labelled(['btn25', 'Up'], ['btn26', 'Down'], ['btn27', 'Fwd'], ['btn28', 'Back'], ['btn20', 'Push'])),
+      },
+      { id: 'fronttriggers', name: 'Front Triggers', tag: 'FRONT', at: [326, 176], columns: 2, group: leftToRight(labelled(['btn9', 'L'], ['btn17', 'R'])) },
+      { id: 'btn24', at: [423, 205] },
+      { id: 'x', at: [228, 336], tag: 'LEVER' },
+      { id: 'y', at: [295, 350], tag: 'LEVER' },
+      { id: 'rotary', name: 'Rotary', tag: '1–5', at: [425, 355], columns: 2, group: leftToRight(labelled(['btn3', '1'], ['btn4', '2'], ['btn5', '3'], ['btn6', '4'], ['btn7', '5'])) },
+      {
+        id: 'atem',
+        name: 'ATEM',
+        tag: 'B59–B71',
+        at: [180, 420],
+        columns: 2,
+        group: leftToRight(Array.from({ length: 13 }, (_, i) => ({ id: `btn${i + 59}`, label: String(i + 59) }))),
+      },
+      { id: 'btn2', at: [482, 352] },
+      { id: 'btn1', at: [367, 395] },
+    ]),
+    ...fold('right', 170, [
+      {
+        id: 'toggle',
+        name: 'Toggle',
+        tag: 'TGL',
+        at: [643, 80],
+        columns: 2,
+        group: [
+          { id: 'btn49', dir: 'up' },
+          { id: 'btn50', dir: 'down' },
+        ],
+      },
+      {
+        id: 'en1',
+        name: 'EN1',
+        tag: 'ENCODER',
+        at: [688, 120],
+        columns: 2,
+        group: [
+          { id: 'btn51', dir: 'left' },
+          { id: 'btn52', dir: 'right' },
+        ],
+      },
+      { id: 'sw1', name: 'SW1', tag: 'ROCKER', at: [752, 130], columns: 2, group: threeWay(43) },
+      { id: 'sw2', name: 'SW2', tag: 'ROCKER', at: [793, 130], columns: 2, group: threeWay(46) },
+      {
+        id: 'flip',
+        name: 'Flip Switch',
+        at: [603, 172],
+        columns: 2,
+        group: [
+          { id: 'btn57', dir: 'up' },
+          { id: 'btn58', dir: 'down' },
+        ],
+      },
+      {
+        id: 'bbuttons',
+        name: 'B Buttons',
+        tag: 'B1–B5',
+        at: [830, 173],
+        columns: 2,
+        group: labelled(['btn38', 'B1'], ['btn39', 'B2'], ['btn40', 'B3'], ['btn41', 'B4'], ['btn42', 'B5']),
+      },
+      { id: 'btn36', at: [770, 207] },
+      { id: 'btn35', at: [728, 203] },
+      {
+        id: 'en2',
+        name: 'EN2',
+        tag: 'ENCODER',
+        at: [658, 210],
+        columns: 2,
+        group: [
+          { id: 'btn53', dir: 'left' },
+          { id: 'btn54', dir: 'right' },
+        ],
+      },
+      { id: 'btn37', at: [725, 248] },
+    ]),
+  ],
+  guides: {},
+};
+
 // Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
 export const LAYOUTS = {
   xboxcontroller: XBOX_CONTROLLER,
@@ -1793,7 +2212,12 @@ export const LAYOUTS = {
   x56throttle: X56_THROTTLE,
   extreme3dpro: EXTREME_3D_PRO,
   gladiatorevo: GLADIATOR_EVO,
+  gladiatorevoleft: GLADIATOR_EVO_LEFT,
+  gladiatorotright: GLADIATOR_OT_RIGHT,
+  gladiatorotleft: GLADIATOR_OT_LEFT,
   stecsstandard: STECS_STANDARD,
+  stecsmax: STECS_MAX,
+  stecsspace: STECS_SPACE,
   velocityoneflightstick: VELOCITYONE_FLIGHTSTICK,
   velocityoneflightstick2: VELOCITYONE_FLIGHTSTICK_2,
   flightdeckstick: FLIGHTDECK_STICK,
@@ -1802,6 +2226,13 @@ export const LAYOUTS = {
   orion2throttle: ORION2_THROTTLE,
   solrright: SOLR_RIGHT,
   solrleft: SOLR_LEFT,
+};
+
+// A stick that becomes another product without changing what it reports: a Gladiator
+// fitted with VKB's Omni Throttle adapter. Its owner picks that photo in the Joystick menu.
+export const ALTERNATES = {
+  gladiatorevo: { skin: 'gladiatorotright', label: 'Omni Throttle' },
+  gladiatorevoleft: { skin: 'gladiatorotleft', label: 'Omni Throttle' },
 };
 
 export const toStage = (layout, [x, y]) => [layout.image.x + x * layout.image.scale, layout.image.y + y * layout.image.scale];

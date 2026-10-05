@@ -105,6 +105,115 @@ const SOL_R = {
   },
 };
 
+// The VKB STECS base and its STEM module, which every STECS Standard throttle is built on.
+// Button numbers are from an owner's filled-in VKB template for the Modern Throttle (GitHub
+// issue #2). It left out 55 and 56, so those keep their generic names.
+const STECS_BASE_AND_STEM = {
+  btn1: 'Dot Button',
+  btn2: 'Red Start',
+  ...numbered(3, 5, (n) => `Rotary ${n}`),
+  btn35: 'A1 Button',
+  btn36: 'A2 Button',
+  btn37: 'C1 Button',
+  ...numbered(38, 5, (n) => `B${n} Button`),
+  btn43: 'SW1 Up',
+  btn44: 'SW1 Push',
+  btn45: 'SW1 Down',
+  btn46: 'SW2 Up',
+  btn47: 'SW2 Push',
+  btn48: 'SW2 Down',
+  btn49: 'Toggle Up',
+  btn50: 'Toggle Down',
+  btn51: 'EN1 Left',
+  btn52: 'EN1 Right',
+  btn53: 'EN2 Left',
+  btn54: 'EN2 Right',
+  btn57: 'Flip Switch Up',
+  btn58: 'Flip Switch Down',
+};
+
+// The VKB Gladiator NXT EVO with the Premium / Space Combat grip. Button numbers are VKB's
+// factory profile, the same on the right- and left-hand sticks and on the Omni Throttles.
+const GLADIATOR_EVO = {
+  names: {
+    btn1: 'Trigger Stage 1',
+    btn2: 'Trigger Stage 2',
+    btn3: 'A2 Button',
+    btn4: 'B1 Button',
+    btn5: 'D1 Button',
+    ...buttonHat('A3', 6),
+    ...buttonHat('A4', 11),
+    ...buttonHat('C1', 16),
+    btn21: 'Rapid Fire Forward',
+    btn22: 'Rapid Fire Back',
+    btn23: 'En1 Up',
+    btn24: 'En1 Down',
+    btn25: 'Sw1 Up',
+    btn26: 'Sw1 Down',
+    btn27: 'F1',
+    btn28: 'F2',
+    btn29: 'F3',
+    hat1: 'A1 Hat',
+    x: 'Roll',
+    y: 'Pitch',
+    rz: 'Yaw',
+    z: 'Throttle',
+    rx: 'A1 Stick X',
+    ry: 'A1 Stick Y',
+  },
+  hints: {
+    x: 'Stick left / right',
+    y: 'Stick forward / back',
+    rz: 'Twist the stick',
+    z: 'Lever on the base',
+    rx: 'A1 ministick in analog mode',
+    ry: 'A1 ministick in analog mode',
+  },
+};
+
+// The same stick as an Omni Throttle: the grip itself is the throttle.
+const GLADIATOR_OMNI = {
+  names: { ...GLADIATOR_EVO.names, x: 'Sideways', y: 'Throttle', rz: 'Twist', z: 'Base Wheel' },
+  hints: { ...GLADIATOR_EVO.hints, x: 'Grip left / right', y: 'Grip forward / back', rz: 'Twist the grip', z: 'Wheel on the base' },
+};
+
+// A STECS Modern Throttle: the base and STEM under twin grips.
+const STECS_MODERN = {
+  names: {
+    ...STECS_BASE_AND_STEM,
+    btn8: 'Left Trigger Rear',
+    btn9: 'Left Trigger Front',
+    btn10: 'Red Button',
+    btn11: 'RST Button',
+    btn12: 'Centre Wheel Back',
+    btn13: 'Centre Wheel Forward',
+    btn14: 'End Wheel Forward',
+    btn15: 'End Wheel Back',
+    btn16: 'Right Trigger Rear',
+    btn17: 'Right Trigger Front',
+    btn18: 'ENT Button',
+    btn20: 'Thumb Hat Push',
+    btn21: 'Front Hat Push',
+    btn22: 'Rocker Push',
+    btn23: 'Front Grey Button',
+    btn24: 'Thumb Grey Button',
+    btn25: 'Thumb Hat Up',
+    btn26: 'Thumb Hat Down',
+    btn27: 'Thumb Hat Forward',
+    btn28: 'Thumb Hat Back',
+    btn29: 'Front Hat Left',
+    btn30: 'Front Hat Right',
+    btn31: 'Front Hat Down',
+    btn32: 'Front Hat Up',
+    btn33: 'Rocker Down',
+    btn34: 'Rocker Up',
+    x: 'Throttle 1',
+    y: 'Throttle 2',
+  },
+  hints: { x: 'Throttle lever', y: 'Throttle lever' },
+  axes: { x: { centered: false, invert: false }, y: { centered: false, invert: false } },
+};
+
 // One Sol-R stick. `pov` is the side its POV hat is on: the right on the right stick and
 // the left on the left one, from an owner's report of which hat lights what (GitHub issue
 // #10). The other hat's directions are buttons: 41–44 on the left stick, as on the chart,
@@ -510,63 +619,36 @@ export const SKINS = Object.freeze({
   // Button numbers are from an owner's filled-in VKB template. It left out 19, 55 and 56,
   // the ministick and the analog wheel, so those keep their generic names. Beta until an
   // owner has confirmed every label against the throttle.
-  '231d:012d': {
-    id: 'stecsstandard',
-    name: 'VKB STECS Standard',
+  '231d:012d': { id: 'stecsstandard', name: 'VKB STECS Standard', support: 'beta', ...STECS_MODERN },
+  // VKB STECS Modern Throttle Mk.II Max: the Standard with an ATEM module on the front of
+  // the base (reports as "S-TECS MODERN THROTTLE MAX STEM", GitHub issue #9). Its levers
+  // are on X and Y too, and read as a stick in the same way. The grips, base and STEM are
+  // taken to send the Standard's numbers: no owner has checked them on this one. Nothing
+  // published gives the ATEM's (four buttons, two under safety lids and a knob that turns,
+  // tilts four ways and pushes: thirteen in all), so they keep their generic names; they
+  // are taken to follow the STEM's, as 59 to 71.
+  // Beta until an owner has confirmed every label and named the rest.
+  '231d:012e': { id: 'stecsmax', name: 'VKB STECS Max', support: 'beta', ...STECS_MODERN },
+  // VKB STECS Space Throttle Standard, left hand: the same base and STEM module under one
+  // Space grip (reports as "S-TECS SPACE-L THROTTLE STANDARD  STEM", GitHub issues #4 and
+  // #11). The base and STEM numbers are taken to be the Modern Throttle's: no owner has
+  // checked them on this one. Nothing published gives the grip's button numbers, so those
+  // keep their generic names.
+  // The axes are named from two owners' reports and VKB's own list of five (the grip's
+  // tilt, throttle, brake and laser). X and Y are 12-bit and rest in the middle on both
+  // throttles: the grip's tilt. Z, the other 12-bit one, rests somewhere different on each:
+  // the throttle. Rx rests at 0 on both and Ry near the top of its range, so neither
+  // springs to a middle, as the generic defaults would have it; Rx is taken to be the
+  // brake, resting released, and Ry the laser. Which way each one runs isn't known. One
+  // owner's throttle also reports an Rz and a Slider, not named here.
+  // Beta until an owner has confirmed every label and named the rest.
+  '231d:0138': {
+    id: 'stecsspace',
+    name: 'VKB STECS Space',
     support: 'beta',
-    names: {
-      btn1: 'Dot Button',
-      btn2: 'Red Start',
-      ...numbered(3, 5, (n) => `Rotary ${n}`),
-      btn8: 'Left Trigger Rear',
-      btn9: 'Left Trigger Front',
-      btn10: 'Red Button',
-      btn11: 'RST Button',
-      btn12: 'Centre Wheel Back',
-      btn13: 'Centre Wheel Forward',
-      btn14: 'End Wheel Forward',
-      btn15: 'End Wheel Back',
-      btn16: 'Right Trigger Rear',
-      btn17: 'Right Trigger Front',
-      btn18: 'ENT Button',
-      btn20: 'Thumb Hat Push',
-      btn21: 'Front Hat Push',
-      btn22: 'Rocker Push',
-      btn23: 'Front Grey Button',
-      btn24: 'Thumb Grey Button',
-      btn25: 'Thumb Hat Up',
-      btn26: 'Thumb Hat Down',
-      btn27: 'Thumb Hat Forward',
-      btn28: 'Thumb Hat Back',
-      btn29: 'Front Hat Left',
-      btn30: 'Front Hat Right',
-      btn31: 'Front Hat Down',
-      btn32: 'Front Hat Up',
-      btn33: 'Rocker Down',
-      btn34: 'Rocker Up',
-      btn35: 'A1 Button',
-      btn36: 'A2 Button',
-      btn37: 'C1 Button',
-      ...numbered(38, 5, (n) => `B${n} Button`),
-      btn43: 'SW1 Up',
-      btn44: 'SW1 Push',
-      btn45: 'SW1 Down',
-      btn46: 'SW2 Up',
-      btn47: 'SW2 Push',
-      btn48: 'SW2 Down',
-      btn49: 'Toggle Up',
-      btn50: 'Toggle Down',
-      btn51: 'EN1 Left',
-      btn52: 'EN1 Right',
-      btn53: 'EN2 Left',
-      btn54: 'EN2 Right',
-      btn57: 'Flip Switch Up',
-      btn58: 'Flip Switch Down',
-      x: 'Throttle 1',
-      y: 'Throttle 2',
-    },
-    hints: { x: 'Throttle lever', y: 'Throttle lever' },
-    axes: { x: { centered: false, invert: false }, y: { centered: false, invert: false } },
+    names: { ...STECS_BASE_AND_STEM, x: 'Grip X', y: 'Grip Y', z: 'Throttle', rx: 'Brake', ry: 'Laser' },
+    hints: { x: 'Tilt the grip', y: 'Tilt the grip', z: 'Throttle lever' },
+    axes: { rx: { centered: false }, ry: { centered: false } },
   },
   // Turtle Beach VelocityOne Flightstick, in its default right-hand orientation (the
   // left-hand setting swaps the two button columns and the levers). Its axes aren't where
@@ -812,44 +894,21 @@ export const SKINS = Object.freeze({
   // Premium / Space Combat grip. Button numbers are VKB's factory profile; the stick
   // advertises 128 buttons and two spare axes (Slider, Dial) that it doesn't use.
   // An owner has confirmed the labels against the stick (GitHub issue #1).
-  '231d:0200': {
-    id: 'gladiatorevo',
-    name: 'VKB Gladiator NXT EVO',
-    names: {
-      btn1: 'Trigger Stage 1',
-      btn2: 'Trigger Stage 2',
-      btn3: 'A2 Button',
-      btn4: 'B1 Button',
-      btn5: 'D1 Button',
-      ...buttonHat('A3', 6),
-      ...buttonHat('A4', 11),
-      ...buttonHat('C1', 16),
-      btn21: 'Rapid Fire Forward',
-      btn22: 'Rapid Fire Back',
-      btn23: 'En1 Up',
-      btn24: 'En1 Down',
-      btn25: 'Sw1 Up',
-      btn26: 'Sw1 Down',
-      btn27: 'F1',
-      btn28: 'F2',
-      btn29: 'F3',
-      hat1: 'A1 Hat',
-      x: 'Roll',
-      y: 'Pitch',
-      rz: 'Yaw',
-      z: 'Throttle',
-      rx: 'A1 Stick X',
-      ry: 'A1 Stick Y',
-    },
-    hints: {
-      x: 'Stick left / right',
-      y: 'Stick forward / back',
-      rz: 'Twist the stick',
-      z: 'Lever on the base',
-      rx: 'A1 ministick in analog mode',
-      ry: 'A1 ministick in analog mode',
-    },
-  },
+  '231d:0200': { id: 'gladiatorevo', name: 'VKB Gladiator NXT EVO', ...GLADIATOR_EVO },
+  // The left-hand stick (reports as "VKBsim Gladiator EVO L"): the same base under a
+  // mirrored grip, sending the same numbers (GitHub issue #17, and VKB's own chart for the
+  // left-hand Omni Throttle). Beta until an owner has confirmed every label.
+  '231d:0201': { id: 'gladiatorevoleft', name: 'VKB Gladiator EVO Left', support: 'beta', ...GLADIATOR_EVO },
+  // VKB Gladiator NXT EVO Omni Throttle: the same stick with its grip laid over on VKB's
+  // adapter, so pushing it forward is the throttle. The right-hand one reports as
+  // "VKBsim Gladiator EVO OT R" (GitHub issue #5); the left-hand one's USB ID is taken to
+  // follow it, as the left stick's follows the right's. A stick fitted with the adapter
+  // afterwards still reports as the stick: its owner picks the throttle's photo in the
+  // Joystick menu (see ALTERNATES in renderer/layout.js). Whether the throttle springs
+  // back is up to how its owner set it up, so that stays as it is for a stick.
+  // Beta until an owner has confirmed every label.
+  '231d:3200': { id: 'gladiatorotright', name: 'VKB Omni Throttle Right', support: 'beta', ...GLADIATOR_OMNI },
+  '231d:3201': { id: 'gladiatorotleft', name: 'VKB Omni Throttle Left', support: 'beta', ...GLADIATOR_OMNI },
   '046d:c215': {
     id: 'extreme3dpro',
     name: 'Logitech Extreme 3D Pro',

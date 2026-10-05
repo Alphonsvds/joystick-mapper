@@ -15,6 +15,7 @@ import { ROLES, emptyBindings, sanitizeBinding } from '../shared/controls.js';
 import { isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
+import { pressHolder } from '../shared/pulses.js';
 import { LATEST_RELEASE_API, updateFromRelease } from '../shared/updates.js';
 import {
   addProfile,
@@ -66,7 +67,10 @@ let paused = false; // emulation switched off while a game profile is active
 // Once a newer release has been seen: { version, url, inApp, state, progress }.
 // inApp: it can be installed from here. state: available | downloading | installing.
 let update = null;
-let input = NEUTRAL_INPUT;
+let reported = NEUTRAL_INPUT; // what the joysticks last sent
+let input = NEUTRAL_INPUT; // the same, with very short presses held long enough to be seen
+const holdPresses = pressHolder();
+let pressTimer = null;
 let output = NEUTRAL_OUTPUT;
 let frameDirty = true;
 
@@ -177,6 +181,16 @@ async function installUpdate() {
     shell.openExternal(update.url);
     throw new Error('Couldn’t update from here, so the download page was opened');
   }
+}
+
+// Takes in what the joysticks last sent. A press too short to see (a scroll wheel's
+// click) stays down a moment longer, and a timer lets it go.
+function readInput() {
+  const held = holdPresses(reported, Date.now());
+  input = held.input;
+  clearTimeout(pressTimer);
+  pressTimer = held.wait === null ? null : setTimeout(readInput, held.wait);
+  pump();
 }
 
 // Recompute the Xbox report and send it to the driver only when it changes.
@@ -646,8 +660,8 @@ if (!app.requestSingleInstanceLock()) {
 
     // Every plugged-in device's controls, merged; an unplugged one simply drops out.
     joystick.on('state', (state) => {
-      input = state;
-      pump();
+      reported = state;
+      readInput();
       if (uncalibratedDevices().length) autoCenter(); // the first report is the first chance to measure
     });
     joystick.on('status', (s) => {

@@ -1,16 +1,19 @@
 // Stand-in for the Electron bridge when the UI is opened in a plain browser.
-// Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO, the VKB STECS Standard
-// throttle, the Turtle Beach VelocityOne Flightstick and the WINWING Orion 2 stick and
-// throttle, the Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and
-// throttle, the Turtle Beach VelocityOne Flightstick II and Flightdeck stick and throttle,
-// an Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the
-// Virpil ACE-Torq pedals (named, no photo), and a Thrustmaster T.16000M built from its
-// published layout (universal layout).
-// Add ?device=gladiator, ?device=stecs, ?device=flightstick, ?device=orionstick,
-// ?device=orionthrottle, ?device=solrright, ?device=solrleft, ?device=x56stick,
-// ?device=x56throttle, ?device=flightdeckstick, ?device=flightdeckthrottle, ?device=xbox,
-// ?device=elite, ?device=dualshock4, ?device=dualsense, ?device=acetorq,
-// ?device=flightstick2 or ?device=t16000m to plug in one of the others.
+// Simulated sticks: the Extreme 3D Pro, the VKB Gladiator NXT EVO right- and left-hand
+// sticks and Omni Throttles, the VKB STECS Standard, Max and Space throttles, the Turtle
+// Beach VelocityOne Flightstick and the WINWING Orion 2 stick and throttle, the
+// Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and throttle, the Turtle
+// Beach VelocityOne Flightstick II and Flightdeck stick and throttle, an Xbox controller,
+// an Xbox Elite, a DualShock 4 and a DualSense (photo layouts), the Virpil ACE-Torq pedals
+// (named, no photo), and a Thrustmaster T.16000M built from its published layout
+// (universal layout).
+// Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
+// ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
+// ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
+// ?device=x56stick, ?device=x56throttle, ?device=flightdeckstick,
+// ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
+// ?device=dualsense, ?device=acetorq, ?device=flightstick2 or ?device=t16000m to plug in
+// one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15; any comma-separated list
@@ -116,6 +119,54 @@ const SIMULATED = [
       buttonCount: 128,
     },
   },
+  // The left-hand stick, as reported by a real one (GitHub issue #17): the same layout.
+  {
+    vendorId: 0x231d,
+    productId: 0x0201,
+    name: 'VKBsim Gladiator EVO L',
+    alias: 'gladiatorleft',
+    throttle: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x35, min: 0, max: 2047 },
+        { page: 1, usage: 0x32, min: 0, max: 2047 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 2047 },
+        { page: 1, usage: 0x37, min: 0, max: 2047 },
+        hat,
+      ],
+      buttonCount: 128,
+    },
+  },
+  // The Omni Throttle, as reported by a real right-hand one (GitHub issue #5): no spare
+  // axes, and a 12-bit ministick. The left-hand one is taken to report the same.
+  ...[
+    [0x3200, 'VKBsim Gladiator EVO OT R', 'omniright'],
+    [0x3201, 'VKBsim Gladiator EVO OT L', 'omnileft'],
+  ].map(([productId, name, alias]) => ({
+    vendorId: 0x231d,
+    productId,
+    name,
+    alias,
+    throttle: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x35, min: 0, max: 2047 },
+        { page: 1, usage: 0x32, min: 0, max: 2047 },
+        { page: 1, usage: 0x33, min: 0, max: 4095 },
+        { page: 1, usage: 0x34, min: 0, max: 4095 },
+        { page: 0, usage: 0, min: 0, max: 2047 },
+        { page: 0, usage: 0, min: 0, max: 2047 },
+        hat,
+      ],
+      buttonCount: 128,
+    },
+  })),
   // As reported by a real STECS Standard (GitHub issue #2): both throttle levers are
   // 12-bit axes on X and Y. R / F move both.
   {
@@ -134,6 +185,52 @@ const SIMULATED = [
         { page: 1, usage: 0x35, min: 0, max: 1023 },
         { page: 1, usage: 0x36, min: 0, max: 1023 },
         { page: 1, usage: 0x36, min: 0, max: 1023 },
+        hat,
+      ],
+      buttonCount: 128,
+    },
+  },
+  // The STECS Max, as reported by a real one (GitHub issue #9): the same, with a Dial
+  // where the Standard has a second Slider.
+  {
+    vendorId: 0x231d,
+    productId: 0x012e,
+    name: 'VKB-Sim (C) Alex Oz 2023 S-TECS MODERN THROTTLE MAX STEM',
+    alias: 'stecsmax',
+    throttle: ['x', 'y'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x32, min: 0, max: 1023 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 1023 },
+        { page: 1, usage: 0x37, min: 0, max: 1023 },
+        hat,
+      ],
+      buttonCount: 128,
+    },
+  },
+  // As reported by a real STECS Space Throttle Standard (GitHub issue #11): the throttle
+  // is on Z, the grip's tilt on X and Y. R / F move the throttle.
+  {
+    vendorId: 0x231d,
+    productId: 0x0138,
+    name: 'VKB-Sim (C) Alex Oz 2023 S-TECS SPACE-L THROTTLE STANDARD  STEM',
+    alias: 'stecsspace',
+    throttle: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x32, min: 0, max: 4095 },
+        { page: 1, usage: 0x30, min: 0, max: 4095 },
+        { page: 1, usage: 0x31, min: 0, max: 4095 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x36, min: 0, max: 1023 },
+        { page: 0, usage: 0, min: 0, max: 1023 },
         hat,
       ],
       buttonCount: 128,

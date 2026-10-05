@@ -14,7 +14,7 @@ import {
 } from '../shared/controls.js';
 import { SUPPORT_LABELS, defaultDeadzone, isCentered } from '../shared/devices.js';
 import { MAX_NAME_LENGTH } from '../shared/profiles.js';
-import { LAYOUTS, STAGE, toStage } from './layout.js';
+import { ALTERNATES, LAYOUTS, STAGE, toStage } from './layout.js';
 import { buildGeneric } from './generic.js';
 import { CHEVRON, FACE_COLORS, TILE_LABELS, hatIcon, targetIcon } from './icons.js';
 
@@ -136,27 +136,35 @@ function boundControlName(fullId) {
 // labels the controls the stick ships with, the list has everything it reports (for
 // sticks that have been reprogrammed). Remembered per stick, on this computer.
 const LIST_VIEW_KEY = 'joymap.listView';
+// A stick fitted as another product (see ALTERNATES in layout.js) still reports as the
+// stick, so its owner says which photo it gets. Remembered the same way.
+const ALTERNATE_KEY = 'joymap.alternate';
 
-function listViewKeys() {
+function storedKeys(name) {
   try {
-    const keys = JSON.parse(localStorage.getItem(LIST_VIEW_KEY));
+    const keys = JSON.parse(localStorage.getItem(name));
     return Array.isArray(keys) ? keys : [];
   } catch {
     return [];
   }
 }
 
-const inListView = (key) => listViewKeys().includes(key);
-
-function setListView(key, on) {
-  const keys = listViewKeys().filter((k) => k !== key);
+function storeKey(name, key, on) {
+  const keys = storedKeys(name).filter((k) => k !== key);
   try {
-    localStorage.setItem(LIST_VIEW_KEY, JSON.stringify(on ? [...keys, key] : keys));
+    localStorage.setItem(name, JSON.stringify(on ? [...keys, key] : keys));
   } catch {
     // Storage unavailable: the choice just won't be remembered.
   }
   if (status) renderStatus(status);
 }
+
+const inListView = (key) => storedKeys(LIST_VIEW_KEY).includes(key);
+const setListView = (key, on) => storeKey(LIST_VIEW_KEY, key, on);
+
+const usesAlternate = (m) => Boolean(ALTERNATES[m.skin]) && storedKeys(ALTERNATE_KEY).includes(m.key);
+// The skin whose photo a stick shows: its own, or the product its owner says it has become.
+const photoSkin = (m) => (usesAlternate(m) ? ALTERNATES[m.skin].skin : m.skin);
 
 // ─── Folded labels ───────────────────────────────────────────────────────────
 
@@ -228,7 +236,7 @@ function resetRegistries() {
 // this stick really reports. A stick that turns out to lack one (a layout drawn from a
 // chart, a stick reprogrammed to send less) shows as the list rather than a broken photo.
 function photoLayout() {
-  const photo = LAYOUTS[model.skin];
+  const photo = LAYOUTS[photoSkin(model)];
   if (!photo) return null;
   const known = new Set(controlIds());
   return photo.callouts.every((c) => calloutControls(c).every((id) => known.has(id))) ? photo : null;
@@ -248,7 +256,7 @@ function buildStage() {
   layout = (photo && !inListView(model.key) && photo) || null;
   const mode = !model ? 'empty' : layout ? 'photo' : 'generic';
   stage.dataset.mode = mode;
-  stage.dataset.skin = layout ? model.skin : '';
+  stage.dataset.skin = layout ? photoSkin(model) : '';
   stage.dataset.density = layout?.dense ? 'dense' : '';
   stage.dataset.fold = layout?.folded ? 'folded' : '';
 
@@ -1014,6 +1022,15 @@ function openDeviceMenu() {
   }
   if (model) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
+    const alternate = ALTERNATES[model.skin];
+    if (alternate && LAYOUTS[model.skin]) {
+      const fitted = usesAlternate(model);
+      const swap = button('ghost', fitted ? 'Stick photo' : `${alternate.label} photo`, actions, () => {
+        closeMenus();
+        storeKey(ALTERNATE_KEY, model.key, !fitted);
+      });
+      swap.title = fitted ? 'Show the photo of the stick' : `For a stick fitted with the ${alternate.label} adapter`;
+    }
     if (photoLayout()) {
       const listed = inListView(model.key);
       const view = button('ghost', listed ? 'Photo view' : 'List view', actions, () => {
@@ -1099,6 +1116,7 @@ const layoutSignature = (m, settings) =>
         m.role,
         m.skin,
         inListView(m.key),
+        usesAlternate(m),
         m.axes.map((a) => a.id),
         m.hats.length,
         m.buttons,
