@@ -642,28 +642,42 @@ export const SKINS = Object.freeze({
       z: { centered: true, invert: true, deadzone: 0.1 },
     },
   },
-  // WINCTRL (WINWING) URSA MINOR Combat Throttle Metal.EX (GitHub issue #25). Button
-  // numbers and axis directions are WINWING's diagram for the handles, which numbers 27 to
-  // 61. It leaves out the base (B1 to B8, the MODE and E1 to E4 knobs, the levers' detents)
-  // and the EX module beside it, so their buttons keep their generic names.
-  // The diagram gives the finger wheel on Z, which would read as a lever (the owner's
-  // rested in the middle, on 57: taken to spring back), the knob on Rz, which would read as
-  // a twist (taken to stay where it is turned, like the Orion 2's), and the ministick on
-  // Slider and Dial, which only move once it is switched from buttons to analog and sit at
-  // 0 until then. That leaves X, Y, Rx and Ry for the two levers and the EX module's two
-  // thumb wheels, and nothing says which pair is which: the levers are taken to be Rx
-  // (right) and Ry (left), as on the Orion 2 throttle, whose wheel and knob are on Z and Rz
-  // too. None of the four springs back, so each reads as a lever, and each reads the
-  // owner's resting position (Rx and Ry at the top of their range, X and Y at the bottom)
-  // as pulled right back.
-  // Not confirmed: which way the small switch under the left handle slides (the diagram's
-  // order is taken as left to right). Beta until an owner has confirmed every label and
-  // named the rest.
+  // WINCTRL (WINWING) URSA MINOR Combat Throttle Metal.EX (GitHub issue #25): the Combat
+  // Throttle with the EX module down its right side. Button numbers are from an owner's
+  // screenshots of the test screen in WINWING's SimAppPro, which numbers every control: 1
+  // to 81, bar 26.
+  // On the base, 1 to 8 are B1 to B8, 9 to 11 the MODE knob's three positions, and 12 to
+  // 15 the two encoders, a button each way. Each lever also holds a button where it
+  // stands: at MAX AB, MIL AB, IDLE and OFF, and one more that the screen draws between
+  // IDLE and OFF and the owner finds held at OFF too.
+  // On the EX module, 62 is START and the twelve positions printed SW1 to SW12 follow as
+  // 63 to 74: two three-way toggles, then two rockers, each with a short-press button in
+  // its middle. The RUD TRIM knob springs back to its middle, and each thumb wheel holds
+  // one of two buttons.
+  // SimAppPro draws the levers on Rx and Ry, reading 65535 at MAX AB and 0 at OFF, so
+  // neither is reversed. It draws the finger wheel on Z, which would read as a lever (it
+  // springs back to the middle), and the knob on Rz, which would read as a twist (it stays
+  // where it is turned). The ministick is on Slider and Dial, which only move once it is
+  // switched from buttons to analog and sit at 0 until then. X and Y are taken to be the
+  // EX module's two thumb wheels, switched to analog the same way: WINWING counts 22 more
+  // inputs with the module than without, and it has 20 buttons. They read as levers.
+  // Not confirmed: which lever is which (Rx is taken to be the right one, as on the Orion 2
+  // throttle, though SimAppPro draws it to the left of Ry), which thumb wheel is X, and
+  // which way the small switch under the left handle slides. Beta until an owner has
+  // confirmed every label.
   '4098:b970': {
     id: 'ursaminorcombatthrottle',
-    name: 'URSA MINOR Combat Throttle',
+    name: 'URSA MINOR Combat Metal.EX',
     support: 'beta',
     names: {
+      ...numbered(1, 8, (n) => `B${n} Button`),
+      ...positions(9, 'Mode', 'M1', 'M2', 'M3'),
+      ...positions(12, 'E1 / E2 Knob', 'Left', 'Right'),
+      ...positions(14, 'E3 / E4 Knob', 'Left', 'Right'),
+      ...positions(16, 'Right Throttle', 'Max AB', 'Mil AB', 'Idle', 'Off'),
+      ...positions(20, 'Left Throttle', 'Max AB', 'Mil AB', 'Idle', 'Off'),
+      btn24: 'Right Throttle Below Idle',
+      btn25: 'Left Throttle Below Idle',
       btn27: 'Thumb Button',
       btn28: 'Inner Finger Button',
       btn29: 'Outer Finger Button',
@@ -676,6 +690,13 @@ export const SKINS = Object.freeze({
       btn56: 'Knob Push',
       ...positions(57, 'Finger Wheel', 'Middle', 'Up', 'Down'),
       ...positions(60, 'Slide Switch', 'Left', 'Right'),
+      btn62: 'Start Button',
+      ...numbered(63, 12, (n) => `SW${n}`),
+      ...positions(75, 'Rud Trim', 'Left', 'Middle', 'Right'),
+      ...positions(78, 'Front Wheel', 'Up', 'Down'),
+      ...positions(80, 'Rear Wheel', 'Up', 'Down'),
+      x: 'Thumb Wheel X',
+      y: 'Thumb Wheel Y',
       z: 'Finger Wheel',
       rx: 'Right Throttle',
       ry: 'Left Throttle',
@@ -684,8 +705,8 @@ export const SKINS = Object.freeze({
       dial: 'Ministick Y',
     },
     hints: {
-      x: '',
-      y: '',
+      x: 'Thumb wheel in analog mode',
+      y: 'Thumb wheel in analog mode',
       z: 'Wheel on the front of the right handle',
       rx: 'Throttle lever',
       ry: 'Throttle lever',
@@ -697,8 +718,8 @@ export const SKINS = Object.freeze({
       x: { centered: false, invert: false },
       y: { centered: false, invert: false },
       z: { centered: true },
-      rx: { centered: false, invert: true },
-      ry: { centered: false, invert: true },
+      rx: { centered: false, invert: false },
+      ry: { centered: false, invert: false },
       rz: { centered: false, deadzone: 0.02 },
       slider: { centered: true, invert: false },
       dial: { centered: true, invert: true },

@@ -2134,61 +2134,121 @@ const URSA_MINOR_COMBAT_STICK = {
 };
 
 // Seen from behind and to the right, like the stick: the pilot sits bottom left and forward
-// is up and to the right. The right handle's end, under the thumb, faces the camera. The
-// ministick, the finger wheel and the two finger buttons are on the front of the handles
-// and the toggle is on the left handle's far end: all out of sight, they point at the
-// handles' top edge above where each one sits. The ministick and the wheel come in from
-// the right, as lines from the left to that edge would cross. The labels on the right are
-// in the order that keeps their lines from crossing. The base and its knobs have no
-// labels: WINWING's diagram doesn't number them.
+// is up and to the right. The base's own panel is nearest, on the left: B1 to B8, the MODE
+// knob and the two encoders. The EX module runs down the right side, from the RUD TRIM
+// knob at the back to START at the front, its two thumb wheels on its outer face.
+// With 81 buttons it has more controls than there is room to show dropdowns for, so every
+// one gets its own line and a folded label; the labels are in the order that keeps the
+// lines from crossing or running over another dot. The eight B buttons share a label.
+// The right handle's end, under the thumb, faces the camera. The ministick, the finger
+// wheel and the two finger buttons are on the front of the handles and the toggle is on
+// the left handle's far end: all out of sight, they point at the handles' edge nearest
+// where each one sits.
 const URSA_MINOR_COMBAT_THROTTLE = {
-  alt: 'WINCTRL URSA MINOR Combat Throttle, seen from behind',
+  alt: 'WINCTRL URSA MINOR Combat Throttle Metal.EX, seen from behind',
   dense: true,
-  image: { src: 'assets/ursa-minor-combat-throttle.png', width: 1100, height: 1101, x: 450, y: 160, scale: 0.6 },
+  folded: true,
+  image: { src: 'assets/ursa-minor-combat-throttle-ex.png', width: 1200, height: 1192, x: 428, y: 130, scale: 0.62 },
   columns: {
-    left: { edge: 430, anchor: 444, elbow: 500 },
-    right: { edge: 1170, anchor: 1156, elbow: 1100 },
+    left: { edge: 330, anchor: 344, elbow: 400 },
+    right: { edge: 1270, anchor: 1256, elbow: 1200 },
   },
   callouts: [
-    ...stack('left', 88, [
+    ...fold('left', 356, [
+      { id: 'toggle', name: 'Toggle', tag: 'FAR END', at: [430, 161], columns: 2, group: threeWay(33) },
       {
         id: 'fingerbuttons',
         name: 'Finger Buttons',
         tag: 'FRONT',
-        at: [565, 68],
+        at: [668, 88],
         columns: 2,
         group: leftToRight(labelled(['btn29', 'Outer'], ['btn28', 'Inner'])),
       },
-      { id: 'toggle', name: 'Toggle', tag: 'FAR END', at: [405, 150], columns: 2, group: threeWay(33) },
-      { id: 'slide', name: 'Slide Switch', at: [494, 253], columns: 2, group: leftToRight(labelled(['btn60', 'Left'], ['btn61', 'Right'])) },
-      { id: 'btn27', at: [833, 316] },
-      { id: 'rearhat', name: 'Rear Hat', at: [784, 379], columns: 2, group: buttonHat(36) },
-      { id: 'ry', at: [529, 445] },
-      { id: 'rx', at: [651, 512] },
+      { id: 'slide', name: 'Slide Switch', at: [532, 277], columns: 2, group: leftToRight(labelled(['btn60', 'Left'], ['btn61', 'Right'])) },
+      {
+        id: 'leftthrottle',
+        name: 'Left Throttle',
+        at: [566, 485],
+        columns: 2,
+        group: [{ id: 'ry', wide: true }, ...labelled(['btn20', 'Max'], ['btn21', 'Mil'], ['btn22', 'Idle'], ['btn25', 'Below'], ['btn23', 'Off'])],
+      },
+      {
+        id: 'rightthrottle',
+        name: 'Right Throttle',
+        at: [700, 559],
+        columns: 2,
+        group: [{ id: 'rx', wide: true }, ...labelled(['btn16', 'Max'], ['btn17', 'Mil'], ['btn18', 'Idle'], ['btn24', 'Below'], ['btn19', 'Off'])],
+      },
+      {
+        id: 'bbuttons',
+        name: 'B Buttons',
+        tag: 'B1–B8',
+        at: [400, 745],
+        via: [[592, 542]],
+        columns: 2,
+        group: leftToRight(labelled(['btn1', 'B1'], ['btn2', 'B2'], ['btn3', 'B3'], ['btn4', 'B4'], ['btn5', 'B5'], ['btn6', 'B6'], ['btn7', 'B7'], ['btn8', 'B8'])),
+      },
+      { id: 'mode', name: 'Mode', tag: 'KNOB', at: [145, 765], columns: 2, group: leftToRight(labelled(['btn9', 'M1'], ['btn10', 'M2'], ['btn11', 'M3'])) },
+      {
+        id: 'encoder1',
+        name: 'E1 / E2',
+        tag: 'ENCODER',
+        at: [265, 837],
+        columns: 2,
+        group: leftToRight([
+          { id: 'btn12', dir: 'left' },
+          { id: 'btn13', dir: 'right' },
+        ]),
+      },
+      {
+        id: 'encoder2',
+        name: 'E3 / E4',
+        tag: 'ENCODER',
+        at: [341, 885],
+        columns: 2,
+        group: leftToRight([
+          { id: 'btn14', dir: 'left' },
+          { id: 'btn15', dir: 'right' },
+        ]),
+      },
     ]),
-    ...stack('right', 88, [
+    // The EX module's knob, a line lower so that its line runs under the encoders' lettering.
+    ...fold('left', 730, [
+      {
+        id: 'rudtrim',
+        name: 'Rud Trim',
+        tag: 'KNOB',
+        at: [477, 967],
+        columns: 2,
+        group: leftToRight([
+          { id: 'btn75', dir: 'left' },
+          { id: 'btn77', dir: 'right' },
+          { id: 'btn76', dir: 'push' },
+        ]),
+      },
+    ]),
+    ...fold('right', 210, [
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'FRONT',
+        at: [1010, 124],
+        columns: 2,
+        group: [{ id: 'slider', label: 'X', wide: true }, { id: 'dial', label: 'Y', wide: true }, ...pushHat(51)],
+      },
+      { id: 'knob', name: 'Knob', at: [1136, 151], columns: 2, group: [{ id: 'rz', wide: true }, { id: 'btn56', dir: 'push' }] },
       {
         id: 'fingerwheel',
         name: 'Finger Wheel',
         tag: 'FRONT',
-        at: [823, 95],
+        at: [889, 100],
         columns: 2,
         group: [{ id: 'z', wide: true }, { id: 'btn58', dir: 'up' }, { id: 'btn59', dir: 'down' }, { id: 'btn57', dir: 'push' }],
       },
       {
-        id: 'ministick',
-        name: 'Ministick',
-        tag: 'FRONT · BUTTONS OR ANALOG',
-        at: [933, 116],
-        columns: 2,
-        group: [{ id: 'slider', label: 'X', wide: true }, { id: 'dial', label: 'Y', wide: true }, ...pushHat(51)],
-      },
-      { id: 'knob', name: 'Knob', at: [1047, 141], columns: 2, group: [{ id: 'rz', wide: true }, { id: 'btn56', dir: 'push' }] },
-      { id: 'thumbswitch', name: 'Thumb Switch', at: [991, 291], columns: 2, group: threeWay(30) },
-      {
         id: 'tophat',
         name: 'Top Hat',
-        at: [889, 239],
+        at: [962, 262],
         columns: 2,
         group: [
           { id: 'btn47', dir: 'up' },
@@ -2198,10 +2258,12 @@ const URSA_MINOR_COMBAT_THROTTLE = {
           { id: 'btn50', dir: 'push' },
         ],
       },
+      { id: 'thumbswitch', name: 'Thumb Switch', at: [1074, 318], columns: 2, group: threeWay(30) },
+      { id: 'btn27', at: [900, 342] },
       {
         id: 'fronthat',
         name: 'Front Hat',
-        at: [907, 354],
+        at: [984, 388],
         columns: 2,
         group: [
           { id: 'btn42', dir: 'up' },
@@ -2211,25 +2273,51 @@ const URSA_MINOR_COMBAT_THROTTLE = {
           { id: 'btn45', dir: 'push' },
         ],
       },
+      { id: 'rearhat', name: 'Rear Hat', at: [847, 415], columns: 2, group: buttonHat(36) },
+      { id: 'btn62', at: [1080, 585] },
+      { id: 'sw1', name: 'SW1–SW3', tag: 'TOGGLE', at: [975, 622], columns: 2, group: labelled(['btn63', 'SW1'], ['btn64', 'SW2'], ['btn65', 'SW3']) },
+      { id: 'sw4', name: 'SW4–SW6', tag: 'TOGGLE', at: [870, 692], columns: 2, group: labelled(['btn66', 'SW4'], ['btn67', 'SW5'], ['btn68', 'SW6']) },
+      {
+        id: 'frontwheel',
+        name: 'Front Wheel',
+        at: [1097, 710],
+        columns: 2,
+        group: [
+          { id: 'btn78', dir: 'up' },
+          { id: 'btn79', dir: 'down' },
+        ],
+      },
+      {
+        id: 'rearwheel',
+        name: 'Rear Wheel',
+        at: [965, 785],
+        columns: 2,
+        group: [
+          { id: 'btn80', dir: 'up' },
+          { id: 'btn81', dir: 'down' },
+        ],
+      },
+      { id: 'sw7', name: 'SW7–SW9', tag: 'ROCKER', at: [725, 830], columns: 2, group: labelled(['btn69', 'SW7'], ['btn70', 'SW8'], ['btn71', 'SW9']) },
+      { id: 'sw10', name: 'SW10–SW12', tag: 'ROCKER', at: [662, 867], columns: 2, group: labelled(['btn72', 'SW10'], ['btn73', 'SW11'], ['btn74', 'SW12']) },
     ]),
   ],
   // Along each lever's slot; forward is up, towards the handles.
   guides: {
     ry: {
-      path: 'M 733.8 485.8 L 748.8 427',
+      path: 'M 740.7 497.8 L 757.7 431',
       arrows: [
-        [733.8, 485.8, 104.3],
-        [748.8, 427, -75.7],
+        [740.7, 497.8, 104.3],
+        [757.7, 431, -75.7],
       ],
-      point: (v) => [741.3 + v * 7.5, 456.4 - v * 29.4],
+      point: (v) => [749.2 + v * 8.5, 464.4 - v * 33.4],
     },
     rx: {
-      path: 'M 809.4 529.6 L 822 469',
+      path: 'M 826.6 547.6 L 840.9 478.8',
       arrows: [
-        [809.4, 529.6, 101.7],
-        [822, 469, -78.3],
+        [826.6, 547.6, 101.7],
+        [840.9, 478.8, -78.3],
       ],
-      point: (v) => [815.7 + v * 6.3, 499.3 - v * 30.3],
+      point: (v) => [833.75 + v * 7.15, 513.2 - v * 34.4],
     },
   },
 };

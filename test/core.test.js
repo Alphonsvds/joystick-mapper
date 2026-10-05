@@ -370,9 +370,10 @@ const URSA_STICK_LAYOUT = {
 const URSA_STICK = { vendorId: 0x4098, productId: 0xbc2a, name: 'Winwing WINCTRL URSA MINOR Combat Joystick R' };
 const URSA_STICK_REST = [15, 0x8000, 0x8000, 0xb1d4, 0x800, 0x800, 0, 0];
 
-// Throttle: x, y, z, rx, ry, rz, slider, dial and four vendor bytes. X and Y rest at the
-// bottom of their range and Rx and Ry at the top; the finger wheel and the knob sit in
-// the middle, and the ministick, sending buttons, leaves Slider and Dial at 0.
+// Throttle: x, y, z, rx, ry, rz, slider, dial and four vendor bytes. Both levers are at MAX
+// AB, the top of Rx and Ry; the finger wheel and the knob sit in the middle, and the
+// ministick and the thumb wheels, sending buttons, leave Slider, Dial, X and Y at 0. Every
+// button held is a switch, a knob or a lever resting in one of its positions.
 const URSA_THROTTLE_LAYOUT = {
   values: [
     { page: 1, usage: 0x30, min: 0, max: 65535 },
@@ -1205,18 +1206,18 @@ test('the URSA MINOR Combat stick reads its twist on Z as a twist, right reading
   assert.equal(generic.axes.find((a) => a.id === 'z').centered, false);
 });
 
-test('the URSA MINOR Combat throttle reads its levers as levers, and its finger wheel and ministick as centred', () => {
+test('the URSA MINOR Combat throttle reads its levers as levers, forward at MAX AB, and names its base and EX module', () => {
   const model = describeDevice(URSA_THROTTLE_LAYOUT, URSA_THROTTLE);
   assert.equal(model.key, '4098:b970');
   assert.equal(model.skin, 'ursaminorcombatthrottle');
   assert.equal(model.support, 'beta'); // until an owner has confirmed every label
-  assert.equal(model.name, 'URSA MINOR Combat Throttle');
+  assert.equal(model.name, 'URSA MINOR Combat Metal.EX');
   const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
-  assert.deepEqual(axis.rx, ['Right Throttle', false, true, undefined]);
-  assert.deepEqual(axis.ry, ['Left Throttle', false, true, undefined]);
-  // Which of X / Y and Rx / Ry are the levers isn't known: neither pair springs back.
-  assert.deepEqual(axis.x, ['X Axis', false, false, undefined]);
-  assert.deepEqual(axis.y, ['Y Axis', false, false, undefined]);
+  // WINWING's test screen draws the levers on Rx and Ry, reading 65535 at MAX AB.
+  assert.deepEqual(axis.rx, ['Right Throttle', false, false, undefined]);
+  assert.deepEqual(axis.ry, ['Left Throttle', false, false, undefined]);
+  assert.deepEqual(axis.x, ['Thumb Wheel X', false, false, undefined]);
+  assert.deepEqual(axis.y, ['Thumb Wheel Y', false, false, undefined]);
   assert.deepEqual(axis.z, ['Finger Wheel', true, true, undefined]);
   assert.deepEqual(axis.rz, ['Knob', false, false, 0.02]);
   assert.deepEqual(axis.slider, ['Ministick X', true, false, undefined]);
@@ -1224,9 +1225,16 @@ test('the URSA MINOR Combat throttle reads its levers as levers, and its finger 
   assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['z', 'slider', 'dial']);
   assert.deepEqual(model.hats, []);
   assert.equal(model.buttons, 90);
-  assert.deepEqual([1, 26, 27, 28, 29, 30, 31, 33, 34, 36, 40, 41, 42, 45, 46, 47, 50, 51, 52, 55, 56, 57, 58, 59, 60, 61, 62].map((b) => model.buttonNames[`btn${b}`]), [
-    'Button 1', // the base isn't on WINWING's diagram
-    'Button 26',
+  // Every button on the test screen is named: 1 to 81, bar 26.
+  const generic = Object.entries(model.buttonNames).filter(([, name]) => /^Button \d+$/.test(name)).map(([id]) => Number(id.slice(3)));
+  assert.deepEqual(generic, [26, ...Array.from({ length: 9 }, (_, i) => 82 + i)]);
+  const names = (...buttons) => buttons.map((b) => model.buttonNames[`btn${b}`]);
+  assert.deepEqual(names(1, 8, 9, 11, 12, 13, 14, 15), ['B1 Button', 'B8 Button', 'Mode M1', 'Mode M3', 'E1 / E2 Knob Left', 'E1 / E2 Knob Right', 'E3 / E4 Knob Left', 'E3 / E4 Knob Right']);
+  // The owner's list of what each lever holds: 16 and 20 at MAX AB, 17 and 21 at MIL AB,
+  // 18 and 22 at IDLE, and 19, 23, 24 and 25 together at OFF.
+  assert.deepEqual(names(16, 17, 18, 19, 24), ['Right Throttle Max AB', 'Right Throttle Mil AB', 'Right Throttle Idle', 'Right Throttle Off', 'Right Throttle Below Idle']);
+  assert.deepEqual(names(20, 21, 22, 23, 25), ['Left Throttle Max AB', 'Left Throttle Mil AB', 'Left Throttle Idle', 'Left Throttle Off', 'Left Throttle Below Idle']);
+  assert.deepEqual(names(27, 28, 29, 30, 31, 33, 34, 36, 40, 41, 42, 45, 46, 47, 50, 51, 52, 55, 56, 57, 58, 59, 60, 61), [
     'Thumb Button',
     'Inner Finger Button',
     'Outer Finger Button',
@@ -1251,17 +1259,33 @@ test('the URSA MINOR Combat throttle reads its levers as levers, and its finger 
     'Finger Wheel Down',
     'Slide Switch Left',
     'Slide Switch Right',
-    'Button 62', // nor is the EX module
+  ]);
+  // The EX module: START, then SW1 to SW12 as printed, the RUD TRIM knob and the wheels.
+  assert.deepEqual(names(62, 63, 65, 66, 68, 69, 74, 75, 76, 77, 78, 79, 80, 81), [
+    'Start Button',
+    'SW1',
+    'SW3',
+    'SW4',
+    'SW6',
+    'SW7',
+    'SW12',
+    'Rud Trim Left',
+    'Rud Trim Middle',
+    'Rud Trim Right',
+    'Front Wheel Up',
+    'Front Wheel Down',
+    'Rear Wheel Up',
+    'Rear Wheel Down',
   ]);
 
-  // The owner's last report: all four of X, Y, Rx and Ry read as pulled right back, and
-  // the finger wheel and the knob as in the middle.
+  // The owner's last report: both levers at MAX AB read fully forward, the thumb wheels'
+  // axes as pulled right back, and the finger wheel and the knob as in the middle.
   const rest = normalizeInput(decoded(URSA_THROTTLE_REST, URSA_THROTTLE_HELD), model, {});
-  assert.deepEqual(['x', 'y', 'rx', 'ry'].map((id) => rest.axes[id]), [-1, -1, -1, -1]);
+  assert.deepEqual(['x', 'y', 'rx', 'ry'].map((id) => rest.axes[id]), [-1, -1, 1, 1]);
   for (const id of ['z', 'rz']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
-  // Pushed forward, Rx and Ry read 0.
-  const forward = normalizeInput(decoded([65535, 65535, 0x8000, 0, 0, 0x8000, 0, 0, 0, 0, 0, 0]), model, {}).axes;
-  assert.deepEqual(['x', 'y', 'rx', 'ry'].map((id) => forward[id]), [1, 1, 1, 1]);
+  // Pulled back to OFF, Rx and Ry read 0.
+  const off = normalizeInput(decoded([0, 0, 0x8000, 0, 0, 0x8000, 0, 0, 0, 0, 0, 0]), model, {}).axes;
+  assert.deepEqual([off.rx, off.ry], [-1, -1]);
   // Switched to analog, the ministick rests in the middle and reads right and up as positive.
   const ministick = (slider, dial) => {
     const { axes } = normalizeInput(decoded([0, 0, 0x8000, 0xffff, 0xffff, 0x8000, slider, dial, 0, 0, 0, 0]), model, {});
@@ -1269,19 +1293,29 @@ test('the URSA MINOR Combat throttle reads its levers as levers, and its finger 
   };
   assert.ok(ministick(0x8000, 0x8000).every((v) => Math.abs(v) < 0.001));
   assert.deepEqual(ministick(65535, 0), [1, 1]);
-  // Every handle control it was holding is a switch resting in a named position; the rest
-  // are on the base and the EX module.
-  const held = URSA_THROTTLE_HELD.map((b) => model.buttonNames[`btn${b}`]);
-  assert.deepEqual(
-    held.filter((name) => !name.startsWith('Button ')),
-    ['Thumb Switch Middle', 'Toggle Middle', 'Finger Wheel Middle', 'Slide Switch Right'],
-  );
+  // Every button it was holding is a position something rests in: the MODE knob on M1,
+  // both levers at MAX AB, each three-way switch and the RUD TRIM knob on its middle, and
+  // each thumb wheel on one of its two.
+  assert.deepEqual(names(...URSA_THROTTLE_HELD), [
+    'Mode M1',
+    'Right Throttle Max AB',
+    'Left Throttle Max AB',
+    'Thumb Switch Middle',
+    'Toggle Middle',
+    'Finger Wheel Middle',
+    'Slide Switch Right',
+    'SW2',
+    'SW5',
+    'Rud Trim Middle',
+    'Front Wheel Down',
+    'Rear Wheel Down',
+  ]);
   // Without the skin the four read as two sticks held in opposite corners, and the knob
   // as a twist.
-  const generic = describeDevice(URSA_THROTTLE_LAYOUT, { ...URSA_THROTTLE, ignoreSkin: true });
-  const loose = normalizeInput(decoded(URSA_THROTTLE_REST), generic, {}).axes;
+  const plain = describeDevice(URSA_THROTTLE_LAYOUT, { ...URSA_THROTTLE, ignoreSkin: true });
+  const loose = normalizeInput(decoded(URSA_THROTTLE_REST), plain, {}).axes;
   assert.deepEqual([loose.x, loose.y, loose.rx, loose.ry], [-1, 1, 1, -1]);
-  assert.equal(generic.axes.find((a) => a.id === 'rz').centered, true);
+  assert.equal(plain.axes.find((a) => a.id === 'rz').centered, true);
 });
 
 test('the URSA MINOR Combat pair take the stick and throttle roles whichever order they are found in', () => {
@@ -1881,14 +1915,10 @@ test('every photo layout points only at controls its stick has, each one once', 
       for (const b of spots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * LAYOUTS[skin].image.scale >= 24, `${skin}: ${a} and ${b}`);
     }
   }
-  // Both URSA MINOR photos show every control WINWING's diagrams number, each one named:
-  // on the stick its 14 base buttons, 20 and 22 to 48, the hat and all six axes; on the
-  // throttle the handles' 27 to 61, and the levers and the four axes the diagram gives.
-  // Their labels fit above the bottom of the stage, each with a dot clear of the others.
-  for (const [key, skin, buttons, axes] of [
-    ['4098:bc2a', 'ursaminorcombatstick', [...range(1, 14), 20, ...range(22, 48)], ['rx', 'ry', 'slider', 'x', 'y', 'z']],
-    ['4098:b970', 'ursaminorcombatthrottle', range(27, 61), ['dial', 'rx', 'ry', 'rz', 'slider', 'z']],
-  ]) {
+  // The URSA MINOR stick's photo shows every control WINWING's diagram numbers, each one
+  // named: its 14 base buttons, 20 and 22 to 48, the hat and all six axes. Its labels fit
+  // above the bottom of the stage, each with a dot clear of the others.
+  for (const [key, skin, buttons, axes] of [['4098:bc2a', 'ursaminorcombatstick', [...range(1, 14), 20, ...range(22, 48)], ['rx', 'ry', 'slider', 'x', 'y', 'z']]]) {
     const layout = LAYOUTS[skin];
     const shown = shownBy(layout.callouts);
     assert.deepEqual(numbers(shown), buttons, skin);
@@ -1904,6 +1934,33 @@ test('every photo layout points only at controls its stick has, each one once', 
     for (const [i, a] of spots.entries()) {
       for (const b of spots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * layout.image.scale >= 24, `${skin}: ${a} and ${b}`);
     }
+  }
+  // The URSA MINOR throttle's photo is the Metal.EX: a line to each of its 25 controls,
+  // which between them are every button on WINWING's test screen (1 to 81, bar 26), the
+  // levers and the four axes that screen draws. Too many to show unfolded. The thumb
+  // wheels' axes are left to the list: which wheel is which isn't known.
+  const ursaThrottle = shownBy(LAYOUTS.ursaminorcombatthrottle.callouts);
+  assert.equal(LAYOUTS.ursaminorcombatthrottle.folded, true);
+  assert.equal(LAYOUTS.ursaminorcombatthrottle.callouts.length, 25);
+  assert.deepEqual(numbers(ursaThrottle), [...range(1, 25), ...range(27, 81)]);
+  assert.deepEqual(ursaThrottle.filter((id) => !/^btn/.test(id)).sort(), ['dial', 'rx', 'ry', 'rz', 'slider', 'z']);
+  assert.equal(new Set(ursaThrottle).size, ursaThrottle.length);
+  assert.deepEqual(Object.keys(SKINS['4098:b970'].names).filter((id) => !ursaThrottle.includes(id)).sort(), ['x', 'y']);
+  for (const id of ursaThrottle) assert.ok(SKINS['4098:b970'].names[id], `${id} has a name`);
+  // Each lever's label holds its own axis and the five buttons that follow it.
+  const lever = (id) => LAYOUTS.ursaminorcombatthrottle.callouts.find((c) => c.id === id).group.map((item) => item.id);
+  assert.deepEqual(lever('rightthrottle'), ['rx', 'btn16', 'btn17', 'btn18', 'btn24', 'btn19']);
+  assert.deepEqual(lever('leftthrottle'), ['ry', 'btn20', 'btn21', 'btn22', 'btn25', 'btn23']);
+  // Each line has its own dot, on the photo and clear of the others, and the labels stop
+  // above the bottom of the stage.
+  const { image } = LAYOUTS.ursaminorcombatthrottle;
+  const ursaDots = LAYOUTS.ursaminorcombatthrottle.callouts.map((c) => c.at);
+  for (const [i, a] of ursaDots.entries()) {
+    assert.ok(a[0] >= 0 && a[0] <= image.width && a[1] >= 0 && a[1] <= image.height, `${a} is on the photo`);
+    for (const b of ursaDots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * image.scale >= 24, `${a} and ${b}`);
+  }
+  for (const side of ['left', 'right']) {
+    assert.ok(LAYOUTS.ursaminorcombatthrottle.callouts.filter((c) => c.side === side).at(-1).y <= (side === 'left' ? 880 : 910), `the ${side} labels run off the stage`);
   }
   assert.ok(shownBy(LAYOUTS.ursaminorcombatstick.callouts).includes('hat1_up'));
 });

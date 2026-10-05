@@ -81,7 +81,7 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 ![Photo layout: the WINCTRL URSA MINOR Combat Joystick with an Ace Combat 8 profile loaded](docs/screenshot-ursa-minor-stick.png)
 <sub>**WINCTRL URSA MINOR Combat Joystick R** (beta)</sub>
 
-![Photo layout: the WINCTRL URSA MINOR Combat Throttle with an Ace Combat 8 profile loaded](docs/screenshot-ursa-minor-throttle.png)
+![Photo layout: the WINCTRL URSA MINOR Combat Throttle Metal.EX with an Ace Combat 8 profile loaded](docs/screenshot-ursa-minor-throttle.png)
 <sub>**WINCTRL URSA MINOR Combat Throttle Metal.EX** (beta)</sub>
 
 ![Photo layout: the Thrustmaster Sol-R right stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-right.png)
@@ -117,7 +117,7 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX (base and EX module buttons not named yet)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and

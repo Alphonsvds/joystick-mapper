@@ -434,7 +434,7 @@ const SIMULATED = [
   },
   // The WINCTRL URSA MINOR Combat pair, as real ones report (GitHub issues #24 and #25).
   // The stick twists on Z and has its throttle slider on Slider; the throttle's levers are
-  // taken to be on Rx and Ry. R / F move the slider and the levers, Q / E the twist.
+  // on Rx and Ry. R / F move the slider and the levers, Q / E the twist.
   {
     vendorId: 0x4098,
     productId: 0xbc2a,
