@@ -18,34 +18,6 @@
 So this app makes your flight stick show up to games as an Xbox 360 controller.
 Map the stick once and fly with it in any game that only understands gamepads.
 
-## Features
-
-- **Any USB flight stick, throttle or pedals.** [Supported sticks](#supported-joysticks)
-  get a photo layout with named controls; every other stick gets the universal layout.
-- **Multiple devices at once.** Plug in a stick, throttle and pedals (a full
-  [HOTAS](#hotas-stick-throttle-and-pedals-together)), even a gamepad beside them: they
-  all work together as one Xbox controller, mapped in one profile.
-- **[Xbox and PlayStation controllers](#xbox-and-playstation-controllers)** can be
-  remapped too, starting from a ready-made template.
-- **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
-  or quicker control near centre) and anti-deadzone. See [Using it](#using-it).
-- **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad.
-- **Combos on one button:** a single stick button can press L3 + R3, LB + RB or LT + RT
-  together (like dropping flares in Ace Combat 8).
-- **A profile per game**, with Ace Combat 8 as a starting point. Export and import them to
-  share or back up.
-- **Stays out of the way.** The built-in **Default** profile leaves your stick alone, so
-  games that already support it (like Microsoft Flight Simulator) work as normal.
-- **See what the game sees.** Changes apply live, and an Xbox controller at the bottom of
-  the screen shows exactly what the game is receiving.
-- **Game controls sheet.** Ace Combat 8's own gamepad layout opens in its own window, so
-  you can decide what goes where while you map.
-- **Calibrates itself** the first time the stick is at rest, with **Recenter** if it ever
-  drifts.
-- **Larger text** with the **Aa** button.
-- **Updates itself** when a new release is out.
-- **Windows and Linux** (experimental).
-
 ## How to install
 
 Click this -->[![Latest release](https://img.shields.io/github/v/release/Alphonsvds/joystick-mapper)](https://github.com/Alphonsvds/joystick-mapper/releases/latest)<-- or **Releases** on the right side, then download the file for your computer from the
@@ -140,15 +112,6 @@ latest release:
 | **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
-On Linux every stick is read the same way as on Windows, with the same layouts, but Linux
-itself is still experimental: nothing has been confirmed on a real Linux machine yet.
-
-Beta sticks have a photo layout whose labels haven't all been checked on the real stick
-yet. If a line points at the wrong control, please say so in an issue.
-
-A Gladiator fitted with VKB's Omni Throttle adapter still reports as the stick: pick
-**Omni Throttle photo** in the Joystick menu.
-
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and
 paste it into a
 [Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml).
@@ -159,8 +122,7 @@ Step by step: [Getting your joystick supported](docs/joystick-support.md).
 Plug in more than one device and they all work at once, as a single Xbox controller.
 The joystick button in the top bar gains an arrow: click it to pick which device you're
 mapping. Each one gets a role (**Stick**, **Throttle**, **Pedals** or **Extra**), guessed
-from its name; change it in the same menu if the guess is wrong. One profile holds the
-mapping for all of them, and unplugging a device only switches off its own controls.
+from its name; change it in the same menu if the guess is wrong. They work independently and togeher.
 
 ## Xbox and PlayStation controllers
 
@@ -177,7 +139,36 @@ The game still sees the real controller beside the remapped one. Hide the real o
 [HidHide](https://github.com/nefarius/HidHide), with Joystick Mapper on its list of
 applications, so only your mapping is read.
 
-Next to a flight stick, a controller comes up as **Extra** and does nothing until you map it.
+Next to a flight stick, a controller comes up as **Extra**/
+
+## Features
+
+- **Any USB flight stick, throttle or pedals.** [Supported sticks](#supported-joysticks)
+  get a photo layout with named controls; every other stick gets the universal layout.
+- **Multiple devices at once.** Plug in a stick, throttle and pedals (a full
+  [HOTAS](#hotas-stick-throttle-and-pedals-together)), even a gamepad beside them: they
+  all work together as one Xbox controller, mapped in one profile.
+- **[Xbox and PlayStation controllers](#xbox-and-playstation-controllers)** can be
+  remapped too, starting from a ready-made template.
+- **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
+  or quicker control near centre) and anti-deadzone. See [Using it](#using-it).
+- **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad.
+- **Combos on one button:** a single stick button can press L3 + R3, LB + RB or LT + RT
+  together (like dropping flares in Ace Combat 8).
+- **A profile per game**, with Ace Combat 8 as a starting point. Export and import them to
+  share or back up.
+- **Stays out of the way.** The built-in **Default** profile leaves your stick alone, so
+  games that already support it (like Microsoft Flight Simulator) work as normal.
+- **See what the game sees.** Changes apply live, and an Xbox controller at the bottom of
+  the screen shows exactly what the game is receiving.
+- **Game controls sheet.** Ace Combat 8's own gamepad layout opens in its own window, so
+  you can decide what goes where while you map.
+- **Calibrates itself** the first time the stick is at rest, with **Recenter** if it ever
+  drifts.
+- **Larger text** with the **Aa** button.
+- **Updates itself** when a new release is out.
+- **Windows and Linux** (experimental).
+
 
 ## Download
 
@@ -269,6 +260,7 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
 
 - **The app has to be running while you play.** It translates the stick live; closing it
   unplugs the virtual controller. Minimising is fine.
+- **You can change and save different mappings while you play.** This helps to tweak things without restarting your game.
 - **Unplug (or turn off) other controllers** while flying with the stick. Many games only
   listen to player 1, and a real gamepad plugged in first takes that slot.
 - **Games still see the physical joystick too.** Games without joystick support ignore it.
