@@ -1,5 +1,5 @@
 // Pure mapping engine: joystick state + bindings -> Xbox 360 (XUSB) report.
-import { TARGET_BY_ID, XUSB, controlKind } from './controls.js';
+import { DEFAULT_PRESS_POINT, TARGET_BY_ID, XUSB, controlKind } from './controls.js';
 
 // Nothing pressed and no axis reporting (missing controls read as released / at rest).
 export const NEUTRAL_INPUT = Object.freeze({ buttons: Object.freeze({}), axes: Object.freeze({}) });
@@ -20,7 +20,8 @@ const STICK_PUSH = {
 
 const STICK_AXIS = { ls_x: 'lx', ls_y: 'ly', rs_x: 'rx', rs_y: 'ry' };
 
-// Axis targets that turn a half-axis into a digital press once past halfway.
+// Axis targets that turn a half-axis into a digital press once past its press point
+// (halfway unless set).
 const SPLIT_BUTTONS = {
   lb_rb: [XUSB.LEFT_SHOULDER, XUSB.RIGHT_SHOULDER],
   dpad_x: [XUSB.DPAD_LEFT, XUSB.DPAD_RIGHT],
@@ -102,8 +103,9 @@ export function mapInput(input, bindings) {
     } else if (SPLIT_BUTTONS[target.id]) {
       const d = applyDeadzone(v, dz);
       const [neg, pos] = SPLIT_BUTTONS[target.id];
-      if (d <= -0.5) acc.buttons |= neg;
-      else if (d >= 0.5) acc.buttons |= pos;
+      const point = binding.pressPoint ?? DEFAULT_PRESS_POINT;
+      if (d <= -point) acc.buttons |= neg;
+      else if (d >= point) acc.buttons |= pos;
     }
   }
 

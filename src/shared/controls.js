@@ -116,7 +116,8 @@ export const TARGETS = Object.freeze([
   { id: 'rs_x', name: 'Right Stick X', accepts: ['axis'], hint: 'Right stick, left ↔ right' },
   { id: 'rs_y', name: 'Right Stick Y', accepts: ['axis'], hint: 'Right stick, down ↔ up' },
   { id: 'lt_rt', name: 'LT / RT Split', accepts: ['axis'], hint: 'Back half → LT, forward half → RT' },
-  // `digital`: the axis only presses buttons, so there is no analog output to shape.
+  // `digital`: the axis only presses buttons, so there is no analog output to shape, only
+  // the point where the button presses.
   { id: 'lb_rb', name: 'LB / RB Split', accepts: ['axis'], digital: true, hint: 'Past halfway: left → LB, right → RB' },
   { id: 'dpad_x', name: 'D-Pad Left / Right', accepts: ['axis'], digital: true, hint: 'Past halfway: left / right on the D-pad' },
   { id: 'dpad_y', name: 'D-Pad Down / Up', accepts: ['axis'], digital: true, hint: 'Past halfway: down / up on the D-pad' },
@@ -150,6 +151,11 @@ export const MAX_ANTI_DEADZONE = 0.5;
 // Sensitivity: the response curve, from -1 (softer near rest) through 0 (linear) to 1
 // (sharper near rest). Off (0) unless the user sets it.
 export const MAX_SENSITIVITY = 1;
+// Press point: how far past its deadzone an axis on a button-style output (LB / RB, the
+// D-pad) moves before the button presses. Halfway unless the user sets it.
+export const DEFAULT_PRESS_POINT = 0.5;
+export const MIN_PRESS_POINT = 0.05;
+export const MAX_PRESS_POINT = 0.95;
 
 // Bindings are sparse ({ [controlId]: binding }): a stick's controls vary, and a
 // profile keeps working on another stick for the controls they share.
@@ -185,6 +191,8 @@ export function sanitizeBinding(controlId, raw) {
   if (def && !def.digital && Number.isFinite(sens) && sens !== 0) {
     clean.sensitivity = Math.min(MAX_SENSITIVITY, Math.max(-MAX_SENSITIVITY, sens));
   }
+  const press = typeof raw.pressPoint === 'number' ? Math.min(MAX_PRESS_POINT, Math.max(MIN_PRESS_POINT, raw.pressPoint)) : NaN;
+  if (def?.digital && Number.isFinite(press) && press !== DEFAULT_PRESS_POINT) clean.pressPoint = press;
   return clean;
 }
 

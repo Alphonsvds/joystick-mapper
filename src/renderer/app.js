@@ -1,7 +1,10 @@
 import {
+  DEFAULT_PRESS_POINT,
   MAX_ANTI_DEADZONE,
   MAX_DEADZONE,
+  MAX_PRESS_POINT,
   MAX_SENSITIVITY,
+  MIN_PRESS_POINT,
   ROLES,
   ROLE_NAMES,
   TARGET_BY_ID,
@@ -573,10 +576,10 @@ function renderChip(controlId) {
   const dz = dzEl[controlId];
   if (dz) {
     const values = responseSettings(controlId).map(
-      (setting) => `${setting.name} ${formatResponse(setting, binding[setting.key] ?? 0)}`,
+      (setting) => `${setting.name} ${formatResponse(setting, binding[setting.key] ?? setting.initial ?? 0)}`,
     );
     dz.disabled = !target;
-    dz.classList.toggle('is-tuned', Boolean(binding.sensitivity || binding.antiDeadzone));
+    dz.classList.toggle('is-tuned', Boolean(binding.sensitivity || binding.antiDeadzone || binding.pressPoint));
     dz.title = values.join(' · ');
     dz.setAttribute('aria-label', `${controlInfo(controlId).name} response: ${values.join(', ').toLowerCase()}`);
   }
@@ -717,7 +720,10 @@ function openPicker(controlId) {
 // (or less) while full travel still reaches 100%.
 // Anti-deadzone is about the game: output starts at this level the moment the axis
 // moves, which cancels a deadzone the game applies to the Xbox stick itself.
-// `analog`: only means something when the axis drives an analog output.
+// Press point is for an axis that presses buttons (LB / RB, the D-pad): how far it moves
+// before the button presses, so a twist can press a bumper sooner or later than halfway.
+// `analog`: only means something when the axis drives an analog output; `digital`, when
+// it presses buttons. `initial`: the value when the user hasn't set one.
 const DEADZONE = {
   key: 'deadzone',
   name: 'Deadzone',
@@ -742,15 +748,30 @@ const ANTI_DEADZONE = {
   analog: true,
   note: 'Output starts here the moment the axis moves.',
 };
-const RESPONSE = [DEADZONE, SENSITIVITY, ANTI_DEADZONE];
+const PRESS_POINT = {
+  key: 'pressPoint',
+  name: 'Press point',
+  min: MIN_PRESS_POINT,
+  max: MAX_PRESS_POINT,
+  initial: DEFAULT_PRESS_POINT,
+  digital: true,
+  note: 'The button presses once the axis is this far past its deadzone. Lower presses it sooner.',
+};
+const RESPONSE = [DEADZONE, SENSITIVITY, ANTI_DEADZONE, PRESS_POINT];
 
-// The analog settings mean nothing for an axis that presses buttons (or isn't mapped).
-function hasAnalogOutput(controlId) {
+// 'analog' for a stick or trigger output, 'digital' for one that presses buttons, null
+// for an axis that isn't mapped.
+function outputKind(controlId) {
   const target = TARGET_BY_ID[currentBinding(controlId).target];
-  return Boolean(target) && !target.digital;
+  return !target ? null : target.digital ? 'digital' : 'analog';
 }
 
-const responseSettings = (controlId) => RESPONSE.filter((setting) => !setting.analog || hasAnalogOutput(controlId));
+// The settings that mean something for what the axis drives: the deadzone always, the
+// curve and the lift for an analog output, the press point for buttons.
+function responseSettings(controlId) {
+  const kind = outputKind(controlId);
+  return RESPONSE.filter((setting) => (!setting.analog || kind === 'analog') && (!setting.digital || kind === 'digital'));
+}
 
 // "4%", or "+20%" / "−35%" for a setting that runs both ways.
 function formatResponse(setting, fraction) {
@@ -771,7 +792,7 @@ function responseSlider(parent, controlId, setting, onInput) {
   slider.min = String(min * 100);
   slider.max = String(max * 100);
   slider.step = '1';
-  slider.value = String(Math.round((currentBinding(controlId)[key] ?? 0) * 100));
+  slider.value = String(Math.round((currentBinding(controlId)[key] ?? setting.initial ?? 0) * 100));
   const value = htmlEl('output', 'pop-option-value', label);
   const show = () => (value.textContent = formatResponse(setting, Number(slider.value) / 100));
   show();
@@ -800,8 +821,10 @@ function openDeadzone(controlId) {
   closePicker({ restoreFocus: false });
   const control = controlInfo(controlId);
   const binding = currentBinding(controlId);
-  const defaults = { deadzone: axisDefaultDeadzone(controlId), sensitivity: 0, antiDeadzone: 0 };
-  const values = { deadzone: binding.deadzone, sensitivity: binding.sensitivity ?? 0, antiDeadzone: binding.antiDeadzone ?? 0 };
+  const settings = responseSettings(controlId);
+  const initial = (setting) => (setting.key === 'deadzone' ? axisDefaultDeadzone(controlId) : (setting.initial ?? 0));
+  const defaults = Object.fromEntries(settings.map((setting) => [setting.key, initial(setting)]));
+  const values = Object.fromEntries(settings.map((setting) => [setting.key, binding[setting.key] ?? initial(setting)]));
   openControl = controlId;
   openKind = 'deadzone';
   setFocus(calloutOf[controlId]);
@@ -818,18 +841,17 @@ function openDeadzone(controlId) {
   const atDefaults = () => Object.keys(defaults).every((key) => Math.round(values[key] * 100) === Math.round(defaults[key] * 100));
   const options = htmlEl('div', 'pop-options', popover);
   const fields = {};
-  const analog = hasAnalogOutput(controlId);
-  for (const setting of RESPONSE) {
+  for (const setting of settings) {
     fields[setting.key] = responseSlider(options, controlId, setting, (fraction) => {
       values[setting.key] = fraction;
       reset.disabled = atDefaults();
     });
-    if (setting.analog && !analog) fields[setting.key].slider.disabled = true;
-    else htmlEl('p', 'pop-note', options).textContent = setting.note;
+    htmlEl('p', 'pop-note', options).textContent = setting.note;
   }
-  if (!analog) {
-    const output = TARGET_BY_ID[binding.target]?.name ?? 'This output';
-    htmlEl('p', 'pop-note', options).textContent = `${output} only presses buttons, so there is no analog output to shape.`;
+  // Say where the curve and the lift went, so they don't look missing.
+  if (outputKind(controlId) === 'digital') {
+    const output = TARGET_BY_ID[binding.target].name;
+    htmlEl('p', 'pop-note', options).textContent = `${output} presses buttons. Sensitivity and anti-deadzone are for stick and trigger outputs.`;
   }
 
   const foot = htmlEl('div', 'pop-foot', popover);

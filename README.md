@@ -160,7 +160,8 @@ Next to a flight stick, a controller comes up as **Extra**/
   remapped too, starting from a ready-made template.
 - **Axis tuning, per axis:** invert, deadzone, **sensitivity** (a response curve for finer
   or quicker control near centre) and anti-deadzone. See [Using it](#using-it).
-- **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad.
+- **Axis splits:** a throttle on LT / RT, a twist on the bumpers, or an axis on the D-pad,
+  with a **press point** that sets how far it moves before the button presses.
 - **Combos on one button:** a single stick button can press L3 + R3, LB + RB or LT + RT
   together (like dropping flares in Ace Combat 8).
 - **A profile per game**, with Ace Combat 8 as a starting point. Export and import them to
@@ -236,7 +237,8 @@ many sticks and games yet, so if something's off, please
   available as a starting point that matches the game's default gamepad layout.
 - **Mapping.** Hover a label or hotspot to highlight its line. Click **NOT MAPPED** to
   pick an Xbox input. Axes also have **INV** (invert) and a **DZ/SENS** button that opens
-  their deadzone, sensitivity and anti-deadzone sliders.
+  their deadzone, sensitivity and anti-deadzone sliders, or for an axis that presses
+  buttons, its deadzone and press point.
 - **Folded labels.** A device with a lot of controls shows each one as a name with its own
   line. Click a name, or its dot, to open its dropdowns.
 - **Larger text.** **Aa**, bottom left. Every label folds, as above.
@@ -246,6 +248,9 @@ many sticks and games yet, so if something's off, please
   100% either way. **Anti-deadzone** starts the output at a set level the moment the axis
   moves, to cancel a deadzone the game applies itself. Sensitivity and anti-deadzone are
   off until you set them, and only apply to analog outputs (sticks and triggers).
+- **Press point.** For an axis on buttons (LB / RB Split, the D-pad splits): how far it
+  moves past its deadzone before the button presses. Halfway unless you change it; lower
+  it so a small twist presses a bumper, or raise it so only a full twist does.
 - **AC8 controls.** Opens Ace Combat 8's own gamepad layout in a separate window (e.g.
   "Fire missile → B"), so you can decide where each action goes on the stick.
 - **Save.** Changes apply live so you can test right away. **Save** (or Ctrl+S) keeps them.

@@ -2174,6 +2174,46 @@ test('twist past halfway presses a bumper', () => {
   assert.equal(mapInput(input({}, { rz: -0.9 }), p).buttons, XUSB.LEFT_SHOULDER);
 });
 
+test('a press point sets how far an axis on buttons moves before it presses', () => {
+  const pressed = (binding, v) => mapInput(input({}, { rz: v }), bindingsWith({ rz: binding })).buttons;
+  // Halfway past the deadzone unless set, as before it could be.
+  assert.equal(pressed({ target: 'lb_rb', deadzone: 0 }, 0.49), 0);
+  assert.equal(pressed({ target: 'lb_rb', deadzone: 0 }, 0.5), XUSB.RIGHT_SHOULDER);
+  // Lowered, a small twist presses the bumper, either way.
+  const soon = { target: 'lb_rb', deadzone: 0, pressPoint: 0.25 };
+  assert.equal(pressed(soon, 0.2), 0);
+  assert.equal(pressed(soon, 0.3), XUSB.RIGHT_SHOULDER);
+  assert.equal(pressed(soon, -0.3), XUSB.LEFT_SHOULDER);
+  // Raised, only a near-full twist does.
+  const late = { target: 'lb_rb', deadzone: 0, pressPoint: 0.9 };
+  assert.equal(pressed(late, 0.85), 0);
+  assert.equal(pressed(late, 0.95), XUSB.RIGHT_SHOULDER);
+  // It is measured past the deadzone: with 10%, a 25% press point is 32.5% of the travel.
+  const past = { target: 'lb_rb', deadzone: 0.1, pressPoint: 0.25 };
+  assert.equal(pressed(past, 0.32), 0);
+  assert.equal(pressed(past, 0.33), XUSB.RIGHT_SHOULDER);
+  // The D-pad splits use it too.
+  const dpad = { target: 'dpad_x', deadzone: 0, pressPoint: 0.25 };
+  assert.equal(pressed(dpad, 0.3), XUSB.DPAD_RIGHT);
+  assert.equal(pressed({ ...dpad, target: 'dpad_y' }, -0.3), XUSB.DPAD_DOWN);
+});
+
+test('a press point is clamped, dropped at halfway, and only kept for button-style outputs', () => {
+  assert.equal(sanitizeBinding('rz', { target: 'lb_rb', pressPoint: 0.25 }).pressPoint, 0.25);
+  assert.equal(sanitizeBinding('rz', { target: 'dpad_y', pressPoint: 0.99 }).pressPoint, 0.95);
+  assert.equal(sanitizeBinding('rz', { target: 'lb_rb', pressPoint: 0 }).pressPoint, 0.05);
+  // Halfway is the default, so it isn't stored, and a binding saved before it existed is unchanged.
+  assert.equal('pressPoint' in sanitizeBinding('rz', { target: 'lb_rb', pressPoint: 0.5 }), false);
+  assert.deepEqual(sanitizeBinding('rz', { target: 'lb_rb', deadzone: 0.1 }), { target: 'lb_rb', invert: false, deadzone: 0.1 });
+  for (const pressPoint of [null, '0.3', NaN, true]) assert.equal('pressPoint' in sanitizeBinding('rz', { target: 'lb_rb', pressPoint }), false, String(pressPoint));
+  // A stick or trigger output has no press point: moving the axis to one drops it.
+  assert.equal('pressPoint' in sanitizeBinding('rz', { target: 'rs_x', pressPoint: 0.25 }), false);
+  assert.equal('pressPoint' in sanitizeBinding('rz', { target: null, pressPoint: 0.25 }), false);
+  // It survives a save / export round trip.
+  const p = { name: 'P', bindings: bindingsWith({ rz: { target: 'lb_rb', pressPoint: 0.3 } }) };
+  assert.equal(fromExport(toExport(p)).bindings.rz.pressPoint, 0.3);
+});
+
 test('L3 + R3 presses both stick clicks from one button', () => {
   const p = bindingsWith({ btn6: { target: 'ls_rs_click' } });
   assert.equal(mapInput(input({ btn6: true }), p).buttons, XUSB.LEFT_THUMB | XUSB.RIGHT_THUMB);
