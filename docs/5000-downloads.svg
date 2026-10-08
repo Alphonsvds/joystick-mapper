@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" role="img" aria-labelledby="t">
-<title id="t">Thank you for 4,000 downloads</title>
+<title id="t">Thank you for 5,000 downloads</title>
 <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#14264a"/>
@@ -243,7 +243,7 @@
   </g>
 </g>
   <text class="sub" x="457" y="96" text-anchor="middle" fill="#e8f1ff">THANK YOU FOR</text>
-  <text class="num" x="450" y="204" text-anchor="middle" fill="url(#gold)" stroke="#8a5a00" stroke-width="1" stroke-opacity=".5">4,000</text>
+  <text class="num" x="450" y="204" text-anchor="middle" fill="url(#gold)" stroke="#8a5a00" stroke-width="1" stroke-opacity=".5">5,000</text>
   <text class="sub" x="457" y="254" text-anchor="middle" fill="#e8f1ff">DOWNLOADS</text>
 </g>
 <rect x="1" y="1" width="898" height="298" rx="17" fill="none" stroke="#ffd166" stroke-opacity=".55" stroke-width="2"/>
