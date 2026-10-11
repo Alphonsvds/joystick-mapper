@@ -2074,7 +2074,7 @@ const URSA_MINOR_COMBAT_STICK = {
       { id: 'slider', at: [156, 1195] },
     ]),
     ...stack('right', 88, [
-      { id: 'hat1', tag: 'POV', at: [554, 98], columns: 2, group: hatSwitch('hat1') },
+      { id: 'hat1', tag: 'POV', at: [554, 98], columns: 2, group: [...hatSwitch('hat1'), { id: 'btn21', dir: 'push' }] },
       { id: 'btn22', at: [654, 133] },
       {
         id: 'sidehat',

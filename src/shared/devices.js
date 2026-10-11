@@ -703,12 +703,15 @@ export const SKINS = Object.freeze({
   // URSA MINOR Combat Joystick R", GitHub issue #24). Its twist is on Z, which would read
   // as a reversed throttle lever; the stick, the ministick and the slider on the base are
   // where the generic defaults expect them, so they need names only.
-  // Button numbers and axis directions are WINWING's diagram for this stick. It draws the
-  // twist reading 65535 to the left, so Z stays reversed to read right as positive, and
-  // the slider reading 0 at MAX. The twist can be locked with a screw, as on the URSA MINOR
-  // Fighter; the owner's rested at 0xb1d4, part way over, with every other axis centred,
-  // so Recenter may be needed before it is mapped. Switched to buttons, the ministick sends
-  // 45 to 48 instead of Rx and Ry. Beta until an owner has confirmed every label.
+  // Button numbers and the slider's direction are WINWING's diagram for this stick: it
+  // draws the slider reading 0 at MAX. The diagram was first read as the twist reading
+  // 65535 to the left, and Z kept reversed for it; an owner found twisting left pressed RB
+  // (GitHub issue #40), so the twist reads high to the right and Z is not reversed.
+  // The diagram leaves out 21, which an owner found to be the POV hat's push (issue #24).
+  // The twist can be locked with a screw, as on the URSA MINOR Fighter; one owner's rested
+  // at 0xb1d4, part way over, with every other axis centred, so Recenter may be needed
+  // before it is mapped. Switched to buttons, the ministick sends 45 to 48 instead of Rx
+  // and Ry. Beta until an owner has confirmed every label.
   '4098:bc2a': {
     id: 'ursaminorcombatstick',
     name: 'URSA MINOR Combat Stick',
@@ -716,6 +719,7 @@ export const SKINS = Object.freeze({
     names: {
       ...numbered(1, 14, (n) => `Base Button ${n}`),
       btn20: 'Red Button',
+      btn21: 'POV Hat Push',
       btn22: 'Upper Grey Button',
       ...positions(23, 'Side Hat', 'Push', 'Right', 'Down', 'Left', 'Up'),
       btn28: 'Lower Grey Button',
@@ -744,7 +748,7 @@ export const SKINS = Object.freeze({
       slider: 'Slider on the base',
     },
     axes: {
-      z: { centered: true, invert: true, deadzone: 0.1 },
+      z: { centered: true, invert: false, deadzone: 0.1 },
     },
   },
   // WINCTRL (WINWING) URSA MINOR Combat Throttle Metal.EX (GitHub issue #25): the Combat

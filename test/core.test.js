@@ -1252,7 +1252,7 @@ test('the URSA MINOR Combat stick reads its twist on Z as a twist, right reading
   assert.equal(model.name, 'URSA MINOR Combat Stick');
   assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'z', 'rx', 'ry', 'slider']);
   const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
-  assert.deepEqual(axis.z, ['Yaw', true, true, 0.1]);
+  assert.deepEqual(axis.z, ['Yaw', true, false, 0.1]);
   // The rest are where the generic defaults expect them.
   assert.deepEqual(axis.x, ['Roll', true, false, undefined]);
   assert.deepEqual(axis.y, ['Pitch', true, true, undefined]);
@@ -1261,13 +1261,14 @@ test('the URSA MINOR Combat stick reads its twist on Z as a twist, right reading
   assert.deepEqual(axis.slider, ['Throttle', false, true, undefined]);
   assert.deepEqual(model.hats.map((h) => h.name), ['POV Hat']);
   assert.equal(model.buttons, 128);
-  assert.deepEqual([1, 7, 8, 14, 15, 20, 22, 23, 24, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 45, 48, 49].map((b) => model.buttonNames[`btn${b}`]), [
+  assert.deepEqual([1, 7, 8, 14, 15, 20, 21, 22, 23, 24, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 45, 48, 49].map((b) => model.buttonNames[`btn${b}`]), [
     'Base Button 1',
     'Base Button 7',
     'Base Button 8',
     'Base Button 14',
     'Button 15', // not on WINWING's diagram
     'Red Button',
+    'POV Hat Push',
     'Upper Grey Button',
     'Side Hat Push',
     'Side Hat Right',
@@ -1291,17 +1292,21 @@ test('the URSA MINOR Combat stick reads its twist on Z as a twist, right reading
   ]);
 
   // The owner's last report: the stick, the ministick and the hat let go, the slider at
-  // MAX, and the twist part way to the left.
+  // MAX, and the twist part way to the right.
   const rest = normalizeInput(decoded(URSA_STICK_REST), model, {});
   for (const id of ['x', 'y', 'rx', 'ry']) assert.ok(Math.abs(rest.axes[id]) < 0.001, `${id} = ${rest.axes[id]}`);
   assert.equal(rest.axes.slider, 1);
-  assert.ok(Math.abs(rest.axes.z + 0.389) < 0.001, `z = ${rest.axes.z}`);
+  assert.ok(Math.abs(rest.axes.z - 0.389) < 0.001, `z = ${rest.axes.z}`);
   assert.deepEqual(Object.keys(rest.buttons).filter((id) => rest.buttons[id]), []);
   // A Recenter takes wherever the twist rests as its middle.
   assert.equal(normalizeInput(decoded(URSA_STICK_REST), model, { calibration: { z: 0xb1d4 } }).axes.z, 0);
-  // WINWING's diagram has the twist reading 65535 to the left and 0 to the right.
+  // An owner found the twist reversed (GitHub issue #40): it reads 0 to the left and 65535
+  // to the right, so on LB / RB a twist to the left presses LB.
   const twist = (z) => normalizeInput(decoded([15, 0x8000, 0x8000, z, 0x800, 0x800, 0, 0]), model, {}).axes.z;
-  assert.deepEqual([twist(0), twist(65535)], [1, -1]);
+  assert.deepEqual([twist(0), twist(65535)], [-1, 1]);
+  const yaw = { z: { target: 'lb_rb', invert: false, deadzone: 0.1 } };
+  const bumpers = (z) => mapInput(normalizeInput(decoded([15, 0x8000, 0x8000, z, 0x800, 0x800, 0, 0]), model, {}), yaw).buttons;
+  assert.deepEqual([bumpers(0), bumpers(0x8000), bumpers(65535)], [XUSB.LEFT_SHOULDER, 0, XUSB.RIGHT_SHOULDER]);
   // Without the skin the twist read as a throttle lever, the slider's other half.
   const generic = describeDevice(URSA_STICK_LAYOUT, { ...URSA_STICK, ignoreSkin: true });
   assert.equal(generic.axes.find((a) => a.id === 'z').centered, false);
@@ -2023,9 +2028,10 @@ test('every photo layout points only at controls its stick has, each one once', 
     }
   }
   // The URSA MINOR stick's photo shows every control WINWING's diagram numbers, each one
-  // named: its 14 base buttons, 20 and 22 to 48, the hat and all six axes. Its labels fit
+  // named: its 14 base buttons, 20 and 22 to 48, the hat and all six axes, and the hat's
+  // push, 21, which the diagram leaves out. Its labels fit
   // above the bottom of the stage, each with a dot clear of the others.
-  for (const [key, skin, buttons, axes] of [['4098:bc2a', 'ursaminorcombatstick', [...range(1, 14), 20, ...range(22, 48)], ['rx', 'ry', 'slider', 'x', 'y', 'z']]]) {
+  for (const [key, skin, buttons, axes] of [['4098:bc2a', 'ursaminorcombatstick', [...range(1, 14), ...range(20, 48)], ['rx', 'ry', 'slider', 'x', 'y', 'z']]]) {
     const layout = LAYOUTS[skin];
     const shown = shownBy(layout.callouts);
     assert.deepEqual(numbers(shown), buttons, skin);
