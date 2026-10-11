@@ -23,6 +23,21 @@ const IOCTL_VIGEM_UNPLUG_TARGET = ioctl(0x802);
 const IOCTL_VIGEM_CHECK_VERSION = ioctl(0x803);
 const IOCTL_VIGEM_WAIT_DEVICE_READY = ioctl(0x804);
 const IOCTL_XUSB_SUBMIT_REPORT = ioctl(0x801 + 0x201);
+// The same code with FILE_READ_DATA | FILE_WRITE_DATA: the driver answers this one.
+const IOCTL_XUSB_REQUEST_NOTIFICATION = ((0x2a << 16) | (0x0003 << 14) | ((0x801 + 0x200) << 2)) >>> 0;
+
+// A game rumbles an Xbox controller by sending it two motor speeds. The driver hands them
+// on through a request that stays pending until the game next sets them. Those requests
+// go through a handle of their own, opened for overlapped I/O, so a pending one never
+// holds up a report; they are looked at on a timer rather than waited on, so no thread is
+// parked on them. Two are kept pending, so a quick on-then-off between two looks isn't lost.
+const RUMBLE_POLL_MS = 15;
+const RUMBLE_REQUESTS = 2;
+const RUMBLE_DRAIN = 64; // answers taken in at one look, at most
+const STATUS_PENDING = 0x103;
+const FILE_FLAG_OVERLAPPED = 0x40000000;
+// Buffers the driver may still write an answer into after its request was cancelled.
+const retiredRequests = [];
 
 // Finding the pad's XInput slot (see findPadSlot). The marks are stick positions a few
 // steps off centre, out of 32767: far inside any deadzone, and nothing a real controller
@@ -122,6 +137,25 @@ function loadWin32() {
   return win32;
 }
 
+// What listening for rumble needs on top of that. Loaded only once something listens, so
+// a pad nobody listens to is made exactly as it was before.
+let rumbleApi = null;
+function loadRumbleApi() {
+  if (rumbleApi) return rumbleApi;
+  const koffi = createRequire(import.meta.url)('koffi');
+  rumbleApi = {
+    CancelIoEx: koffi.load('kernel32.dll').func('int __stdcall CancelIoEx(intptr_t hFile, void *lpOverlapped)'),
+    // DeviceIoControl without the wait: it returns STATUS_PENDING, and the answer arrives
+    // in the status block and the output buffer.
+    NtDeviceIoControlFile: koffi
+      .load('ntdll.dll')
+      .func(
+        'int32_t __stdcall NtDeviceIoControlFile(intptr_t FileHandle, intptr_t Event, void *ApcRoutine, void *ApcContext, void *IoStatusBlock, uint32_t IoControlCode, void *InputBuffer, uint32_t InputBufferLength, void *OutputBuffer, uint32_t OutputBufferLength)',
+      ),
+  };
+  return rumbleApi;
+}
+
 // First present ViGEmBus device interface path, or null if the driver isn't installed.
 function findBusPath(api) {
   const size = Buffer.alloc(4);
@@ -163,6 +197,12 @@ class VirtualX360 extends EventEmitter {
     this.goneAt = 0; // when that was
     this.probing = false; // finding the slot: reports wait in `held` meanwhile
     this.held = null;
+    this.busPath = null;
+    this.rumbleWanted = false; // see listenRumble
+    this.rumbleHandle = null; // the bus, opened again for the rumble requests
+    this.rumbleQueue = []; // the requests pending, oldest first
+    this.rumbleTimer = null;
+    this.rumble = { large: 0, small: 0 }; // what the game last set the motors to, 0 to 255
   }
 
   setStatus(state, message = '') {
@@ -223,6 +263,7 @@ class VirtualX360 extends EventEmitter {
       return;
     }
 
+    this.busPath = path;
     const handle = api.CreateFileW(
       path,
       GENERIC_READ_WRITE,
@@ -289,6 +330,7 @@ class VirtualX360 extends EventEmitter {
       this.setStatus('connected');
       if (this.userIndex !== null) this.emit('slot', this.userIndex);
       if (this.held) this.submit(this.held);
+      if (this.rumbleWanted) this.startRumble();
       return;
     }
     return abandon('error', 'ViGEmBus refused to create a virtual controller');
@@ -333,9 +375,94 @@ class VirtualX360 extends EventEmitter {
     }
   }
 
+  // Whether to listen for the game's rumble (see the notes on RUMBLE_POLL_MS). The motor
+  // speeds arrive as 'rumble' events, { large, small }, each 0 to 255; both go back to 0
+  // when listening stops or the pad is unplugged.
+  listenRumble(on) {
+    this.rumbleWanted = on === true;
+    if (this.rumbleWanted && this.handle !== null && !this.probing) this.startRumble();
+    if (!this.rumbleWanted) this.stopRumble();
+  }
+
+  startRumble() {
+    if (this.rumbleTimer !== null || this.handle === null) return;
+    const api = loadWin32();
+    try {
+      if (this.rumbleHandle === null) {
+        const handle = api.CreateFileW(this.busPath, GENERIC_READ_WRITE, FILE_SHARE_READ_WRITE, null, OPEN_EXISTING, (FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED) >>> 0, 0);
+        if (!isValidHandle(handle)) return;
+        this.rumbleHandle = handle;
+      }
+      for (let i = 0; i < RUMBLE_REQUESTS; i++) this.requestRumble({ io: Buffer.alloc(16), data: Buffer.alloc(12) });
+    } catch {
+      return this.stopRumble();
+    }
+    if (this.rumbleQueue.length) this.rumbleTimer = setInterval(() => this.pollRumble(), RUMBLE_POLL_MS);
+  }
+
+  // Asks the driver for the next change. False if it turned the request down.
+  requestRumble(request) {
+    request.data.fill(0);
+    request.data.writeUInt32LE(12, 0);
+    request.data.writeUInt32LE(this.serial, 4);
+    request.io.fill(0);
+    request.io.writeUInt32LE(STATUS_PENDING, 0);
+    const status = loadRumbleApi().NtDeviceIoControlFile(this.rumbleHandle, 0, null, null, request.io, IOCTL_XUSB_REQUEST_NOTIFICATION, request.data, 12, request.data, 12) >>> 0;
+    // Refused outright: nothing was written to the status block, and nothing will be.
+    if (status >= 0x80000000) return false;
+    this.rumbleQueue.push(request);
+    return true;
+  }
+
+  pollRumble() {
+    let latest = null;
+    try {
+      for (let taken = 0; taken < RUMBLE_DRAIN && this.rumbleQueue.length; taken++) {
+        const request = this.rumbleQueue[0];
+        const status = request.io.readUInt32LE(0);
+        if (status === STATUS_PENDING) break;
+        this.rumbleQueue.shift();
+        if (status !== 0) continue; // cancelled, or the pad went: not asked again
+        latest = { large: request.data[8], small: request.data[9] };
+        this.requestRumble(request);
+      }
+    } catch {
+      return this.stopRumble();
+    }
+    if (latest) this.setRumble(latest.large, latest.small);
+    if (this.rumbleQueue.length === 0) this.stopRumble();
+  }
+
+  setRumble(large, small) {
+    if (this.rumble.large === large && this.rumble.small === small) return;
+    this.rumble = { large, small };
+    this.emit('rumble', this.rumble);
+  }
+
+  // Stops listening. The handle stays open until the pad is unplugged: the driver ties a
+  // pad to the handles of the process that plugged it in, and closing one could take the
+  // pad with it.
+  stopRumble() {
+    clearInterval(this.rumbleTimer);
+    this.rumbleTimer = null;
+    if (this.rumbleQueue.length) {
+      retiredRequests.push(...this.rumbleQueue.splice(0));
+      if (retiredRequests.length > 64) retiredRequests.splice(0, retiredRequests.length - 64);
+      try {
+        loadRumbleApi().CancelIoEx(this.rumbleHandle, null);
+      } catch {
+        // the handle goes with the pad
+      }
+    }
+    this.setRumble(0, 0);
+  }
+
   teardown() {
     if (this.handle === null) return;
     const api = loadWin32();
+    this.stopRumble();
+    if (this.rumbleHandle !== null) api.CloseHandle(this.rumbleHandle);
+    this.rumbleHandle = null;
     api.DeviceIoControl(this.handle, IOCTL_VIGEM_UNPLUG_TARGET, sizedStruct(8, this.serial), 8, null, 0, this.returned, null);
     api.CloseHandle(this.handle);
     this.handle = null;
@@ -365,6 +492,7 @@ class UnsupportedPad extends EventEmitter {
   connect() {}
   submit() {}
   disconnect() {}
+  listenRumble() {}
 }
 
 export function createVirtualPad() {

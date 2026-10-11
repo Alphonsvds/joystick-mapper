@@ -739,6 +739,7 @@ body.is-intro * {
 .stage[data-skin='velocityonerudder'] .stick,
 .stage[data-skin='alphaprimeright'] .stick,
 .stage[data-skin='cm3throttle'] .stick,
+.stage[data-skin='sidewinderff2'] .stick,
 .stage[data-skin='trudder'] .stick,
 .stage[data-skin='stecsstandard'] .stick {
   filter: brightness(1.25) contrast(1.05) saturate(0.85) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35))
@@ -764,6 +765,7 @@ body.is-intro * {
 .stage[data-skin='velocityonerudder'].has-focus .stick,
 .stage[data-skin='alphaprimeright'].has-focus .stick,
 .stage[data-skin='cm3throttle'].has-focus .stick,
+.stage[data-skin='sidewinderff2'].has-focus .stick,
 .stage[data-skin='trudder'].has-focus .stick,
 .stage[data-skin='stecsstandard'].has-focus .stick {
   filter: brightness(0.8) contrast(1.05) saturate(0.7) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25))

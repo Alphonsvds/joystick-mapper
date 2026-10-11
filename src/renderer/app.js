@@ -1199,7 +1199,7 @@ async function copyDeviceInfo() {
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 // The gear, bottom left: the virtual controller's switch, hiding the joysticks from
-// games (Windows), larger text, and recentring.
+// games (Windows), vibration (with a stick that has it), larger text, and recentring.
 
 // Only unusual states get words next to the emulation switch.
 const PAD_PROBLEM = {
@@ -1226,6 +1226,17 @@ const HIDE_TOASTS = {
   website: 'Opened the HidHide download page',
 };
 
+// The same for vibration, on a stick that has it.
+const VIBRATION_PROBLEM = {
+  missing: 'Not found',
+  error: 'Error',
+};
+const VIBRATION_TOASTS = {
+  ready: 'The stick shakes when the game rumbles',
+  off: 'Vibration plays while Xbox emulation is on',
+  missing: 'Windows lists no force feedback for this stick',
+};
+
 // The virtual controller's state as the switch shows it: off whenever it isn't emulating.
 const padState = () => (status.emulation || status.pad.state === 'unsupported' ? status.pad.state : 'off');
 
@@ -1243,6 +1254,13 @@ async function toggleHide() {
   if (HIDE_TOASTS[how]) showToast(HIDE_TOASTS[how]);
 }
 
+async function toggleVibration() {
+  const on = !status.vibration.on;
+  const how = await api.setVibration(on).catch(() => ({ state: 'error', detail: '' }));
+  if (!on) return;
+  showToast(how.state === 'error' ? `Vibration didn’t start${how.detail ? ` (${how.detail})` : ''}` : VIBRATION_TOASTS[how.state]);
+}
+
 async function recenter() {
   const ok = await api.recenter().catch(() => false);
   showToast(ok ? 'Stick centre calibrated' : "Couldn't read the stick — is it plugged in?");
@@ -1252,6 +1270,7 @@ async function recenter() {
 const SETTING_ABOUT = {
   emulation: 'Games see your joystick as an Xbox controller.',
   hide: 'Enable this if your game already recognizes your joystick and won’t read your mappings from the app.',
+  vibration: 'Shakes the stick when the game rumbles the controller.',
   text: 'Makes the labels and menus bigger.',
   recenter: 'Let go of the stick and click this if the plane drifts.',
 };
@@ -1293,6 +1312,11 @@ function renderSettingsMenu() {
     const hide = settingSwitch('hide', 'Hide joysticks from games', status.hide.on, HIDE_PROBLEM[status.hide.state], toggleHide);
     hide.title = 'Games see only the virtual controller. Start the game after switching it on.';
     hide.disabled = status.hide.state === 'installing';
+  }
+
+  if (status.vibration) {
+    const vibration = settingSwitch('vibration', 'Vibration (beta)', status.vibration.on, VIBRATION_PROBLEM[status.vibration.state], toggleVibration);
+    vibration.title = status.vibration.detail || 'Plays the game’s controller rumble on the stick’s force feedback motors.';
   }
 
   settingSwitch('text', 'Larger text', largeText, '', () => {

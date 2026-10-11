@@ -1336,6 +1336,39 @@ export const SKINS = Object.freeze({
       rz: { centered: false, invert: false },
     },
   },
+  // Microsoft SideWinder Force Feedback 2 (GitHub issue #42). Its axes, hat and eight
+  // buttons are where the generic defaults expect them, and an owner mapped it that way,
+  // so they need names only. The buttons carry their numbers on the stick: 1 is the
+  // trigger, 2 to 4 are under the hat (2 the wide one in the middle, 3 to its left and 4 to
+  // its right) and 5 to 8 are on the base, as FlightGear's configuration for this stick has
+  // them. It also reports a force feedback value, which isn't a control. Its motors can
+  // play the game's rumble (`vibration`, see main/forcefeedback.js): a setting that shows
+  // for this stick alone, and that no owner has tried yet.
+  // Beta until an owner has confirmed every label.
+  '045e:001b': {
+    id: 'sidewinderff2',
+    name: 'SideWinder Force Feedback 2',
+    support: 'beta',
+    vibration: true,
+    names: {
+      btn1: 'Trigger',
+      btn2: 'Thumb Button 2',
+      btn3: 'Left Button 3',
+      btn4: 'Right Button 4',
+      ...numbered(5, 4, (n) => `Base Button ${n + 4}`),
+      hat1: 'POV Hat',
+      x: 'Roll',
+      y: 'Pitch',
+      rz: 'Yaw',
+      slider: 'Throttle',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      rz: 'Twist the stick',
+      slider: 'Lever on the base',
+    },
+  },
   '046d:c215': { id: 'extreme3dpro', name: 'Logitech Extreme 3D Pro', ...EXTREME_3D },
   // Logitech Force 3D Pro (GitHub issue #39): the Extreme 3D Pro's shape and controls with
   // force feedback, reporting the same axes, hat and twelve buttons. It gives Windows no
@@ -1375,6 +1408,9 @@ const skinFor = (vendorId, productId, name) =>
 
 // A gamepad the app reads over HID as it would a joystick (see `gamepad` on its skin).
 export const isKnownGamepad = (vendorId, productId) => SKINS[deviceKey(vendorId, productId)]?.gamepad === true;
+
+// A stick whose force feedback motors can play a game's rumble (see `vibration` on its skin).
+export const canVibrate = (vendorId, productId) => SKINS[deviceKey(vendorId, productId)]?.vibration === true;
 
 export const defaultDeadzone = (axis, centered) => axis.deadzone ?? (centered ? 0.04 : 0.02);
 

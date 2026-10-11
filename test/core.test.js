@@ -163,6 +163,21 @@ const CM3_THROTTLE = { vendorId: 0x3344, productId: 0x0194, name: 'VIRPIL Contro
 const CM3_THROTTLE_REST = [30749, 30749, 5316, 30000, 30000, 0];
 const CM3_THROTTLE_HELD = [34, 35, 56];
 
+// A Microsoft SideWinder Force Feedback 2, from an owner's "Copy device info" (GitHub
+// issue #42): signed axes, and a force feedback value after the hat.
+const SIDEWINDER_FF2_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: -512, max: 511 },
+    { page: 1, usage: 0x31, min: -512, max: 511 },
+    { page: 1, usage: 0x35, min: -32, max: 31 },
+    { page: 1, usage: 0x36, min: 0, max: 127 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 15, usage: 0x22, min: 1, max: 40 },
+  ],
+  buttonCount: 8,
+};
+const SIDEWINDER_FF2 = { vendorId: 0x045e, productId: 0x001b, name: 'Microsoft SideWinder Force Feedback 2 Joystick' };
+
 // VKB T-Rudder pedals, from an owner's "Copy device info" (GitHub issue #29): five values
 // with no usage ahead of the three axes. T_RUDDER_REST is its last report, pedals let go.
 const T_RUDDER_LAYOUT = {
@@ -1842,6 +1857,7 @@ test('every photo layout points only at controls its stick has, each one once', 
     velocityonerudder: [RUDDER_LAYOUT, RUDDER],
     alphaprimeright: [ALPHA_PRIME_LAYOUT, ALPHA_PRIME],
     cm3throttle: [CM3_THROTTLE_LAYOUT, CM3_THROTTLE],
+    sidewinderff2: [SIDEWINDER_FF2_LAYOUT, SIDEWINDER_FF2],
     trudder: [T_RUDDER_LAYOUT, T_RUDDER],
   };
   // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
@@ -2302,6 +2318,39 @@ test('the Virpil CM3 throttle reads its two levers alike, on Rx and Ry', () => {
     for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * layout.image.scale >= 24, `${a} and ${b}`);
   }
   assert.deepEqual(layout.guides, {}); // which way each axis runs isn't known
+});
+
+test('the SideWinder Force Feedback 2 is named, and behaves exactly as it did on the generic layout', () => {
+  const model = describeDevice(SIDEWINDER_FF2_LAYOUT, SIDEWINDER_FF2);
+  assert.deepEqual([model.key, model.skin, model.support, model.name], ['045e:001b', 'sidewinderff2', 'beta', 'SideWinder Force Feedback 2']);
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name]), [['x', 'Roll'], ['y', 'Pitch'], ['rz', 'Yaw'], ['slider', 'Throttle']]);
+  assert.deepEqual(model.hats.map((h) => h.name), ['POV Hat']);
+  assert.deepEqual(range(1, 8).map((b) => model.buttonNames[`btn${b}`]), [
+    'Trigger',
+    'Thumb Button 2',
+    'Left Button 3',
+    'Right Button 4',
+    'Base Button 5',
+    'Base Button 6',
+    'Base Button 7',
+    'Base Button 8',
+  ]);
+  // Its owner mapped it on the generic layout (GitHub issue #42): every axis still reads
+  // the way it did then, and the force feedback value is still passed over.
+  const generic = describeDevice(SIDEWINDER_FF2_LAYOUT, { ...SIDEWINDER_FF2, ignoreSkin: true });
+  const reads = (m) => m.axes.map(({ id, index, min, max, centered, invert, deadzone }) => [id, index, min, max, centered, invert, deadzone]);
+  assert.deepEqual(reads(model), reads(generic));
+  // Its axes are signed: let go, the stick reads the middle, and the lever pushed forward
+  // (its lowest value) is full throttle.
+  const rest = normalizeInput(decoded([0, 0, 0, 0, 8, 1]), model, {});
+  assert.ok(Math.abs(rest.axes.x) < 0.002 && Math.abs(rest.axes.y) < 0.002 && Math.abs(rest.axes.rz) < 0.02);
+  assert.equal(rest.axes.slider, 1);
+  assert.equal(normalizeInput(decoded([511, -512, 31, 127, 8, 1]), model, {}).axes.x, 1);
+  // Its photo shows all eight buttons, the hat and the four axes, each named.
+  const shown = shownBy(LAYOUTS.sidewinderff2.callouts);
+  assert.deepEqual(shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((a, b) => a - b), range(1, 8));
+  assert.deepEqual(shown.filter((id) => !/^btn/.test(id)).sort(), ['hat1_down', 'hat1_left', 'hat1_right', 'hat1_up', 'rz', 'slider', 'x', 'y']);
+  for (const id of shown) assert.ok(SKINS['045e:001b'].names[id.replace(/_.*/, '')], `${id} has a name`);
 });
 
 test('the VKB T-Rudder reads its rudder on Rx, with virtual brakes that rest at one end', () => {

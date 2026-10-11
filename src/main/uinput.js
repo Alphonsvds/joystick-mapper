@@ -229,6 +229,9 @@ export class VirtualUinputPad extends EventEmitter {
     if (this.wanted) this.retryTimer = setTimeout(() => this.connect(), RETRY_MS);
   }
 
+  // Rumble is only passed on under Windows.
+  listenRumble() {}
+
   submit(out) {
     if (this.fd === null) return;
     try {

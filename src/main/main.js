@@ -8,13 +8,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ForceFeedback } from './forcefeedback.js';
 import { HIDHIDE_DOWNLOAD_URL, HidHide, instancePath, planHiding } from './hidhide.js';
 import { JoystickManager } from './joystick.js';
 import { grantAccess } from './linux-access.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
 import { readJson, writeJsonAtomic } from './store.js';
 import { ROLES, ROLE_OFF, emptyBindings, sanitizeBinding } from '../shared/controls.js';
-import { changeRole, isCentered } from '../shared/devices.js';
+import { canVibrate, changeRole, isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import { BLOCKED_HELP_URL } from '../shared/blocked.js';
@@ -67,7 +68,10 @@ let working = getProfile(library, library.active).bindings; // unsaved edits to 
 //   { selected, roles: { [id]: role }, devices: { [id]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
 // and, for hiding the joysticks from games (see hidhide.js):
 //   { hide: bool, hidden: [the devices this app has hidden], hideInstalledAt: when it installed HidHide }
-let deviceSettings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0 };
+// and { vibration: bool }, for playing the game's rumble on a force feedback stick.
+let deviceSettings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0, vibration: false };
+const shaker = new ForceFeedback();
+let shakerTried = false; // it failed to start: not tried again until something changes
 const hider = new HidHide();
 // What the settings menu says about hiding:
 // off | missing | installing | restart | busy | error | ready | hidden (see hidhide.js).
@@ -111,6 +115,8 @@ function status() {
     update: update && { version: update.version, inApp: update.inApp, state: update.state, progress: update.progress },
     // Windows only: elsewhere there is no HidHide, and no setting.
     hide: process.platform === 'win32' ? { on: deviceSettings.hide, state: hideState } : null,
+    // Only with a stick that can vibrate plugged in: without one there is no setting.
+    vibration: vibrationDevice() ? { on: deviceSettings.vibration, ...shaker.status } : null,
   };
 }
 
@@ -245,6 +251,47 @@ function syncPad() {
   else pad.disconnect();
   pump();
   sendStatus();
+}
+
+// ─── Vibration ───────────────────────────────────────────────────────────────
+
+// The plugged-in stick whose motors can play the game's rumble, if there is one (Windows).
+// JOYMAP_VIBRATE=<vendor:product> (e.g. 046d:c215) treats that stick as one, to try the
+// setting on another force feedback stick, or to see it without one.
+function vibrationDevice() {
+  if (shaker.status.state === 'unsupported') return null;
+  return joystick.devices.find((d) => canVibrate(d.vendorId, d.productId) || d.key === process.env.JOYMAP_VIBRATE) ?? null;
+}
+
+// Takes the stick for vibration while there is rumble to play (the setting is on and the
+// virtual controller is there for a game to rumble) and gives it back otherwise: Default
+// and a paused profile leave the stick alone. A start that failed isn't tried again until
+// the setting, the stick or the controller changes.
+function syncVibration() {
+  const device = vibrationDevice();
+  const on = deviceSettings.vibration && device !== null;
+  pad.listenRumble(on);
+  const wanted = on && emulating() && pad.status.state === 'connected' && windowAlive();
+  if (!wanted) {
+    shakerTried = false;
+    if (shaker.status.state !== 'off') shaker.close();
+    return;
+  }
+  if (shaker.open || shakerTried) return;
+  shakerTried = true;
+  if (shaker.start({ vendorId: device.vendorId, productId: device.productId, hwnd: win.getNativeWindowHandle() })) {
+    shaker.set(pad.rumble?.large ?? 0, pad.rumble?.small ?? 0);
+  }
+}
+
+// The setting itself. Resolves to how the stick took it: off | ready | missing | error.
+function setVibration(on) {
+  deviceSettings = { ...deviceSettings, vibration: on === true };
+  writeJsonAtomic(devicesFile(), deviceSettings);
+  shakerTried = false;
+  syncVibration();
+  sendStatus();
+  return { ...shaker.status };
 }
 
 // ─── Hiding the joysticks from games ─────────────────────────────────────────
@@ -385,11 +432,12 @@ function saveWorking() {
 // Reads devices.json, folding in the pre-universal calibration.json (Extreme 3D Pro only).
 function loadDeviceSettings() {
   const raw = readJson(devicesFile());
-  const settings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0 };
+  const settings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0, vibration: false };
   const isId = (id) => /^[0-9a-f]{4}:[0-9a-f]{4}(#\d)?$/.test(id);
   if (raw && typeof raw === 'object') {
     if (typeof raw.selected === 'string') settings.selected = raw.selected;
     settings.hide = raw.hide === true;
+    settings.vibration = raw.vibration === true;
     if (Array.isArray(raw.hidden)) settings.hidden = raw.hidden.filter((device) => typeof device === 'string');
     if (Number.isFinite(raw.hideInstalledAt)) settings.hideInstalledAt = raw.hideInstalledAt;
     for (const [id, role] of Object.entries(raw.roles ?? {})) {
@@ -660,6 +708,7 @@ function registerIpc() {
       os: `${process.platform} ${os.release()}`,
       ...(report ?? { device: null }),
       notRead,
+      ...(status().vibration && { vibration: status().vibration }),
     };
     clipboard.writeText(JSON.stringify(info, null, 2));
     return report ? true : 'list';
@@ -690,6 +739,8 @@ function registerIpc() {
   ipcMain.handle('joymap:install-update', () => installUpdate());
 
   ipcMain.handle('joymap:set-hide', (_event, on) => setHide(on === true));
+
+  ipcMain.handle('joymap:set-vibration', (_event, on) => setVibration(on === true));
 }
 
 const webPreferences = () => ({
@@ -766,6 +817,7 @@ function createWindow() {
     frameDirty = true;
   });
   win.on('closed', () => {
+    shaker.close(); // it was the window's to hold
     win = null;
     // The controls sheet belongs to the mapper; don't leave it (and the pad) running alone.
     if (controlsWin && !controlsWin.isDestroyed()) controlsWin.close();
@@ -800,15 +852,20 @@ if (!app.requestSingleInstanceLock()) {
     joystick.on('status', (s) => {
       rememberRoles();
       pump();
+      syncVibration();
       sendStatus();
       syncHiding();
       if (s.state === 'connected') autoCenter();
     });
     pad.on('status', (s) => {
       if (s.state === 'connected') pad.submit(output);
+      syncVibration();
       sendStatus();
       syncHiding();
     });
+    // What the game sets the controller's motors to, played on the stick.
+    pad.on('rumble', ({ large, small }) => shaker.set(large, small));
+    shaker.on('status', sendStatus);
     // The virtual pad is an Xbox controller too; the joystick side must never read it.
     joystick.padSlot = () => pad.slot;
     pad.on('slot', () => joystick.scan());
@@ -833,6 +890,7 @@ if (!app.requestSingleInstanceLock()) {
     // Without the virtual controller there is nothing to stand in for the joysticks. Any
     // that can't be shown now stay on the list, and are shown at the next start.
     if (deviceSettings.hidden.length && hider.unhideSync(deviceSettings.hidden)) saveHideSettings({ hidden: [] });
+    shaker.close();
     pad.disconnect();
     joystick.stop();
   });

@@ -84,6 +84,9 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 ![Photo layout: the Virpil MongoosT-50CM3 Throttle with an Ace Combat 8 profile loaded](docs/screenshot-cm3-throttle.png)
 <sub>**Virpil MongoosT-50CM3 Throttle** (beta)</sub>
 
+![Photo layout: the Microsoft SideWinder Force Feedback 2 with an Ace Combat 8 profile loaded](docs/screenshot-sidewinder-ff2.png)
+<sub>**Microsoft SideWinder Force Feedback 2** (beta)</sub>
+
 ![Photo layout: the WINWING Orion 2 joystick with the F-16EX grip, with an Ace Combat 8 profile loaded](docs/screenshot-orion-f16ex.png)
 <sub>**WINWING Orion 2 F-16EX** (beta)</sub>
 
@@ -135,7 +138,7 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 | Support | Joysticks |
 | --- | --- |
 | **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li><li>Turtle Beach VelocityOne Flightstick</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>VKB T-Rudder pedals</li><li>Virpil Constellation ALPHA Prime (right hand)</li><li>Virpil MongoosT-50CM3 Throttle</li><li>Logitech Force 3D Pro</li><li>Turtle Beach VelocityOne Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>Turtle Beach VelocityOne Rudder</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX</li><li>Thrustmaster Sol-R right and left sticks</li><li>Thrustmaster T.16000M and TWCS throttle</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>VKB T-Rudder pedals</li><li>Virpil Constellation ALPHA Prime (right hand)</li><li>Virpil MongoosT-50CM3 Throttle</li><li>Logitech Force 3D Pro</li><li>Microsoft SideWinder Force Feedback 2</li><li>Turtle Beach VelocityOne Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>Turtle Beach VelocityOne Rudder</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX</li><li>Thrustmaster Sol-R right and left sticks</li><li>Thrustmaster T.16000M and TWCS throttle</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and
@@ -281,6 +284,8 @@ many sticks and games yet, so if something's off, please
   needs a restart. After that your joysticks are hidden while Xbox emulation is on, and
   back when it's off, on **Default**, or when the app closes. Start the game after
   switching it on.
+- **Vibration (beta)** (Windows). Shows with a Microsoft SideWinder Force Feedback 2 plugged
+  in: the stick shakes when the game rumbles the controller, while Xbox emulation is on.
 - **Deadzone, sensitivity and anti-deadzone.** **Deadzone** ignores small movement, for an
   axis that drifts. **Sensitivity** bends the response curve: above 0 small movements do
   more, below 0 they do less, for finer control near centre. Full travel still reaches
@@ -434,6 +439,9 @@ so **Hide joysticks from games** plays a pretend install.
 the browser preview, add `?update=9.9.9`. `JOYMAP_UPDATE_FEED=<url>` points the installed
 app's updater at a served `dist/` folder instead of GitHub.
 
+**See the vibration setting without a SideWinder.** `JOYMAP_VIBRATE=046d:c215` (a stick's
+USB IDs) treats that stick as one that can vibrate.
+
 Linux: `npm install` and `npm start` work the same; click **Allow access** once.
 macOS: only the Extreme 3D Pro is read, and there's no virtual Xbox controller.
 
@@ -450,6 +458,7 @@ src/main/vigem.js                Virtual Xbox 360 controller via ViGEmBus
 src/main/uinput.js               Linux: the virtual Xbox 360 controller via uinput
 src/main/linux-access.js         Linux: the Allow access button (a udev rule, via pkexec)
 src/main/hidhide.js              Windows: hides the joysticks from games, via HidHide
+src/main/forcefeedback.js        Windows: plays the game's rumble on a force feedback stick
 src/main/store.js                JSON persistence
 src/main/preload.cjs             The UI's only bridge to the main process
 src/shared/controls.js           Control IDs, Xbox targets, binding rules

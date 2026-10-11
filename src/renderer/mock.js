@@ -7,7 +7,7 @@
 // Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense, the WINCTRL URSA MINOR
 // Combat stick and throttle, the Thrustmaster T.16000M and TWCS throttle, the Turtle Beach
 // VelocityOne Rudder, the Logitech Force 3D Pro, the Virpil Alpha Prime and CM3 throttle, the
-// VKB T-Rudder (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a made-up set of
+// VKB T-Rudder, the Microsoft SideWinder Force Feedback 2 (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a made-up set of
 // pedals (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
@@ -16,8 +16,8 @@
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
 // ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle,
 // ?device=ursastick, ?device=ursathrottle, ?device=t16000m, ?device=twcs, ?device=rudder,
-// ?device=force3dpro, ?device=alphaprime, ?device=cm3throttle, ?device=trudder or
-// ?device=pedals to plug in one of the others.
+// ?device=force3dpro, ?device=alphaprime, ?device=cm3throttle, ?device=trudder,
+// ?device=sidewinder or ?device=pedals to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
@@ -33,7 +33,7 @@
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
 import { BLOCKED_HELP_URL, BLOCKED_MESSAGE } from '../shared/blocked.js';
 import { ROLES, sanitizeBinding, emptyBindings, rolePrefix } from '../shared/controls.js';
-import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, changeRole, describeDevice, mergeInputs } from '../shared/devices.js';
+import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, canVibrate, changeRole, describeDevice, mergeInputs } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
 import {
@@ -649,6 +649,26 @@ const SIMULATED = [
       buttonCount: 32,
     },
   },
+  // As reported by a real stick (GitHub issue #42): a Microsoft SideWinder Force Feedback 2,
+  // with the force feedback value it reports after its hat.
+  {
+    vendorId: 0x045e,
+    productId: 0x001b,
+    name: 'Microsoft SideWinder Force Feedback 2 Joystick',
+    alias: 'sidewinder',
+    throttle: 'slider',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: -512, max: 511 },
+        { page: 1, usage: 0x31, min: -512, max: 511 },
+        { page: 1, usage: 0x35, min: -32, max: 31 },
+        { page: 1, usage: 0x36, min: 0, max: 127 },
+        hat,
+        { page: 15, usage: 0x22, min: 1, max: 40 },
+      ],
+      buttonCount: 8,
+    },
+  },
   // As reported by a real throttle (GitHub issue #28): a Virpil MongoosT-50CM3. R / F push
   // both levers.
   {
@@ -798,6 +818,9 @@ export function createMockApi() {
   // Hiding the joysticks from games: ?hide=missing starts without HidHide installed, so
   // switching it on plays a pretend install that ends waiting for a restart.
   let hide = { on: false, state: 'off', installed: query.get('hide') !== 'missing' };
+  // Vibration: a setting only a stick with force feedback gets (the SideWinder).
+  let vibration = false;
+  const vibrates = () => plugged.some((d) => canVibrate(d.vendorId, d.productId));
   // Windows blocking the reader (GitHub issue #38): the devices are listed, none can be read.
   const blocked = query.get('blocked') === '1';
   // What's plugged in. As in the app, every device is live and one of them is on screen.
@@ -859,6 +882,7 @@ export function createMockApi() {
       dirty: dirty(),
       update,
       hide: { on: hide.on, state: !hide.on || hide.state !== 'ready' ? hide.state : emulating() ? 'hidden' : 'ready' },
+      vibration: vibrates() ? { on: vibration, state: vibration && emulating() ? 'ready' : 'off', detail: '' } : null,
     };
   };
   const snapshot = () => ({ profiles: listProfiles(library), activeId: library.active, bindings: working, status: status() });
@@ -1067,6 +1091,11 @@ export function createMockApi() {
       }
       emitStatus();
       return status().hide.state;
+    },
+    async setVibration(on) {
+      vibration = on === true;
+      emitStatus();
+      return status().vibration;
     },
     async installUpdate() {
       if (!update || update.state !== 'available') return;

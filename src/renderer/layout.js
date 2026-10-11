@@ -3037,7 +3037,53 @@ const CM3_THROTTLE = {
   guides: {},
 };
 
+// ─── Microsoft SideWinder Force Feedback 2 ───────────────────────────────────
+
+// Seen from the pilot's seat, above and to the left, with the picture turned so the grip
+// leans left: the pilot's right is up and to the right. The trigger is on the front of
+// the grip, out of sight: its dot sits on the grip's edge under the head. The four base
+// buttons share a label, each under its printed number.
+const SIDEWINDER_FF2 = {
+  alt: "Microsoft SideWinder Force Feedback 2, seen from the pilot's seat",
+  dense: true,
+  image: { src: 'assets/sidewinder-ff2.png', width: 482, height: 641, x: 511, y: 110, scale: 1.2 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 130, [
+      { id: 'hat1', tag: 'POV', columns: 2, at: [62, 33], group: hatSwitch('hat1') },
+      { id: 'btn3', at: [72, 85] },
+      { id: 'btn1', tag: 'FRONT', at: [78, 140] },
+      {
+        id: 'basebuttons',
+        name: 'Base Buttons',
+        columns: 2,
+        at: [67, 358],
+        group: leftToRight(labelled(['btn5', '5'], ['btn6', '6'], ['btn7', '7'], ['btn8', '8'])),
+      },
+      { id: 'slider', at: [135, 445] },
+    ]),
+    ...stack('right', 130, [
+      { id: 'btn4', at: [117, 40] },
+      { id: 'btn2', at: [125, 88] },
+      {
+        id: 'stick',
+        name: 'Stick',
+        columns: 2,
+        at: [250, 310],
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'rz', label: 'Yaw', wide: true }],
+      },
+    ]),
+  ],
+  guides: {
+    x: across(506, 666, 92),
+    y: upDown(900, 240, 380),
+    // An arc under the boot at the foot of the grip.
+    rz: twistArc(812, 520, 150, 46),
+  },
+};
+
 export const LAYOUTS = {
+  sidewinderff2: SIDEWINDER_FF2,
   cm3throttle: CM3_THROTTLE,
   alphaprimeright: ALPHA_PRIME_RIGHT,
   trudder: T_RUDDER,

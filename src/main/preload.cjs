@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('joymap', {
   installDriver: () => ipcRenderer.invoke('joymap:install-driver'),
   installUpdate: () => ipcRenderer.invoke('joymap:install-update'),
   setHide: (on) => ipcRenderer.invoke('joymap:set-hide', on),
+  setVibration: (on) => ipcRenderer.invoke('joymap:set-vibration', on),
   onFrame: subscribe('joymap:frame'),
   onStatus: subscribe('joymap:status'),
 });
