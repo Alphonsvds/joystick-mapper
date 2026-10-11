@@ -1237,7 +1237,7 @@ async function recenter() {
 // One sentence under each setting saying what it is.
 const SETTING_ABOUT = {
   emulation: 'Games see your joystick as an Xbox controller.',
-  hide: 'Stops games from reading the joystick directly.',
+  hide: 'Enable this if your game already recognizes your joystick and won’t read your mappings from the app.',
   text: 'Makes the labels and menus bigger.',
   recenter: 'Let go of the stick and click this if the plane drifts.',
 };
