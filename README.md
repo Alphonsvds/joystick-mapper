@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/7000-downloads.svg" alt="Thank you for 7,000 downloads" width="100%">
+  <img src="docs/8000-downloads.svg" alt="Thank you for 8,000 downloads" width="100%">
 </p>
 
 <p align="center">
