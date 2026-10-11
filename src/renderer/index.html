@@ -38,22 +38,18 @@
               <span class="stat-value" id="device-name">Searching</span>
               <span class="stat-tag" id="device-tag" hidden>Beta</span>
             </button>
-            <button class="ghost" id="recenter" type="button" title="Let go of the stick, then click to set its resting centre">
-              Recenter
-            </button>
-            <button class="stat stat-switch" id="stat-pad" type="button" role="switch" aria-checked="false">
-              <span class="stat-key">Xbox emulation</span>
-              <span class="stat-value" id="stat-pad-value" hidden></span>
-              <span class="switch" aria-hidden="true"><span class="switch-knob"></span></span>
-            </button>
             <button class="ghost ghost-accent" id="get-driver" type="button" hidden>Install driver</button>
             <button class="save" id="save" type="button" disabled>Saved</button>
           </div>
         </header>
 
         <div class="corner">
-          <button class="ghost text-size" id="text-size" type="button" aria-pressed="false" aria-label="Larger text" title="Larger text">
-            <span class="text-size-big">A</span>A
+          <button class="ghost settings" id="settings" type="button" aria-haspopup="dialog" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.6" stroke-width="2.6" stroke-dasharray="3.38 3.375" />
+              <circle cx="12" cy="12" r="6.5" stroke-width="1.4" />
+              <circle cx="12" cy="12" r="2.4" stroke-width="1.4" />
+            </svg>
           </button>
           <button class="ghost update" id="update" type="button" hidden></button>
         </div>
@@ -67,6 +63,7 @@
     <div class="popover" id="popover" role="dialog" aria-modal="false" hidden></div>
     <div class="popover profile-menu" id="profile-menu" role="dialog" aria-label="Profiles" hidden></div>
     <div class="popover profile-menu" id="device-menu" role="dialog" aria-label="Devices" hidden></div>
+    <div class="popover settings-menu" id="settings-menu" role="dialog" aria-label="Settings" hidden></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script type="module" src="app.js"></script>

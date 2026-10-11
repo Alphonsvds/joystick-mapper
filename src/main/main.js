@@ -3,10 +3,12 @@
 // the game happens here, so it keeps working with the window in the background.
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, net, shell } from 'electron';
 import electronUpdater from 'electron-updater';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { HIDHIDE_DOWNLOAD_URL, HidHide, instancePath, planHiding } from './hidhide.js';
 import { JoystickManager } from './joystick.js';
 import { grantAccess } from './linux-access.js';
 import { createVirtualPad, VIGEM_DOWNLOAD_URL } from './vigem.js';
@@ -62,7 +64,15 @@ let library = emptyLibrary();
 let working = getProfile(library, library.active).bindings; // unsaved edits to the active profile
 // Per-device settings, by device id:
 //   { selected, roles: { [id]: role }, devices: { [id]: { calibration: {axisId: centre}, centered: {axisId: bool} } } }
-let deviceSettings = { selected: null, roles: {}, devices: {} };
+// and, for hiding the joysticks from games (see hidhide.js):
+//   { hide: bool, hidden: [the devices this app has hidden], hideInstalledAt: when it installed HidHide }
+let deviceSettings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0 };
+const hider = new HidHide();
+// What the settings menu says about hiding:
+// off | missing | installing | restart | busy | error | ready | hidden (see hidhide.js).
+let hideState = 'off';
+let hideTask = Promise.resolve();
+let hideQueued = false;
 let paused = false; // emulation switched off while a game profile is active
 // Once a newer release has been seen: { version, url, inApp, state, progress }.
 // inApp: it can be installed from here. state: available | downloading | installing.
@@ -79,6 +89,7 @@ const devicesFile = () => path.join(app.getPath('userData'), 'devices.json');
 const legacyCalibrationFile = () => path.join(app.getPath('userData'), 'calibration.json');
 // Shipped inside the installer (see package.json extraResources).
 const bundledDriver = () => path.join(process.resourcesPath, 'vigembus', 'ViGEmBus_Setup.exe');
+const bundledHidHide = () => path.join(process.resourcesPath, 'hidhide', 'HidHide_Setup.exe');
 
 const activeProfile = () => getProfile(library, library.active);
 const locked = () => isLocked(library.active);
@@ -97,6 +108,8 @@ function status() {
     emulation: emulating(),
     dirty: dirty(),
     update: update && { version: update.version, inApp: update.inApp, state: update.state, progress: update.progress },
+    // Windows only: elsewhere there is no HidHide, and no setting.
+    hide: process.platform === 'win32' ? { on: deviceSettings.hide, state: hideState } : null,
   };
 }
 
@@ -233,6 +246,115 @@ function syncPad() {
   sendStatus();
 }
 
+// ─── Hiding the joysticks from games ─────────────────────────────────────────
+
+function setHideState(state) {
+  if (hideState === state) return;
+  hideState = state;
+  sendStatus();
+}
+
+function saveHideSettings(change) {
+  deviceSettings = { ...deviceSettings, ...change };
+  writeJsonAtomic(devicesFile(), deviceSettings);
+}
+
+// HidHide only hides devices Windows finds after it was installed, so a fresh install
+// does nothing until the next restart.
+const awaitingRestart = () => deviceSettings.hideInstalledAt > Date.now() - os.uptime() * 1000;
+
+// The joysticks to keep from games right now: every one being read, while the virtual
+// controller is there to stand in for them. Default, a paused profile or a missing
+// controller driver leave them all in plain sight.
+function devicesToHide() {
+  if (!deviceSettings.hide || !emulating() || pad.status.state !== 'connected') return [];
+  return joystick.paths.map(instancePath).filter(Boolean);
+}
+
+// Brings HidHide in line with that: hides what should be hidden and shows again what this
+// app hid before and no longer should (see planHiding).
+async function applyHiding() {
+  const ours = deviceSettings.hidden;
+  if (!deviceSettings.hide && ours.length === 0) return setHideState('off');
+  if (deviceSettings.hide && awaitingRestart()) return setHideState('restart');
+  const found = await hider.read();
+  if (found.state !== 'ready') return setHideState(deviceSettings.hide ? found.state : 'off');
+  const wanted = devicesToHide();
+  const plan = planHiding({ wanted, ours, hidden: found.hidden });
+  // Written down before HidHide is told, so nothing is ever hidden that this app
+  // wouldn't know to show again.
+  if (plan.add.length) saveHideSettings({ hidden: [...ours, ...plan.add] });
+  const hid = !(plan.add.length || (wanted.length && !found.cloak)) || (await hider.hide(found, process.execPath, wanted));
+  const shown = await hider.unhide(plan.drop);
+  const left = shown ? plan.ours : [...plan.ours, ...plan.drop];
+  if (JSON.stringify(left) !== JSON.stringify(deviceSettings.hidden)) saveHideSettings({ hidden: left });
+  setHideState(!deviceSettings.hide ? 'off' : !hid || !shown ? 'error' : wanted.length ? 'hidden' : 'ready');
+}
+
+// One run at a time, and one more queued at most: each run looks at how things stand then.
+function syncHiding() {
+  if (process.platform !== 'win32' || hideQueued) return hideTask;
+  hideQueued = true;
+  hideTask = hideTask
+    .then(() => {
+      hideQueued = false;
+      return applyHiding();
+    })
+    .catch((err) => console.error('Hiding joysticks failed:', err));
+  return hideTask;
+}
+
+// Runs HidHide's own installer with no windows of its own; Windows asks for permission.
+function runHidHideInstaller() {
+  const file = bundledHidHide().replaceAll("'", "''");
+  const script = `$p = Start-Process -FilePath '${file}' -ArgumentList '/exenoui','/qn','/norestart' -Verb RunAs -Wait -PassThru; exit $p.ExitCode`;
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true }, () => resolve());
+  });
+}
+
+// Installs HidHide, after saying what it is. Resolves 'installed', 'cancelled', or
+// 'website' when there is no installer to run (from source) and its page was opened instead.
+async function installHidHide() {
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    buttons: ['Install', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    message: 'Install HidHide?',
+    detail:
+      'HidHide is a free driver by Nefarius that hides your joystick from games while Xbox emulation is on, so they only see the virtual controller.\n\nWindows will ask for permission, and needs a restart before it works.',
+  });
+  if (response !== 0) return 'cancelled';
+  if (!app.isPackaged || !fs.existsSync(bundledHidHide())) {
+    await shell.openExternal(HIDHIDE_DOWNLOAD_URL);
+    return 'website';
+  }
+  setHideState('installing');
+  await runHidHideInstaller();
+  if ((await hider.read()).state === 'missing') {
+    setHideState('off');
+    return 'cancelled'; // declined at the Windows prompt, or the installer gave up
+  }
+  saveHideSettings({ hideInstalledAt: Date.now() });
+  return 'installed';
+}
+
+// The setting itself. Resolves to what came of it, for the UI to say: the state hiding is
+// left in, or how an install that was needed first ended.
+async function setHide(on) {
+  if (process.platform !== 'win32') return 'off';
+  if (on && !deviceSettings.hide && (await hider.read()).state === 'missing') {
+    const how = await installHidHide();
+    if (how !== 'installed') return how;
+  }
+  saveHideSettings({ hide: on === true });
+  sendStatus();
+  await syncHiding();
+  return hideState;
+}
+
 // Resolves true if it's OK to leave the active profile (saved, discarded or clean).
 async function settleUnsaved() {
   if (!dirty()) return true;
@@ -262,10 +384,13 @@ function saveWorking() {
 // Reads devices.json, folding in the pre-universal calibration.json (Extreme 3D Pro only).
 function loadDeviceSettings() {
   const raw = readJson(devicesFile());
-  const settings = { selected: null, roles: {}, devices: {} };
+  const settings = { selected: null, roles: {}, devices: {}, hide: false, hidden: [], hideInstalledAt: 0 };
   const isId = (id) => /^[0-9a-f]{4}:[0-9a-f]{4}(#\d)?$/.test(id);
   if (raw && typeof raw === 'object') {
     if (typeof raw.selected === 'string') settings.selected = raw.selected;
+    settings.hide = raw.hide === true;
+    if (Array.isArray(raw.hidden)) settings.hidden = raw.hidden.filter((device) => typeof device === 'string');
+    if (Number.isFinite(raw.hideInstalledAt)) settings.hideInstalledAt = raw.hideInstalledAt;
     for (const [id, role] of Object.entries(raw.roles ?? {})) {
       if (isId(id) && (ROLES.includes(role) || role === ROLE_OFF)) settings.roles[id] = role;
     }
@@ -523,12 +648,20 @@ function registerIpc() {
     return true;
   });
 
-  ipcMain.handle('joymap:copy-device-info', () => {
+  // With no joystick on screen there is still something to send: what Windows lists, which
+  // is how a stick the app doesn't detect gets found. Resolves 'list' for that.
+  ipcMain.handle('joymap:copy-device-info', async () => {
     const report = joystick.deviceReport();
-    if (!report) return false;
-    const info = { app: `${app.getName()} ${app.getVersion()}`, os: `${process.platform} ${os.release()}`, ...report };
+    const notRead = await joystick.others();
+    if (!report && notRead.length === 0) return false;
+    const info = {
+      app: `${app.getName()} ${app.getVersion()}`,
+      os: `${process.platform} ${os.release()}`,
+      ...(report ?? { device: null }),
+      notRead,
+    };
     clipboard.writeText(JSON.stringify(info, null, 2));
-    return true;
+    return report ? true : 'list';
   });
 
   ipcMain.handle('joymap:report-device', () => shell.openExternal(NEW_ISSUE_URL));
@@ -552,6 +685,8 @@ function registerIpc() {
   });
 
   ipcMain.handle('joymap:install-update', () => installUpdate());
+
+  ipcMain.handle('joymap:set-hide', (_event, on) => setHide(on === true));
 }
 
 const webPreferences = () => ({
@@ -663,11 +798,13 @@ if (!app.requestSingleInstanceLock()) {
       rememberRoles();
       pump();
       sendStatus();
+      syncHiding();
       if (s.state === 'connected') autoCenter();
     });
     pad.on('status', (s) => {
       if (s.state === 'connected') pad.submit(output);
       sendStatus();
+      syncHiding();
     });
     // The virtual pad is an Xbox controller too; the joystick side must never read it.
     joystick.padSlot = () => pad.slot;
@@ -679,6 +816,7 @@ if (!app.requestSingleInstanceLock()) {
 
     joystick.start();
     if (emulating()) pad.connect();
+    syncHiding(); // shows again whatever a crash left hidden
     setInterval(sendFrame, FRAME_MS);
 
     setupUpdater();
@@ -689,6 +827,9 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => app.quit());
 
   app.on('will-quit', () => {
+    // Without the virtual controller there is nothing to stand in for the joysticks. Any
+    // that can't be shown now stay on the list, and are shown at the next start.
+    if (deviceSettings.hidden.length && hider.unhideSync(deviceSettings.hidden)) saveHideSettings({ hidden: [] });
     pad.disconnect();
     joystick.stop();
   });

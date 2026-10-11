@@ -58,7 +58,7 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 <sub>**VKB STECS Space Throttle Standard** (beta)</sub>
 
 ![Photo layout: the Turtle Beach VelocityOne Flightstick with an Ace Combat 8 profile loaded](docs/screenshot-flightstick.png)
-<sub>**Turtle Beach VelocityOne Flightstick** (beta)</sub>
+<sub>**Turtle Beach VelocityOne Flightstick**</sub>
 
 ![Photo layout: the Turtle Beach VelocityOne Flightstick II with an Ace Combat 8 profile loaded](docs/screenshot-flightstick-2.png)
 <sub>**Turtle Beach VelocityOne Flightstick II** (beta)</sub>
@@ -71,6 +71,9 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 
 ![Photo layout: the Turtle Beach VelocityOne Flightdeck throttle with an Ace Combat 8 profile loaded](docs/screenshot-flightdeck-throttle.png)
 <sub>**Turtle Beach VelocityOne Flightdeck Throttle** (beta)</sub>
+
+![Photo layout: the Turtle Beach VelocityOne Rudder pedals with an Ace Combat 8 profile loaded](docs/screenshot-velocityone-rudder.png)
+<sub>**Turtle Beach VelocityOne Rudder** (beta)</sub>
 
 ![Photo layout: the WINWING Orion 2 joystick with the F-16EX grip, with an Ace Combat 8 profile loaded](docs/screenshot-orion-f16ex.png)
 <sub>**WINWING Orion 2 F-16EX** (beta)</sub>
@@ -89,6 +92,12 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 
 ![Photo layout: the Thrustmaster Sol-R left stick with an Ace Combat 8 profile loaded](docs/screenshot-solr-left.png)
 <sub>**Thrustmaster Sol-R Left Stick** (beta)</sub>
+
+![Photo layout: the Thrustmaster T.16000M with an Ace Combat 8 profile loaded](docs/screenshot-t16000m.png)
+<sub>**Thrustmaster T.16000M** (beta)</sub>
+
+![Photo layout: the Thrustmaster TWCS throttle with an Ace Combat 8 profile loaded](docs/screenshot-twcs.png)
+<sub>**Thrustmaster TWCS Throttle** (beta)</sub>
 
 ![Photo layout: the Logitech X56 stick with an Ace Combat 8 profile loaded](docs/screenshot-x56-stick.png)
 <sub>**Logitech X56 Stick** (beta)</sub>
@@ -116,8 +125,8 @@ First, click this button -->[![Latest release](https://img.shields.io/github/v/r
 
 | Support | Joysticks |
 | --- | --- |
-| **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li></ul> |
-| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick and Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX</li><li>Thrustmaster Sol-R right and left sticks</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
+| **Fully supported**<br><sub>Tested, with a photo layout and named controls</sub> | <ul><li>Logitech Extreme 3D Pro</li><li>VKB Gladiator NXT EVO (right hand)</li><li>Turtle Beach VelocityOne Flightstick</li></ul> |
+| **Beta**<br><sub>Photo layout and named controls, still being confirmed by owners</sub> | <ul><li>VKB Gladiator NXT EVO (left hand)</li><li>VKB Gladiator NXT EVO Omni Throttle (left and right hand)</li><li>VKB STECS Modern Throttle Standard</li><li>VKB STECS Modern Throttle Max (ATEM buttons not named yet)</li><li>VKB STECS Space Throttle Standard (left hand, grip buttons not named yet)</li><li>Turtle Beach VelocityOne Flightstick II</li><li>Turtle Beach VelocityOne Dual Throttle</li><li>Turtle Beach VelocityOne Flightdeck stick and throttle</li><li>Turtle Beach VelocityOne Rudder</li><li>WINWING Orion 2 F-16EX grip</li><li>WINWING Orion 2 Throttle (F-15EX handles)</li><li>WINCTRL URSA MINOR Combat Joystick R</li><li>WINCTRL URSA MINOR Combat Throttle Metal.EX</li><li>Thrustmaster Sol-R right and left sticks</li><li>Thrustmaster T.16000M and TWCS throttle</li><li>Logitech X56 stick and throttle</li><li>Xbox and Xbox Elite controllers (Windows)</li><li>PlayStation DualSense and DualShock 4</li><li>Virpil ACE-Torq pedals (named controls, no photo yet)</li></ul> |
 | **Experimental**<br><sub>Detected automatically</sub> | <ul><li>Any other USB flight stick, throttle or pedals (universal layout)</li></ul> |
 
 **Want your stick supported?** Click its name in the top bar, **Copy device info**, and
@@ -147,9 +156,10 @@ the controls you want: an **Xbox** controller starts mapped to itself, a **DualS
   you give it in the Xbox Accessories app, so map that button here.
 - **PlayStation controllers:** plug in the USB cable.
 
-The game still sees the real controller beside the remapped one. Hide the real one with
-[HidHide](https://github.com/nefarius/HidHide), with Joystick Mapper on its list of
-applications, so only your mapping is read.
+The game still sees the real controller beside the remapped one. **Hide joysticks from
+games**, in the settings, hides a PlayStation controller. An Xbox controller isn't covered
+yet: hide it by hand in [HidHide](https://github.com/nefarius/HidHide), with Joystick
+Mapper on its list of applications.
 
 Next to a flight stick, a controller comes up as **Extra**/
 
@@ -178,7 +188,9 @@ Next to a flight stick, a controller comes up as **Extra**/
   you can decide what goes where while you map.
 - **Calibrates itself** the first time the stick is at rest, with **Recenter** if it ever
   drifts.
-- **Larger text** with the **Aa** button.
+- **Hides your joystick from games** that read it as well as the virtual controller
+  (Windows).
+- **Larger text**, in the settings.
 - **Updates itself** when a new release is out.
 - **Windows and Linux** (experimental).
 
@@ -245,7 +257,15 @@ many sticks and games yet, so if something's off, please
   buttons, its deadzone and press point.
 - **Folded labels.** A device with a lot of controls shows each one as a name with its own
   line. Click a name, or its dot, to open its dropdowns.
-- **Larger text.** **Aa**, bottom left. Every label folds, as above.
+- **Settings.** The gear, bottom left: **Xbox emulation**, **Hide joysticks from games**,
+  **Larger text** and **Recenter**.
+- **Larger text.** Every label folds, as above.
+- **Hide joysticks from games** (Windows). For a game that reads your stick itself as well
+  as the virtual controller, so your mapping is ignored or doubled. The first time, it
+  installs [HidHide](https://github.com/nefarius/HidHide) (Windows asks for permission) and
+  needs a restart. After that your joysticks are hidden while Xbox emulation is on, and
+  back when it's off, on **Default**, or when the app closes. Start the game after
+  switching it on.
 - **Deadzone, sensitivity and anti-deadzone.** **Deadzone** ignores small movement, for an
   axis that drifts. **Sensitivity** bends the response curve: above 0 small movements do
   more, below 0 they do less, for finer control near centre. Full travel still reaches
@@ -281,7 +301,7 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
 - **Unplug (or turn off) other controllers** while flying with the stick. Many games only
   listen to player 1, and a real gamepad plugged in first takes that slot.
 - **Games still see the physical joystick too.** Games without joystick support ignore it.
-  If one reacts to both, hiding the stick with HidHide is on the v2 list.
+  If one reacts to both, turn on **Hide joysticks from games** in the settings (Windows).
 - **Deadzone bigger than you set?** Steam adds its own by default. Change it in the game's
   Steam controller settings, or turn off **Steam Input** for that game.
 - **A "pick an app to open this ms-gamebar link" popup?** Windows calls Xbox Game Bar
@@ -294,8 +314,8 @@ forward = boost) and **Yaw → LB / RB Split** (twist = rudder on the bumpers).
 - Profiles use each stick's own button numbers (on nearly every flight stick, button 1 is
   the trigger), so a profile mostly carries over if you switch sticks. With a HOTAS, a
   profile maps by role, so it carries over to a different throttle or pedals the same way.
-- Uninstalling the app leaves the ViGEmBus driver in place (other tools use it too). Remove
-  it from **Settings → Apps** if you want.
+- Uninstalling the app leaves the ViGEmBus driver in place (other tools use it too), and
+  HidHide if you installed it. Remove them from **Settings → Apps** if you want.
 
 **Check that Windows sees the virtual pad:** with a game profile active, press Win+R, run
 `joy.cpl` and look for **Controller (XBOX 360 For Windows)**. On Linux, run
@@ -340,8 +360,8 @@ npm start
 npm test
 ```
 
-**Build the installer locally.** This downloads the official ViGEmBus installer
-(checksum-pinned) and writes `dist/Joystick-Mapper-Setup-<version>.exe`:
+**Build the installer locally.** This downloads the official ViGEmBus and HidHide
+installers (checksum-pinned) and writes `dist/Joystick-Mapper-Setup-<version>.exe`:
 
 ```bash
 npm run dist
@@ -380,12 +400,15 @@ left stick (`?device=solrright`, `?device=solrleft`), a Logitech X56 stick and t
 (`?device=x56stick`, `?device=x56throttle`), a Turtle Beach VelocityOne Flightdeck stick
 and throttle (`?device=flightdeckstick`, `?device=flightdeckthrottle`), an Xbox controller
 and an Xbox Elite (`?device=xbox`, `?device=elite`), a DualShock 4 and a DualSense
-(`?device=dualshock4`, `?device=dualsense`), Virpil ACE-Torq pedals (`?device=acetorq`)
-and a Thrustmaster T.16000M (`?device=t16000m`, the universal layout). `?device=hotas` plugs in a stick, a throttle and pedals together,
+(`?device=dualshock4`, `?device=dualsense`), Virpil ACE-Torq pedals (`?device=acetorq`),
+a Thrustmaster T.16000M and TWCS throttle (`?device=t16000m`, `?device=twcs`), a Turtle Beach
+VelocityOne Rudder (`?device=rudder`) and a set of pedals nobody has described
+(`?device=pedals`, the universal layout). `?device=hotas` plugs in a stick, a throttle and pedals together,
 `?device=winwing` the WINWING and Virpil rig, `?device=solr` the Sol-R pair, `?device=x56`
 the X56 pair, `?device=flightdeck` the Flightdeck pair, `?device=velocityone` the Flightstick II
-and Dual Throttle, `?device=ursaminor` the URSA MINOR pair; the keyboard drives whichever one is
-on screen.
+and Dual Throttle, `?device=ursaminor` the URSA MINOR pair, `?device=fcs` the T.16000M and
+TWCS; the keyboard drives whichever one is on screen. `?hide=missing` starts without HidHide,
+so **Hide joysticks from games** plays a pretend install.
 
 **Test the universal layout with a supported stick.** Set `JOYMAP_GENERIC=1` before
 `npm start` to show even the Extreme 3D Pro with the generic screen.
@@ -409,6 +432,7 @@ src/shared/devices.js            Stick layout → controls (axes, hats, buttons)
 src/main/vigem.js                Virtual Xbox 360 controller via ViGEmBus
 src/main/uinput.js               Linux: the virtual Xbox 360 controller via uinput
 src/main/linux-access.js         Linux: the Allow access button (a udev rule, via pkexec)
+src/main/hidhide.js              Windows: hides the joysticks from games, via HidHide
 src/main/store.js                JSON persistence
 src/main/preload.cjs             The UI's only bridge to the main process
 src/shared/controls.js           Control IDs, Xbox targets, binding rules
@@ -419,13 +443,13 @@ src/shared/mapper.js             Pure mapping engine (joystick state → XUSB re
 src/renderer/                    The single screen (layout.js: photo skins, generic.js: universal)
 build/                           Installer resources (icon, NSIS driver step)
 scripts/fetch-vigembus.mjs       Fetches + verifies the bundled driver installer
+scripts/fetch-hidhide.mjs        Fetches + verifies the bundled HidHide installer
 ```
 
 ## v2 ideas
 
 - Switch profiles automatically when a game starts
 - Tray icon / start with Windows
-- HidHide integration so games only see the virtual pad
 - Photo skins for more sticks (contributions welcome)
 
 ## Contributing

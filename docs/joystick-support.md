@@ -12,10 +12,11 @@ stick is what gets it named controls and a photo layout.
    [Joystick support issue](https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml).
 4. Paste into **Device info**, and fill in the model and how it went.
 
-Device info is the stick's name, USB IDs and control layout, plus your app and Windows
-(or Linux) versions.
+Device info is the stick's name, USB IDs and control layout, your app and Windows (or
+Linux) versions, and the names and USB IDs of the other devices plugged in.
 
-Not detected at all? Open the issue anyway with the model name.
+Not detected at all? **Copy device info** still works: it copies the list of devices
+Windows sees, which is how a stick the app misses gets found.
 
 ## For a photo layout
 

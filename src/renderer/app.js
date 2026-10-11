@@ -32,6 +32,7 @@ const stage = $('#stage');
 const popover = $('#popover');
 const profileMenu = $('#profile-menu');
 const deviceMenu = $('#device-menu');
+const settingsMenu = $('#settings-menu');
 
 let bindings = {}; // active profile's bindings (including unsaved edits)
 let profiles = [];
@@ -112,7 +113,7 @@ function controlInfo(id) {
     const hat = model?.hats.find((h) => h.id === hatMatch[1]);
     return { id, kind, name: `${hat?.name ?? 'Hat'} ${DIRECTION_NAMES[hatMatch[2]]}` };
   }
-  return { id, kind, name: model?.buttonNames[id] ?? id };
+  return { id, kind, name: model?.buttonNames[id] ?? id, hint: model?.buttonHints?.[id] };
 }
 
 function axisDefaultDeadzone(id) {
@@ -172,7 +173,7 @@ const photoSkin = (m) => (usesAlternate(m) ? ALTERNATES[m.skin].skin : m.skin);
 
 // ─── Larger text ─────────────────────────────────────────────────────────────
 
-// The Aa button, for anyone who finds the labels hard to read. Every label stays where it
+// A setting for anyone who finds the labels hard to read. Every label stays where it
 // is, so the lines and dots don't move: it folds to its heading (see Folded labels) and
 // the heading, its dropdowns and the menus are drawn LARGE_TEXT times the size (the same
 // number as --large in styles.css). Remembered on this computer.
@@ -191,7 +192,6 @@ let largeText = storedLargeText();
 
 function applyTextSize() {
   document.documentElement.dataset.text = largeText ? 'large' : '';
-  $('#text-size').setAttribute('aria-pressed', String(largeText));
 }
 
 function setLargeText(on) {
@@ -951,6 +951,7 @@ function closeMenus() {
   for (const [menu, anchor] of [
     [profileMenu, '#profile-picker'],
     [deviceMenu, '#device-picker'],
+    [settingsMenu, '#settings'],
   ]) {
     if (menu.hidden) continue;
     menu.hidden = true;
@@ -1158,17 +1159,153 @@ function openDeviceMenu(pickedId = null) {
       closeMenus();
       api.reportDevice();
     });
+  } else if (!plugged.length) {
+    // A stick that is plugged in and not detected can still be reported.
+    const actions = htmlEl('div', 'profile-actions', deviceMenu);
+    button('ghost', 'Copy device info', actions, () => {
+      closeMenus();
+      copyDeviceInfo();
+    });
+    button('ghost', 'Report a stick ↗', actions, () => {
+      closeMenus();
+      api.reportDevice();
+    });
   }
   openMenu(deviceMenu, $('#device-picker'));
   if (pickedId) deviceMenu.querySelector('.role-option.is-selected')?.focus({ preventScroll: true });
 }
 
+// With no joystick on screen, what gets copied is the list of devices Windows sees.
 async function copyDeviceInfo() {
   const ok = await api.copyDeviceInfo().catch(() => false);
-  showToast(ok ? 'Device info copied — paste it into a GitHub issue' : 'No joystick to describe');
+  const what = ok === 'list' ? 'Device list' : 'Device info';
+  showToast(ok ? `${what} copied — paste it into a GitHub issue` : 'No joystick to describe');
 }
 
-for (const menu of [profileMenu, deviceMenu]) {
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+// The gear, bottom left: the virtual controller's switch, hiding the joysticks from
+// games (Windows), larger text, and recentring.
+
+// Only unusual states get words next to the emulation switch.
+const PAD_PROBLEM = {
+  connecting: 'Connecting',
+  'driver-missing': 'Driver needed',
+  'needs-access': 'Access needed', // Linux
+  unsupported: 'Windows or Linux only',
+  error: 'Error',
+};
+// The same for hiding, which needs HidHide installed and Windows restarted since.
+const HIDE_PROBLEM = {
+  installing: 'Installing',
+  restart: 'Restart Windows',
+  busy: 'Close HidHide',
+  error: 'Error',
+};
+// What switching it led to.
+const HIDE_TOASTS = {
+  hidden: 'Joysticks hidden from games',
+  ready: 'Joysticks hide while Xbox emulation is on',
+  restart: 'HidHide installed — restart Windows to finish',
+  busy: 'Close HidHide’s own window, then try again',
+  error: 'HidHide didn’t take the change',
+  website: 'Opened the HidHide download page',
+};
+
+// The virtual controller's state as the switch shows it: off whenever it isn't emulating.
+const padState = () => (status.emulation || status.pad.state === 'unsupported' ? status.pad.state : 'off');
+
+async function toggleEmulation() {
+  if (status.pad.state === 'unsupported') return showToast('Virtual Xbox controllers need Windows or Linux');
+  if (isLocked()) {
+    showToast('Default leaves your joystick alone — pick or create a game profile to emulate');
+    return openProfileMenu(profiles.length > 1 ? 'list' : 'new');
+  }
+  await runProfileAction(() => api.setEmulation(!status.emulation));
+}
+
+async function toggleHide() {
+  const how = await api.setHide(!status.hide.on).catch(() => 'error');
+  if (HIDE_TOASTS[how]) showToast(HIDE_TOASTS[how]);
+}
+
+async function recenter() {
+  const ok = await api.recenter().catch(() => false);
+  showToast(ok ? 'Stick centre calibrated' : "Couldn't read the stick — is it plugged in?");
+}
+
+// One sentence under each setting saying what it is.
+const SETTING_ABOUT = {
+  emulation: 'Games see your joystick as an Xbox controller.',
+  hide: 'Stops games from reading the joystick directly.',
+  text: 'Makes the labels and menus bigger.',
+  recenter: 'Let go of the stick and click this if the plane drifts.',
+};
+
+function settingSwitch(id, label, on, note, onClick) {
+  const row = htmlEl('button', 'pop-toggle setting', settingsMenu);
+  row.type = 'button';
+  row.dataset.setting = id;
+  row.setAttribute('role', 'switch');
+  row.setAttribute('aria-checked', String(on));
+  htmlEl('span', 'setting-name', row).textContent = label;
+  if (note) htmlEl('span', 'setting-note', row).textContent = note;
+  htmlEl('span', 'switch', row).innerHTML = '<span class="switch-knob"></span>';
+  htmlEl('span', 'setting-about', row).textContent = SETTING_ABOUT[id];
+  row.addEventListener('click', onClick);
+  return row;
+}
+
+// Opens above the gear, since the gear is at the bottom of the window.
+function placeSettingsMenu() {
+  const rect = $('#settings').getBoundingClientRect();
+  const scale = menuScale(settingsMenu);
+  settingsMenu.style.scale = scale;
+  settingsMenu.style.left = `${Math.max(12, rect.left)}px`;
+  settingsMenu.style.top = `${Math.max(12, rect.top - 10 - settingsMenu.offsetHeight * scale)}px`;
+}
+
+function renderSettingsMenu() {
+  const focus = settingsMenu.contains(document.activeElement) ? document.activeElement.dataset.setting : null;
+  settingsMenu.replaceChildren();
+  htmlEl('h3', 'pop-heading', settingsMenu).textContent = 'Settings';
+
+  const pad = settingSwitch('emulation', 'Xbox emulation', status.emulation, PAD_PROBLEM[padState()], toggleEmulation);
+  pad.title = isLocked()
+    ? 'Default profile leaves the joystick alone. Pick or create a game profile to emulate an Xbox controller.'
+    : status.pad.message || (status.emulation ? 'Emulating an Xbox 360 controller' : 'Paused');
+
+  if (status.hide) {
+    const hide = settingSwitch('hide', 'Hide joysticks from games', status.hide.on, HIDE_PROBLEM[status.hide.state], toggleHide);
+    hide.title = 'Games see only the virtual controller. Start the game after switching it on.';
+    hide.disabled = status.hide.state === 'installing';
+  }
+
+  settingSwitch('text', 'Larger text', largeText, '', () => {
+    setLargeText(!largeText);
+    openSettingsMenu();
+    settingsMenu.querySelector('[data-setting="text"]').focus({ preventScroll: true });
+  });
+
+  const actions = htmlEl('div', 'profile-actions setting-action', settingsMenu);
+  const center = button('ghost', 'Recenter', actions, recenter);
+  center.dataset.setting = 'recenter';
+  center.disabled = !(status.joystick.state === 'connected' && model);
+  htmlEl('span', 'setting-about', actions).textContent = SETTING_ABOUT.recenter;
+
+  if (focus) settingsMenu.querySelector(`[data-setting="${focus}"]`)?.focus({ preventScroll: true });
+  placeSettingsMenu();
+}
+
+function openSettingsMenu() {
+  closePicker({ restoreFocus: false });
+  closeMenus();
+  settingsMenu.hidden = false;
+  $('#settings').classList.add('is-open');
+  renderSettingsMenu();
+}
+
+for (const menu of [profileMenu, deviceMenu, settingsMenu]) {
   menu.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeMenus();
   });
@@ -1178,7 +1315,9 @@ document.addEventListener('pointerdown', (event) => {
   if (openControl && !popover.contains(event.target) && !pickerAnchor(openControl)?.contains(event.target)) {
     closePicker({ restoreFocus: false });
   }
-  const inMenus = [profileMenu, deviceMenu, $('#profile-picker'), $('#device-picker')].some((n) => n.contains(event.target));
+  const inMenus = [profileMenu, deviceMenu, settingsMenu, $('#profile-picker'), $('#device-picker'), $('#settings')].some((n) =>
+    n.contains(event.target),
+  );
   if (!inMenus) closeMenus();
   if (openCallout && ![calloutEl[openCallout], leaderEl[openCallout], popover].some((n) => n?.contains(event.target))) setOpenCallout(null);
 });
@@ -1189,14 +1328,6 @@ document.addEventListener('keydown', (event) => {
 
 // ─── Status bar ──────────────────────────────────────────────────────────────
 
-// Only unusual states get words next to the emulation switch.
-const PAD_PROBLEM = {
-  connecting: 'Connecting',
-  'driver-missing': 'Driver needed',
-  'needs-access': 'Access needed', // Linux
-  unsupported: 'Windows or Linux only',
-  error: 'Error',
-};
 let lastPadError = '';
 
 // The joystick button's words when no device could be opened.
@@ -1269,24 +1400,18 @@ function renderStatus(next) {
         : `${model.name} (${model.key}) · ${SUPPORT_TIPS[model.support]}` +
           (several ? ` · ${next.joystick.devices.length} devices working together, click to see another` : ''));
   $('#device-tag').hidden = !(connected && model.support === 'beta');
-  $('#recenter').disabled = !connected;
 
-  const pad = $('#stat-pad');
-  const padState = next.emulation || next.pad.state === 'unsupported' ? next.pad.state : 'off';
-  const problem = PAD_PROBLEM[padState];
-  pad.dataset.state = padState;
-  pad.setAttribute('aria-checked', String(next.emulation));
-  $('#stat-pad-value').hidden = !problem;
-  $('#stat-pad-value').textContent = problem ?? '';
-  pad.title = locked
-    ? 'Default profile leaves the joystick alone. Pick or create a game profile to emulate an Xbox controller.'
-    : next.pad.message || (next.emulation ? 'Emulating an Xbox 360 controller — click to pause' : 'Paused — click to emulate again');
+  const pad = padState();
   // Windows: the ViGEmBus driver is missing. Linux: the pad or a joystick needs permission.
-  $('#get-driver').hidden = padState !== 'driver-missing' && padState !== 'needs-access' && !next.joystick.needsAccess;
-  $('#monitor').dataset.state = padState;
+  $('#get-driver').hidden = pad !== 'driver-missing' && pad !== 'needs-access' && !next.joystick.needsAccess;
+  $('#monitor').dataset.state = pad;
+  // The gear says when something behind it needs seeing to.
+  const waiting = ['driver-missing', 'needs-access', 'error'].includes(pad) || ['restart', 'busy', 'error'].includes(next.hide?.state);
+  $('#settings').dataset.alert = String(waiting);
+  if (!settingsMenu.hidden) renderSettingsMenu();
 
   // Driver/FFI failures would otherwise only live in a tooltip.
-  const padError = padState === 'error' ? next.pad.message : '';
+  const padError = pad === 'error' ? next.pad.message : '';
   if (padError && padError !== lastPadError) showToast(padError);
   lastPadError = padError;
 
@@ -1329,24 +1454,12 @@ function wireTopbar() {
   $('#save').addEventListener('click', save);
   $('#open-controls').addEventListener('click', () => api.openControls());
   $('#update').addEventListener('click', () => api.installUpdate().catch((err) => showToast(errorText(err))));
-  $('#text-size').addEventListener('click', () => setLargeText(!largeText));
+  $('#settings').addEventListener('click', () => (settingsMenu.hidden ? openSettingsMenu() : closeMenus()));
   $('#profile-picker').addEventListener('click', () => (profileMenu.hidden ? openProfileMenu('list') : closeMenus()));
   $('#device-picker').addEventListener('click', () => (deviceMenu.hidden ? openDeviceMenu() : closeMenus()));
-  $('#stat-pad').addEventListener('click', async () => {
-    if (status.pad.state === 'unsupported') return showToast('Virtual Xbox controllers need Windows or Linux');
-    if (isLocked()) {
-      showToast('Default leaves your joystick alone — pick or create a game profile to emulate');
-      return openProfileMenu(profiles.length > 1 ? 'list' : 'new');
-    }
-    await runProfileAction(() => api.setEmulation(!status.emulation));
-  });
   $('#get-driver').addEventListener('click', async () => {
     const how = await api.installDriver().catch(() => null);
     showToast(DRIVER_TOASTS[how] ?? 'Opened the ViGEmBus download page');
-  });
-  $('#recenter').addEventListener('click', async () => {
-    const ok = await api.recenter().catch(() => false);
-    showToast(ok ? 'Stick centre calibrated' : "Couldn't read the stick — is it plugged in?");
   });
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {

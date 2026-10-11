@@ -6,7 +6,7 @@ import { targetIcon } from './icons.js';
 const game = GAMES.find((g) => g.id === new URLSearchParams(location.search).get('game')) ?? GAMES[0];
 const $ = (selector) => document.querySelector(selector);
 
-// Follows the mapper's Aa button (see Larger text in app.js), also while this window is open.
+// Follows the mapper's Larger text setting (see app.js), also while this window is open.
 function applyTextSize() {
   let large = false;
   try {

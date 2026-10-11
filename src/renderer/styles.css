@@ -736,6 +736,7 @@ body.is-intro * {
 .stage[data-skin='ursaminorcombatthrottle'] .stick,
 .stage[data-skin='stecsspace'] .stick,
 .stage[data-skin='stecsmax'] .stick,
+.stage[data-skin='velocityonerudder'] .stick,
 .stage[data-skin='stecsstandard'] .stick {
   filter: brightness(1.25) contrast(1.05) saturate(0.85) drop-shadow(0 0 1px rgba(255, 255, 255, 0.35))
     drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));
@@ -757,6 +758,7 @@ body.is-intro * {
 .stage[data-skin='ursaminorcombatthrottle'].has-focus .stick,
 .stage[data-skin='stecsspace'].has-focus .stick,
 .stage[data-skin='stecsmax'].has-focus .stick,
+.stage[data-skin='velocityonerudder'].has-focus .stick,
 .stage[data-skin='stecsstandard'].has-focus .stick {
   filter: brightness(0.8) contrast(1.05) saturate(0.7) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25))
     drop-shadow(0 40px 60px rgba(0, 0, 0, 0.9));
@@ -783,6 +785,8 @@ body.is-intro * {
 
 /* White sticks and controllers, cut out whole: no lift needed. */
 .stage[data-skin='solrleft'] .stick,
+.stage[data-skin='t16000m'] .stick,
+.stage[data-skin='twcs'] .stick,
 .stage[data-skin='dualshock4'] .stick,
 .stage[data-skin='dualsense'] .stick,
 .stage[data-skin='solrright'] .stick {
@@ -793,6 +797,8 @@ body.is-intro * {
 }
 
 .stage[data-skin='solrleft'].has-focus .stick,
+.stage[data-skin='t16000m'].has-focus .stick,
+.stage[data-skin='twcs'].has-focus .stick,
 .stage[data-skin='dualshock4'].has-focus .stick,
 .stage[data-skin='dualsense'].has-focus .stick,
 .stage[data-skin='solrright'].has-focus .stick {
@@ -948,7 +954,7 @@ body.is-intro * {
   opacity: 0.45;
 }
 
-/* Bottom left: the text size button, then the update button while a newer release exists. */
+/* Bottom left: the settings gear, then the update button while a newer release exists. */
 .corner {
   position: absolute;
   left: 56px;
@@ -958,22 +964,83 @@ body.is-intro * {
   gap: 10px;
 }
 
-.text-size {
-  display: block;
-  padding: 0 11px;
-  line-height: 30px;
-  letter-spacing: 0.06em;
+.settings {
+  padding: 0 8px;
   animation: fade-in 1s ease both;
   animation-delay: 1.3s;
 }
 
-.text-size-big {
-  font-size: 15px;
+.settings svg {
+  width: 16px;
+  height: 16px;
 }
 
-.text-size[aria-pressed='true'] {
-  border-color: rgba(255, 255, 255, 0.8);
+.settings.is-open {
+  border-color: #fff;
   color: #fff;
+}
+
+/* Something in the menu needs seeing to: a driver to install, Windows to restart. */
+.settings[data-alert='true']:not(.is-open) {
+  border-color: rgba(227, 166, 75, 0.6);
+  color: var(--warn);
+}
+
+/* A setting: its name and switch on one line, a sentence about it underneath. */
+.setting {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 5px 10px;
+  margin-top: 0;
+  padding: 9px 0;
+  font-size: 10.5px;
+}
+
+.setting-name {
+  margin-right: auto;
+  color: var(--ink);
+}
+
+.setting:hover:not(:disabled) .setting-name {
+  color: #fff;
+}
+
+/* Stops short of the switch, so the sentence reads as part of the name's column. */
+.setting-about {
+  flex: 0 0 calc(100% - 48px);
+  margin-right: 48px;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: none;
+  text-wrap: balance;
+  color: var(--ink-dim);
+}
+
+/* Recenter and its sentence, under the switches with no rule between them. */
+.profile-actions.setting-action {
+  flex-wrap: nowrap;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.setting-action .setting-about {
+  flex: 1;
+  margin-right: 0;
+}
+
+.setting:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.setting-note {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--warn);
 }
 
 .update {
@@ -1622,7 +1689,7 @@ body.is-intro * {
 
 /* ─── Larger text ──────────────────────────────────────────────────────── */
 
-/* The Aa button (see Larger text in app.js). Every label folds to its heading and is
+/* The Larger text setting (see app.js). Every label folds to its heading and is
    drawn --large times the size, growing away from the point its line meets it, so the
    photo, the dots and the lines are the same pixels at either size. */
 :root {
@@ -1744,12 +1811,9 @@ body.is-intro * {
   letter-spacing: 0.1em;
 }
 
-:root[data-text='large'] .corner .text-size {
-  line-height: 34px;
-}
-
-:root[data-text='large'] .text-size-big {
-  font-size: 19px;
+:root[data-text='large'] .settings svg {
+  width: 19px;
+  height: 19px;
 }
 
 :root[data-text='large'] .toast {

@@ -5,21 +5,25 @@
 // Thrustmaster Sol-R right and left sticks, the Logitech X56 stick and throttle, the Turtle
 // Beach VelocityOne Flightstick II, Dual Throttle and Flightdeck stick and throttle, an
 // Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense, the WINCTRL URSA MINOR
-// Combat stick and throttle (photo layouts), the Virpil ACE-Torq pedals (named, no photo),
-// and a Thrustmaster T.16000M built from its published layout (universal layout).
+// Combat stick and throttle, the Thrustmaster T.16000M and TWCS throttle, the Turtle Beach
+// VelocityOne Rudder (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a
+// made-up set of pedals (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
 // ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
 // ?device=x56stick, ?device=x56throttle, ?device=flightdeckstick,
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
 // ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle,
-// ?device=ursastick, ?device=ursathrottle or ?device=t16000m to plug in one of the others.
+// ?device=ursastick, ?device=ursathrottle, ?device=t16000m, ?device=twcs, ?device=rudder
+// or ?device=pedals to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
-// pair from issues #13 and #23, ?device=ursaminor the pair from issues #24 and #25; any
-// comma-separated list works too (?device=gladiator,twcs).
-// Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download).
+// pair from issues #13 and #23, ?device=ursaminor the pair from issues #24 and #25,
+// ?device=fcs the pair from issues #35 and #41; any comma-separated list works too
+// (?device=gladiator,twcs).
+// Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download),
+// and ?hide=missing to start without HidHide (switching the setting on plays a pretend install).
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
@@ -579,8 +583,8 @@ const SIMULATED = [
       buttonCount: 15,
     },
   },
-  // A throttle and pedals for trying a HOTAS. Their layouts are made up for the preview,
-  // not captured from the real devices.
+  // As reported by a real throttle (GitHub issue #35). Rx, Ry and Dial are the TFRP pedals
+  // that plug into it.
   {
     vendorId: 0x044f,
     productId: 0xb687,
@@ -589,16 +593,41 @@ const SIMULATED = [
     throttle: 'z',
     layout: {
       values: [
-        { page: 1, usage: 0x30, min: 0, max: 1023 },
-        { page: 1, usage: 0x31, min: 0, max: 1023 },
-        { page: 1, usage: 0x32, min: 0, max: 65535 },
-        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x37, min: 0, max: 1023 },
         { page: 1, usage: 0x36, min: 0, max: 1023 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+        { page: 1, usage: 0x33, min: 0, max: 1023 },
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x31, min: 0, max: 1023 },
+        { page: 1, usage: 0x30, min: 0, max: 1023 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
         hat,
+        { page: 0xff00, usage: 0x21, min: 0, max: 1 },
       ],
       buttonCount: 14,
     },
   },
+  // The VelocityOne Rudder, from what Windows shows of it (GitHub issue #31): three axes
+  // and no buttons. Its USB product ID and the size of its axes aren't known; these are
+  // stand-ins. R / F press both toe brakes, Q / E push the rudder.
+  {
+    vendorId: 0x10f5,
+    productId: 0x7fff,
+    name: 'Turtle Beach VelocityOne Rudder',
+    alias: 'rudder',
+    throttle: ['x', 'y'],
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 65535 },
+        { page: 1, usage: 0x31, min: 0, max: 65535 },
+        { page: 1, usage: 0x32, min: 0, max: 65535 },
+      ],
+      buttonCount: 0,
+    },
+  },
+  // Pedals for trying a HOTAS. Their layout is made up for the preview, not captured from
+  // the real device.
   {
     vendorId: 0x044f,
     productId: 0xb679,
@@ -644,6 +673,7 @@ const RIGS = {
   velocityone: ['flightstick2', 'dualthrottle'],
   racing: ['wheel', 'racingpedals', 'shifter', 'handbrake', 'orionstick', 'orionthrottle'],
   ursaminor: ['ursastick', 'ursathrottle'],
+  fcs: ['t16000m', 'twcs'],
 };
 
 const KEY_BUTTONS = {
@@ -701,6 +731,9 @@ export function createMockApi() {
   let update = /^\d+\.\d+\.\d+$/.test(query.get('update') ?? '')
     ? { version: query.get('update'), inApp: true, state: 'available', progress: 0 }
     : null;
+  // Hiding the joysticks from games: ?hide=missing starts without HidHide installed, so
+  // switching it on plays a pretend install that ends waiting for a restart.
+  let hide = { on: false, state: 'off', installed: query.get('hide') !== 'missing' };
   // What's plugged in. As in the app, every device is live and one of them is on screen.
   const names = (RIGS[wanted] ?? (wanted ?? '').split(',')).map((name) => name.trim());
   const found = names.map((name) => SIMULATED.find((d) => d.id === name || d.alias === name)).filter(Boolean);
@@ -759,6 +792,7 @@ export function createMockApi() {
       emulation: emulating(),
       dirty: dirty(),
       update,
+      hide: { on: hide.on, state: !hide.on || hide.state !== 'ready' ? hide.state : emulating() ? 'hidden' : 'ready' },
     };
   };
   const snapshot = () => ({ profiles: listProfiles(library), activeId: library.active, bindings: working, status: status() });
@@ -951,6 +985,19 @@ export function createMockApi() {
     },
     async installDriver() {
       return 'website';
+    },
+    async setHide(on) {
+      if (on && !hide.installed) {
+        if (!window.confirm('Install HidHide? (Preview: nothing is installed.)')) return 'cancelled';
+        hide = { ...hide, state: 'installing' };
+        emitStatus();
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        hide = { on: true, state: 'restart', installed: true };
+      } else {
+        hide = { ...hide, on, state: !on ? 'off' : hide.state === 'restart' ? 'restart' : 'ready' };
+      }
+      emitStatus();
+      return status().hide.state;
     },
     async installUpdate() {
       if (!update || update.state !== 'available') return;

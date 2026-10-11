@@ -94,6 +94,68 @@ test('a PlayStation controller is read, as an extra beside a stick and as the st
   await manager.stop();
 });
 
+test('pedals that call themselves a gamepad, and simulation controls, are read like joysticks', async () => {
+  // GitHub issue #31: Windows' Game Controllers panel listed the pedals, the app didn't.
+  const RUDDER = device('usb-5', 0x10f5, 0x7fff, 'VelocityOne Rudder', { usage: 5, manufacturer: 'Turtle Beach' });
+  const SIM = device('usb-6', 0x1209, 0x7001, 'Sim Base', { usagePage: 2, usage: 1 });
+  const SWITCH_PAD = device('usb-8', 0x057e, 0x2009, 'Pro Controller', { usage: 5 });
+  const KEYBOARD = device('usb-3', 0x046d, 0xc31c, 'USB Keyboard', { usage: 6 });
+  const { backend, manager } = rig(RUDDER, SIM, STICK, GAMEPAD, SWITCH_PAD, KEYBOARD);
+  await manager.scan();
+  // Both are read, and neither took the stick's place by being found before it. A plain
+  // gamepad is still left out.
+  assert.deepEqual(manager.status.devices.map((d) => [d.id, d.role, d.skin]), [
+    ['10f5:7fff', 'pedals', 'velocityonerudder'],
+    ['1209:7001', 'throttle', null],
+    ['046d:c215', 'stick', 'extreme3dpro'],
+  ]);
+  assert.equal(manager.status.devices[0].name, 'VelocityOne Rudder');
+  assert.equal(manager.status.device.id, '046d:c215');
+
+  // On their own the pedals are the device on screen, as any lone device is.
+  backend.listing = [RUDDER];
+  manager.savedRoles = {};
+  await manager.scan();
+  assert.deepEqual(manager.status.devices.map((d) => [d.id, d.role]), [['10f5:7fff', 'stick']]);
+  // The virtual pad is never read, whatever it is called.
+  backend.listing = [device('usb-4', 0x045e, 0x028e, 'Rudder Pedals', { usage: 5 })];
+  await manager.scan();
+  assert.deepEqual(manager.status.devices, []);
+  await manager.stop();
+});
+
+test('a report can list what Windows sees besides the joysticks being read', async () => {
+  const PAD = device('usb-8', 0x057e, 0x2009, 'Pro Controller', { usage: 5, manufacturer: 'Nintendo' });
+  const ODD = device('usb-6', 0x346e, 0x1000, 'AB9 FFB Base', { usagePage: 0xff00, usage: 1, manufacturer: 'MOZA' });
+  const { backend, manager } = rig(STICK, PAD, ODD, { ...ODD, path: 'usb-6b' });
+  await manager.scan();
+  assert.deepEqual(manager.status.devices.map((d) => d.id), ['046d:c215']);
+  // Each device once, with what it calls itself: enough to see why it wasn't taken for a joystick.
+  assert.deepEqual(await manager.others(), ['057e:2009 Nintendo Pro Controller (1:5)', '346e:1000 MOZA AB9 FFB Base (65280:1)']);
+  // Nothing detected at all: the list is still there to send.
+  backend.listing = [ODD];
+  await manager.scan();
+  assert.equal(manager.deviceReport(), null);
+  assert.deepEqual(await manager.others(), ['346e:1000 MOZA AB9 FFB Base (65280:1)']);
+  backend.list = async () => {
+    throw new Error('no HID');
+  };
+  assert.deepEqual(await manager.others(), []);
+  await manager.stop();
+});
+
+test('the joysticks being read can be listed by where they are opened from, for hiding them', async () => {
+  const { manager } = rig(STICK, THROTTLE);
+  await manager.scan();
+  assert.deepEqual(manager.paths, ['usb-1', 'usb-2']);
+  // An Xbox controller comes through XInput: it has no such path.
+  manager.open.set('045e:028e', { info: { path: 'xinput:2' }, parser: { close() {} }, hid: { close() {} }, model: { id: '045e:028e' } });
+  assert.deepEqual(manager.paths, ['usb-1', 'usb-2']);
+  manager.open.delete('045e:028e');
+  await manager.stop();
+  assert.deepEqual(manager.paths, []);
+});
+
 test('the list of devices is asked to leave out the virtual pad, and whatever cannot be told from it', async () => {
   const { backend, manager } = rig(STICK);
   let skip = null;

@@ -8,7 +8,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import HID from 'node-hid';
 import { ROLES, rolePrefix } from '../shared/controls.js';
-import { assignRoles, deviceKey, describeDevice, isCentered, isKnownGamepad, mergeInputs, normalizeInput } from '../shared/devices.js';
+import { assignRoles, deviceKey, describeDevice, isCentered, isFlightGear, isKnownGamepad, mergeInputs, normalizeInput } from '../shared/devices.js';
 import { HidDescriptorParser } from './hiddescriptor.js';
 import { HidParser } from './hidp.js';
 import { XboxPadParser, isXboxPad, listXboxPads, openXboxPad } from './xinput.js';
@@ -16,24 +16,11 @@ import { EXTREME_3D_PRO_IDS, Extreme3DProParser } from './devices/extreme3dpro.j
 
 const RESCAN_MS = 1500;
 const USAGE_PAGE_GENERIC = 0x01;
+const USAGE_PAGE_SIMULATION = 0x02;
 const USAGE_JOYSTICK = 0x04;
 const USAGE_GAMEPAD = 0x05;
 const USAGE_MULTI_AXIS = 0x08;
 const VIRTUAL_PAD = { vendorId: 0x045e, productId: 0x028e }; // our own ViGEm Xbox 360 pad
-
-// Flight sticks, throttles and pedals, plus two kinds of gamepad: the Xbox controllers
-// XInput lists (see xinput.js), and the ones with a skin of their own, which describe
-// themselves over HID as a stick does (PlayStation controllers). Over HID an Xbox
-// controller shows up with "&IG_" in its path, as does the virtual pad this app creates:
-// reading them there would lose a trigger, or loop.
-function isJoystick(d) {
-  if (isXboxPad(d)) return true;
-  if (d.usagePage !== USAGE_PAGE_GENERIC) return false;
-  const gamepad = d.usage === USAGE_GAMEPAD && isKnownGamepad(d.vendorId, d.productId);
-  if (d.usage !== USAGE_JOYSTICK && d.usage !== USAGE_MULTI_AXIS && !gamepad) return false;
-  if (/&ig_/i.test(d.path ?? '')) return false;
-  return !(d.vendorId === VIRTUAL_PAD.vendorId && d.productId === VIRTUAL_PAD.productId);
-}
 
 // "Logitech" + "Logitech Extreme 3D" -> "Logitech Extreme 3D" (many sticks repeat their maker).
 function displayName(d) {
@@ -41,6 +28,24 @@ function displayName(d) {
   const product = (d.product ?? '').trim();
   const name = maker && !product.toLowerCase().startsWith(maker.toLowerCase()) ? `${maker} ${product}` : product || maker;
   return name.trim() || deviceKey(d.vendorId, d.productId);
+}
+
+// Flight sticks, throttles and pedals, as Windows' Game Controllers panel lists them: a
+// device that calls itself a joystick, a multi-axis controller or a simulation control.
+// Some pedals and throttles call themselves gamepads instead (GitHub issue #31): those
+// are told by their name. Plain gamepads are left out, bar two kinds: the Xbox
+// controllers XInput lists (see xinput.js), and the ones with a skin of their own, which
+// describe themselves over HID as a stick does (PlayStation controllers). Over HID an Xbox
+// controller shows up with "&IG_" in its path, as does the virtual pad this app creates:
+// reading them there would lose a trigger, or loop.
+function isJoystick(d) {
+  if (isXboxPad(d)) return true;
+  if (/&ig_/i.test(d.path ?? '')) return false;
+  if (d.vendorId === VIRTUAL_PAD.vendorId && d.productId === VIRTUAL_PAD.productId) return false;
+  if (d.usagePage === USAGE_PAGE_SIMULATION) return true;
+  if (d.usagePage !== USAGE_PAGE_GENERIC) return false;
+  if (d.usage === USAGE_JOYSTICK || d.usage === USAGE_MULTI_AXIS) return true;
+  return d.usage === USAGE_GAMEPAD && (isKnownGamepad(d.vendorId, d.productId) || isFlightGear(displayName(d)));
 }
 
 // The joysticks in a HID listing. `key` is vendor:product; `id` is unique among them: the
@@ -140,6 +145,12 @@ export class JoystickManager extends EventEmitter {
 
   get models() {
     return [...this.open.values()].map((d) => d.model);
+  }
+
+  // Where each joystick being read is opened from, for hiding it from games (see
+  // hidhide.js). Xbox controllers come through XInput and have no such path.
+  get paths() {
+    return [...this.open.values()].map((d) => d.info.path).filter((path) => !isXboxPad({ path }));
   }
 
   settingsFor(id) {
@@ -349,6 +360,18 @@ export class JoystickManager extends EventEmitter {
         resolve(result);
       }, ms);
     });
+  }
+
+  // Every other device Windows lists, as "vendor:product name (usage page:usage)": what a
+  // report about a stick the app doesn't detect needs, since it has no device info to
+  // copy (GitHub issues #31 and #37). Keyboards and mice are in it too, by name only.
+  async others() {
+    const listing = await this.backend.list(() => true).catch(() => []);
+    const read = new Set(this.devices.map((d) => d.path));
+    const lines = listing
+      .filter((d) => !read.has(d.path) && !isXboxPad(d))
+      .map((d) => `${deviceKey(d.vendorId, d.productId)} ${displayName(d)} (${d.usagePage}:${d.usage})`);
+    return [...new Set(lines)];
   }
 
   // Everything needed to add support for the device on screen, for pasting into a GitHub

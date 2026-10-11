@@ -12,6 +12,7 @@ import {
   splitControlId,
 } from '../src/shared/controls.js';
 import {
+  NAMED_SKINS,
   SKINS,
   XBOX_ELITE_PAD,
   XBOX_LAYOUT,
@@ -22,6 +23,7 @@ import {
   deviceKey,
   guessRole,
   hatDirections,
+  isFlightGear,
   isKnownGamepad,
   mergeInputs,
   normalizeInput,
@@ -66,8 +68,8 @@ const EXTREME_LAYOUT = {
 };
 const EXTREME = { vendorId: 0x046d, productId: 0xc215, name: 'Logitech Extreme 3D' };
 
-// Thrustmaster T.16000M FCS, from its published specs (not a captured device).
-const T16000M_LAYOUT = {
+// A stick the app has no skin for (made up): two stick axes, a twist, a slider and a hat.
+const PLAIN_STICK_LAYOUT = {
   values: [
     { page: 1, usage: 0x30, min: 0, max: 16383 },
     { page: 1, usage: 0x31, min: 0, max: 16383 },
@@ -77,7 +79,51 @@ const T16000M_LAYOUT = {
   ],
   buttonCount: 16,
 };
+const PLAIN_STICK = { vendorId: 0x1209, productId: 0x0b10, name: 'Acme Flight Stick' };
+
+// Thrustmaster T.16000M, from an owner's "Copy device info" on 2026-10-09 (GitHub issue #41).
+const T16000M_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 1, usage: 0x30, min: 0, max: 16383 },
+    { page: 1, usage: 0x31, min: 0, max: 16383 },
+    { page: 1, usage: 0x36, min: 0, max: 255 },
+    { page: 1, usage: 0x35, min: 0, max: 255 },
+  ],
+  buttonCount: 16,
+};
 const T16000M = { vendorId: 0x044f, productId: 0xb10a, name: 'Thrustmaster T.16000M' };
+// Thrustmaster TWCS throttle, from an owner's "Copy device info" on 2026-10-06 (GitHub
+// issue #35). TWCS_REST is the axis part of its last report, in the order the report has
+// them as far as the values tell: no pedals were plugged in.
+const TWCS_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x37, min: 0, max: 1023 },
+    { page: 1, usage: 0x36, min: 0, max: 1023 },
+    { page: 1, usage: 0x34, min: 0, max: 1023 },
+    { page: 1, usage: 0x33, min: 0, max: 1023 },
+    { page: 1, usage: 0x35, min: 0, max: 1023 },
+    { page: 1, usage: 0x31, min: 0, max: 1023 },
+    { page: 1, usage: 0x30, min: 0, max: 1023 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+    { page: 1, usage: 0x39, min: 0, max: 7 },
+    { page: 0xff00, usage: 0x21, min: 0, max: 1 },
+  ],
+  buttonCount: 14,
+};
+const TWCS = { vendorId: 0x044f, productId: 0xb687, name: 'Thrustmaster TWCS Throttle' };
+// Turtle Beach VelocityOne Rudder, from what Windows' Game Controllers panel shows of it
+// (GitHub issue #31): an X, a Y and a Z, no buttons. Its USB product ID and the size of
+// its axes aren't known; these stand in.
+const RUDDER_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x30, min: 0, max: 65535 },
+    { page: 1, usage: 0x31, min: 0, max: 65535 },
+    { page: 1, usage: 0x32, min: 0, max: 65535 },
+  ],
+  buttonCount: 0,
+};
+const RUDDER = { vendorId: 0x10f5, productId: 0x7fff, name: 'Turtle Beach VelocityOne Rudder' };
 
 // VKB Gladiator NXT EVO (right hand), from an owner's "Copy device info" on 2026-10-01
 // (GitHub issue #1). GLADIATOR_REST is the axis part of its last report, stick let go.
@@ -733,7 +779,10 @@ test('the VelocityOne Flightstick twists on Z and reads its levers on Rz and Dia
   const model = describeDevice(FLIGHTSTICK_LAYOUT, FLIGHTSTICK);
   assert.equal(model.key, '10f5:7055');
   assert.equal(model.skin, 'velocityoneflightstick');
-  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.equal(model.support, 'full'); // two owners have used it with these labels
+  // The trim wheel's buttons only come once the stick is set to send them: the picker says so.
+  assert.deepEqual(Object.keys(model.buttonHints), ['btn13', 'btn14']);
+  assert.match(model.buttonHints.btn13, /Digital Buttons/);
   assert.deepEqual(model.axes.map((a) => a.id), ['x', 'y', 'dial', 'slider', 'rz', 'ry', 'rx', 'z']);
   const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert, a.deadzone]]));
   assert.deepEqual(axis.z, ['Yaw', true, false, 0.1]);
@@ -1731,9 +1780,12 @@ test('every photo layout points only at controls its stick has, each one once', 
     xboxelite: [XBOX_LAYOUT, XBOX_ELITE_PAD],
     dualshock4: [parseDescriptor(DUALSHOCK_4_DESCRIPTOR).layout, DUALSHOCK_4],
     dualsense: [parseDescriptor(DUALSENSE_DESCRIPTOR).layout, DUALSENSE],
+    t16000m: [T16000M_LAYOUT, T16000M],
+    twcs: [TWCS_LAYOUT, TWCS],
+    velocityonerudder: [RUDDER_LAYOUT, RUDDER],
   };
   // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
-  const skins = Object.values(SKINS).map((s) => s.id);
+  const skins = [...Object.values(SKINS), ...NAMED_SKINS.map((named) => named.skin)].map((s) => s.id);
   assert.deepEqual(skins.filter((id) => !LAYOUTS[id]), ['acetorq']);
   assert.deepEqual(Object.keys(LAYOUTS).filter((id) => !skins.includes(id)), []);
   for (const [skin, layout] of Object.entries(LAYOUTS)) {
@@ -1965,6 +2017,128 @@ test('every photo layout points only at controls its stick has, each one once', 
   assert.ok(shownBy(LAYOUTS.ursaminorcombatstick.callouts).includes('hat1_up'));
 });
 
+test('the T.16000M is named, and behaves exactly as it did on the generic layout', () => {
+  const model = describeDevice(T16000M_LAYOUT, T16000M);
+  assert.equal(model.skin, 't16000m');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name]), [
+    ['x', 'Roll'],
+    ['y', 'Pitch'],
+    ['slider', 'Throttle'],
+    ['rz', 'Yaw'],
+  ]);
+  // An owner mapped it on the generic layout (GitHub issue #41): the skin leaves every axis as it read then.
+  const behaviour = (m) => m.axes.map(({ id, centered, invert, deadzone }) => [id, centered, invert, deadzone]);
+  assert.deepEqual(behaviour(model), behaviour(describeDevice(T16000M_LAYOUT, { ...T16000M, ignoreSkin: true })));
+  assert.deepEqual([model.buttonNames.btn1, model.buttonNames.btn2, model.buttonNames.btn5, model.buttonNames.btn16], [
+    'Trigger',
+    'Centre Button',
+    'Base Button 5',
+    'Base Button 16',
+  ]);
+  // Its photo shows all 16 buttons, the hat and the four axes, each named.
+  const shown = shownBy(LAYOUTS.t16000m.callouts);
+  assert.deepEqual(shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((a, b) => a - b), range(1, 16));
+  assert.deepEqual(shown.filter((id) => !/^btn|^hat/.test(id)).sort(), ['rz', 'slider', 'x', 'y']);
+  assert.ok(shown.includes('hat1_up'));
+  for (const id of shown) assert.ok(SKINS['044f:b10a'].names[id.replace(/_.*/, '')], `${id} has a name`);
+  // Each row of base buttons reads left to right as it lies on the stick.
+  const row = (id) => LAYOUTS.t16000m.callouts.find((c) => c.id === id).group.map((item) => item.label);
+  assert.deepEqual(row('righttop'), ['13', '12', '11']);
+  assert.deepEqual(row('rightbottom'), ['14', '15', '16']);
+  assert.deepEqual(row('lefttop').toSorted(), ['5', '6', '7']);
+  assert.deepEqual(row('leftbottom').toSorted(), ['10', '8', '9']);
+});
+
+test('the TWCS throttle reads its handle on Z, and the pedals it can carry end to end', () => {
+  const model = describeDevice(TWCS_LAYOUT, TWCS);
+  assert.equal(model.skin, 'twcs');
+  assert.equal(model.support, 'beta'); // until an owner has confirmed every label
+  const axis = Object.fromEntries(model.axes.map((a) => [a.id, [a.name, a.centered, a.invert]]));
+  assert.deepEqual(axis, {
+    z: ['Throttle', false, true], // raw 0 is full forward
+    x: ['Ministick X', true, false],
+    y: ['Ministick Y', true, true],
+    rz: ['Paddle', true, false],
+    slider: ['Antenna', false, true], // the generic default: which way it reads isn't known
+    rx: ['TFRP Right Pedal', false, true],
+    ry: ['TFRP Left Pedal', false, true],
+    dial: ['TFRP Rudder', false, false],
+  });
+  // With no pedals plugged in, their axes no longer count as a stick held over, which
+  // kept the ministick and the paddle from centring themselves.
+  assert.deepEqual(model.axes.filter((a) => a.centered).map((a) => a.id), ['rz', 'y', 'x']);
+  assert.deepEqual(model.hats.map((h) => h.name), ['Top Hat']);
+  assert.equal(model.buttons, 14);
+  assert.deepEqual(
+    [4, 5, 6, 7, 10, 11, 14].map((b) => model.buttonNames[`btn${b}`]),
+    ['Rocker Up', 'Rocker Down', 'Ministick Push', 'Middle Hat Up', 'Middle Hat Left', 'Lower Hat Up', 'Lower Hat Left'],
+  );
+  // dial, slider, ry, rx, rz, y, x, z, hat, vendor: the handle pulled right back, the
+  // ministick and the paddle let go, no pedals.
+  const read = (values) => normalizeInput(decoded(values), model, {}).axes;
+  const rest = read([511.5, 511.5, 1023, 1023, 511.5, 511.5, 511.5, 65535, 8, 0]);
+  assert.deepEqual([rest.z, rest.rx, rest.ry, rest.x, rest.y, rest.rz], [-1, -1, -1, 0, 0, 0]);
+  assert.equal(read([511.5, 511.5, 1023, 1023, 511.5, 511.5, 511.5, 0, 8, 0]).z, 1);
+  // Its photo shows all 14 buttons, the hat and all eight axes, each named.
+  const shown = shownBy(LAYOUTS.twcs.callouts);
+  assert.deepEqual(shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((a, b) => a - b), range(1, 14));
+  assert.deepEqual(shown.filter((id) => !/^btn|^hat/.test(id)).sort(), ['dial', 'rx', 'ry', 'rz', 'slider', 'x', 'y', 'z']);
+  for (const id of shown) assert.ok(SKINS['044f:b687'].names[id.replace(/_.*/, '')], `${id} has a name`);
+  // The two lower hats are four buttons each, clockwise from up.
+  const hat = (id) => LAYOUTS.twcs.callouts.find((c) => c.id === id).group.map((item) => [item.id, item.dir]);
+  assert.deepEqual(hat('middlehat'), [['btn7', 'up'], ['btn8', 'right'], ['btn9', 'down'], ['btn10', 'left']]);
+  assert.deepEqual(hat('lowerhat'), [['btn11', 'up'], ['btn12', 'right'], ['btn13', 'down'], ['btn14', 'left']]);
+});
+
+test('the VelocityOne Rudder is known by its name, with toe brakes that rest at one end', () => {
+  const model = describeDevice(RUDDER_LAYOUT, RUDDER);
+  assert.deepEqual([model.skin, model.support, model.name, model.key], ['velocityonerudder', 'beta', 'VelocityOne Rudder', '10f5:7fff']);
+  // Whatever its product ID turns out to be, and however Windows spells the name.
+  assert.equal(describeDevice(RUDDER_LAYOUT, { vendorId: 0x10f5, productId: 0x7056, name: 'VelocityOne Rudder' }).skin, 'velocityonerudder');
+  // Not another maker's device of that name, nor another Turtle Beach device.
+  assert.equal(describeDevice(RUDDER_LAYOUT, { ...RUDDER, vendorId: 0x1209 }).skin, null);
+  assert.equal(describeDevice(RUDDER_LAYOUT, { ...RUDDER, name: 'Turtle Beach VelocityOne Flight' }).skin, null);
+  assert.equal(describeDevice(RUDDER_LAYOUT, { ...RUDDER, ignoreSkin: true }).skin, null);
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name, a.centered, a.invert]), [
+    ['x', 'Left Toe Brake', false, false],
+    ['y', 'Right Toe Brake', false, false],
+    ['z', 'Rudder', true, false],
+  ]);
+  // As Windows showed it at rest: both brakes at the bottom, the rudder in the middle. A
+  // brake let go pulls no trigger, and pressed home pulls it all the way.
+  const rest = normalizeInput(decoded([0, 0, 32767.5]), model, {});
+  assert.deepEqual([rest.axes.x, rest.axes.y, rest.axes.z], [-1, -1, 0]);
+  const brakes = { x: { target: 'lt', invert: false, deadzone: 0 }, y: { target: 'rt', invert: false, deadzone: 0 } };
+  assert.deepEqual([mapInput(rest, brakes).lt, mapInput(rest, brakes).rt], [0, 0]);
+  const pressed = normalizeInput(decoded([65535, 0, 32767.5]), model, {});
+  assert.deepEqual([mapInput(pressed, brakes).lt, mapInput(pressed, brakes).rt], [255, 0]);
+  assert.deepEqual(shownBy(LAYOUTS.velocityonerudder.callouts).sort(), ['x', 'y', 'z']);
+});
+
+test('flight gear that calls itself a gamepad is told by its name, and joysticks are placed first', () => {
+  assert.equal(isFlightGear('Turtle Beach VelocityOne Rudder'), true);
+  assert.equal(isFlightGear('Thrustmaster TWCS Throttle'), true);
+  assert.equal(isFlightGear('Nintendo Switch Pro Controller'), false);
+  assert.equal(isFlightGear('Xbox Controller'), false);
+  assert.equal(isFlightGear('Logitech Extreme 3D'), false);
+  const stick = { id: '046d:c215', name: 'Logitech Extreme 3D', usagePage: 1, usage: 4 };
+  const yoke = { id: '1209:7001', name: 'Sim Base', usagePage: 2, usage: 1 }; // a simulation control
+  const rudder = { id: '10f5:7fff', name: 'Turtle Beach VelocityOne Rudder', usagePage: 1, usage: 5 };
+  // A kind of device the app has only now begun to read doesn't take the stick's place
+  // by being found first: the stick that was read on its own stays the stick.
+  assert.deepEqual(assignRoles([yoke, stick]), { '046d:c215': 'stick', '1209:7001': 'throttle' });
+  assert.deepEqual(assignRoles([rudder, stick]), { '046d:c215': 'stick', '10f5:7fff': 'pedals' });
+  assert.deepEqual(assignRoles([rudder, yoke, stick]), { '046d:c215': 'stick', '10f5:7fff': 'pedals', '1209:7001': 'throttle' });
+  // On its own it is the stick, as any lone device is.
+  assert.deepEqual(assignRoles([rudder]), { '10f5:7fff': 'stick' });
+  assert.deepEqual(assignRoles([yoke]), { '1209:7001': 'stick' });
+  // Roles chosen before still come first.
+  assert.deepEqual(assignRoles([yoke, stick], { '1209:7001': 'stick' }), { '1209:7001': 'stick', '046d:c215': 'throttle' });
+  // Devices that don't say what they are keep the order they were found in.
+  assert.deepEqual(assignRoles([{ id: 'a', name: 'One' }, { id: 'b', name: 'Two' }]), { a: 'stick', b: 'throttle' });
+});
+
 test('a template is only offered on the stick it was written for', () => {
   const skins = Object.values(SKINS).map((s) => s.id);
   assert.equal(PRESETS.find((p) => p.id === 'blank').skin, undefined);
@@ -1972,11 +2146,12 @@ test('a template is only offered on the stick it was written for', () => {
 });
 
 test('an unknown stick is described generically and marked experimental', () => {
-  const model = describeDevice(T16000M_LAYOUT, T16000M);
-  assert.equal(model.key, '044f:b10a');
+  const model = describeDevice(PLAIN_STICK_LAYOUT, PLAIN_STICK);
+  assert.equal(model.key, '1209:0b10');
   assert.equal(model.skin, null);
   assert.equal(model.support, 'experimental');
-  assert.equal(model.name, 'Thrustmaster T.16000M');
+  assert.equal(model.name, 'Acme Flight Stick');
+  assert.deepEqual(model.buttonHints, {});
   assert.deepEqual(model.axes.map((a) => [a.id, a.centered]), [
     ['x', true],
     ['y', true],
@@ -2050,7 +2225,7 @@ test('a calibrated centre reads zero and both ends still reach full deflection',
 });
 
 test('an axis can be switched between throttle-style and centred', () => {
-  const model = describeDevice(T16000M_LAYOUT, T16000M);
+  const model = describeDevice(PLAIN_STICK_LAYOUT, PLAIN_STICK);
   const values = [8191.5, 8191.5, 127.5, 255, 8];
   assert.equal(normalizeInput(decoded(values), model, {}).axes.slider, -1);
   const centred = normalizeInput(decoded(values), model, { centered: { slider: true } });
@@ -2393,7 +2568,7 @@ test('controls on a throttle, pedals or extra device carry their role', () => {
 
 test('a stick and a throttle merge into one input and drive one pad', () => {
   const stick = describeDevice(EXTREME_LAYOUT, EXTREME);
-  const throttle = describeDevice(T16000M_LAYOUT, T16000M);
+  const throttle = describeDevice(PLAIN_STICK_LAYOUT, PLAIN_STICK);
   const merged = mergeInputs([
     normalizeInput(decoded([512, 1023, 8, 128, 255], [1]), stick, {}),
     normalizeInput(decoded([8191.5, 8191.5, 127.5, 0, 8], [1, 4]), throttle, {}, 'throttle.'),

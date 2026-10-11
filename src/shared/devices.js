@@ -5,6 +5,7 @@ import { ROLES, ROLE_OFF } from './controls.js';
 
 const PAGE_GENERIC = 0x01;
 const PAGE_SIMULATION = 0x02;
+const USAGE_GAMEPAD = 0x05;
 const USAGE_HAT = 0x39;
 
 // Known axis usages. `centered`: springs back to the middle (calibrated, centre-zero).
@@ -448,6 +449,87 @@ export const SKINS = Object.freeze({
   '044f:0422': { id: 'solrright', name: 'Sol-R Right Stick', support: 'beta', ...solR('right') },
   // Thrustmaster Sol-R left stick: the same, with its grip and its hats the other way round.
   '044f:042a': { id: 'solrleft', name: 'Sol-R Left Stick', support: 'beta', ...solR('left') },
+  // Thrustmaster T.16000M (GitHub issue #41). Its axes are where the generic defaults
+  // expect them, so they need names only: an owner mapped it that way. Button numbers are
+  // Thrustmaster's own numbered picture of the stick, which EDRefCard's definition for it
+  // matches: three on the head, then six down each side of the base, counted outwards
+  // along the top row and back along the bottom one.
+  // Beta until an owner has confirmed every label.
+  '044f:b10a': {
+    id: 't16000m',
+    name: 'Thrustmaster T.16000M',
+    support: 'beta',
+    names: {
+      btn1: 'Trigger',
+      btn2: 'Centre Button',
+      btn3: 'Left Button',
+      btn4: 'Right Button',
+      ...numbered(5, 12, (n) => `Base Button ${n + 4}`),
+      hat1: 'Hat Switch',
+      x: 'Roll',
+      y: 'Pitch',
+      rz: 'Yaw',
+      slider: 'Throttle',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      rz: 'Twist the stick',
+      slider: 'Slider on the base',
+    },
+  },
+  // Thrustmaster TWCS throttle, the other half of the T.16000M FCS HOTAS (GitHub issue
+  // #35). Axis roles and button numbers are Thrustmaster's "PC generic mapping" chart for
+  // it, which an owner's report matches: the throttle on Z, the ministick on X and Y, and
+  // the two lower hats as buttons 7 to 10 and 11 to 14, clockwise from up.
+  // Rx, Ry and Dial aren't on the throttle at all: they are Thrustmaster's TFRP pedals,
+  // when a set is plugged into the socket on its base. With none there Rx and Ry would
+  // read as a second stick held in a corner, and keep the ministick and the paddle from
+  // centring themselves, so they read end to end, as toe brakes do, and both the same way
+  // (Ry would be reversed next to Rx): the chart's arrows run from 1024 down to 0, taken
+  // to mean a brake reads 0 pressed home. The chart draws the pedals' rudder reading 0 at
+  // the left, so it isn't reversed, as a Dial would be. It stays an end-to-end axis: with
+  // no pedals it may not rest in the middle either.
+  // Not confirmed: which way the antenna knob reads, and that reading of the toe brakes.
+  // Beta until an owner has confirmed every label.
+  '044f:b687': {
+    id: 'twcs',
+    name: 'Thrustmaster TWCS Throttle',
+    support: 'beta',
+    names: {
+      btn1: 'Thumb Button',
+      btn2: 'Pinkie Button',
+      btn3: 'Ring Finger Button',
+      ...positions(4, 'Rocker', 'Up', 'Down'),
+      btn6: 'Ministick Push',
+      ...positions(7, 'Middle Hat', 'Up', 'Right', 'Down', 'Left'),
+      ...positions(11, 'Lower Hat', 'Up', 'Right', 'Down', 'Left'),
+      hat1: 'Top Hat',
+      x: 'Ministick X',
+      y: 'Ministick Y',
+      z: 'Throttle',
+      rz: 'Paddle',
+      slider: 'Antenna',
+      rx: 'TFRP Right Pedal',
+      ry: 'TFRP Left Pedal',
+      dial: 'TFRP Rudder',
+    },
+    hints: {
+      x: 'Ministick on the front of the handle',
+      y: 'Ministick on the front of the handle',
+      z: 'Slide the handle',
+      rz: 'Paddles on the front of the handle',
+      slider: 'Knob on the end of the handle',
+      rx: 'Pedals plugged into the throttle',
+      ry: 'Pedals plugged into the throttle',
+      dial: 'Pedals plugged into the throttle',
+    },
+    axes: {
+      rx: { centered: false, invert: true },
+      ry: { centered: false, invert: true },
+      dial: { invert: false },
+    },
+  },
   // WINWING Orion 2 joystick base with the F-16EX grip and its left extension (reports as
   // "WINWING Orion Joystick Base 2 + JGRIP-F16"). The grip's two levers rest at the bottom
   // of their axes (GitHub issue #7): the one beside the trigger is on Rz, which would read
@@ -787,13 +869,14 @@ export const SKINS = Object.freeze({
   // read as a reversed throttle, the left lever is on Rz, which would read as a twist,
   // and the right lever on Dial would run the opposite way to the left one.
   // Axis roles and button numbers are from the game defaults for this stick and Turtle
-  // Beach's control list. Those leave out 15, 20, 22 and 24, so the touchpad click and the
-  // Xbox and Share buttons keep their generic names. 13 and 14 are the trim wheel when it
-  // is set to "Digital Buttons". Beta until an owner has confirmed every label.
+  // Beach's control list. Those leave out 15, 20, 22 and 24, so whichever of them the Xbox
+  // and Share buttons are keep their generic names. 13 and 14 are the trim wheel, and only
+  // once it is set to "Digital Buttons" on the stick's own display: left as an axis it
+  // sends neither (GitHub issue #34). The touchpad is a mouse to Windows, not part of the
+  // joystick. Two owners have used the stick with these labels (GitHub issues #3 and #34).
   '10f5:7055': {
     id: 'velocityoneflightstick',
     name: 'VelocityOne Flightstick',
-    support: 'beta',
     names: {
       btn1: 'Left A Button',
       btn2: 'Left B Button',
@@ -834,6 +917,8 @@ export const SKINS = Object.freeze({
       rz: 'Lever on the left of the base',
       dial: 'Lever on the right of the base',
       slider: 'Wheel under the touchpad',
+      btn13: 'Needs the wheel set to Digital Buttons on the stick',
+      btn14: 'Needs the wheel set to Digital Buttons on the stick',
     },
     axes: {
       z: { centered: true, invert: false, deadzone: 0.1 },
@@ -1118,8 +1203,34 @@ export const SKINS = Object.freeze({
   },
 });
 
+// Turtle Beach VelocityOne Rudder (GitHub issue #31): pedals that slide for the rudder,
+// each with a toe brake. Windows shows an X and a Y resting in one corner, the two brakes,
+// which would read as a stick held hard over and keep the rudder from centring itself;
+// and a Z, the rudder, which would read as a reversed throttle lever.
+// Not confirmed: which brake is X (taken to be the left, as on other pedals), and which
+// way the rudder reads. Beta until an owner has confirmed every label.
+const VELOCITYONE_RUDDER = {
+  id: 'velocityonerudder',
+  name: 'VelocityOne Rudder',
+  support: 'beta',
+  names: { x: 'Left Toe Brake', y: 'Right Toe Brake', z: 'Rudder' },
+  hints: { x: 'Press the top of the left pedal', y: 'Press the top of the right pedal', z: 'Push a pedal forward' },
+  axes: {
+    x: { centered: false, invert: false },
+    y: { centered: false, invert: false },
+    z: { centered: true, invert: false },
+  },
+};
+
+// Skins for devices whose USB ID nobody has reported yet, found by maker and name instead.
+// The Rudder is one: the app didn't detect it, so its owner had no device info to copy.
+export const NAMED_SKINS = Object.freeze([{ vendorId: 0x10f5, name: /velocityone rudder/i, skin: VELOCITYONE_RUDDER }]);
+
 export const deviceKey = (vendorId, productId) =>
   `${vendorId.toString(16).padStart(4, '0')}:${productId.toString(16).padStart(4, '0')}`;
+
+const skinFor = (vendorId, productId, name) =>
+  SKINS[deviceKey(vendorId, productId)] ?? NAMED_SKINS.find((n) => n.vendorId === vendorId && n.name.test(name ?? ''))?.skin ?? null;
 
 // A gamepad the app reads over HID as it would a joystick (see `gamepad` on its skin).
 export const isKnownGamepad = (vendorId, productId) => SKINS[deviceKey(vendorId, productId)]?.gamepad === true;
@@ -1134,6 +1245,14 @@ const ROLE_HINTS = [
 ];
 
 export const guessRole = (name) => ROLE_HINTS.find(([, hint]) => hint.test(name ?? ''))?.[0] ?? null;
+
+// Pedals or a throttle, going by the name: flight gear even when it calls itself a gamepad.
+export const isFlightGear = (name) => ['pedals', 'throttle'].includes(guessRole(name));
+
+// A device that calls itself a gamepad or a simulation control rather than a joystick. In
+// a rig nobody has given roles to, these take what the joysticks leave: a stick that was
+// read on its own stays the stick when one of them is plugged in beside it.
+const fillsLast = (d) => d.usagePage === PAGE_SIMULATION || (d.usagePage === PAGE_GENERIC && d.usage === USAGE_GAMEPAD);
 
 // Gives each plugged-in device a role (see shared/controls.js). `devices` is
 // [{ id, name }] in a stable order; `saved` is { [id]: role } as remembered or chosen
@@ -1157,7 +1276,9 @@ export function assignRoles(devices, saved = {}) {
       if (!roles[d.id] && free.has(guess)) give(d, guess);
     }
   }
-  for (const d of used) if (!roles[d.id] && free.size) give(d, ROLES.find((role) => free.has(role)));
+  for (const d of [...used.filter((d) => !fillsLast(d)), ...used.filter(fillsLast)]) {
+    if (!roles[d.id] && free.size) give(d, ROLES.find((role) => free.has(role)));
+  }
   return roles;
 }
 
@@ -1183,7 +1304,7 @@ export function changeRole(saved, current, id, role) {
 // `ignoreSkin` shows a known stick with the generic layout (for testing that path).
 export function describeDevice(layout, { vendorId, productId, name, ignoreSkin = false }) {
   const key = deviceKey(vendorId, productId);
-  const skin = ignoreSkin ? null : (SKINS[key] ?? null);
+  const skin = ignoreSkin ? null : skinFor(vendorId, productId, name);
   const axes = [];
   const hats = [];
   const taken = new Set();
@@ -1229,6 +1350,8 @@ export function describeDevice(layout, { vendorId, productId, name, ignoreSkin =
     buttonNames: Object.fromEntries(
       Array.from({ length: buttons }, (_, i) => [`btn${i + 1}`, skin?.names[`btn${i + 1}`] ?? `Button ${i + 1}`]),
     ),
+    // What to know before mapping a button, for the few that need saying.
+    buttonHints: Object.fromEntries(Object.entries(skin?.hints ?? {}).filter(([id]) => /^btn\d+$/.test(id))),
   };
 }
 

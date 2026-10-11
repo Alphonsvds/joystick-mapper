@@ -5,3 +5,5 @@ dist/
 .DS_Store
 # Downloaded at build time by scripts/fetch-vigembus.mjs (checksum-pinned).
 build/vigembus/*.exe
+# Downloaded at build time by scripts/fetch-hidhide.mjs (checksum-pinned).
+build/hidhide/*.exe

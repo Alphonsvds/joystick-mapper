@@ -13,7 +13,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
-    "fetch-driver": "node scripts/fetch-vigembus.mjs",
+    "fetch-driver": "node scripts/fetch-vigembus.mjs && node scripts/fetch-hidhide.mjs",
     "dist": "npm run fetch-driver && electron-builder --win --publish never",
     "dist:linux": "electron-builder --linux --publish never"
   },
@@ -47,6 +47,14 @@
       {
         "from": "build/vigembus",
         "to": "vigembus",
+        "filter": [
+          "*.exe",
+          "*.txt"
+        ]
+      },
+      {
+        "from": "build/hidhide",
+        "to": "hidhide",
         "filter": [
           "*.exe",
           "*.txt"

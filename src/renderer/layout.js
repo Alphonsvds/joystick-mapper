@@ -745,8 +745,10 @@ const STECS_SPACE = {
 // ─── Turtle Beach VelocityOne Flightstick ────────────────────────────────────
 
 // Seen from straight above, so everything on the base is in view. The trigger is on the
-// far side of the grip's head: its line stops at the head's top edge. The touchpad click
-// and the Xbox and Share buttons aren't labelled, their button numbers aren't known yet.
+// far side of the grip's head: its line stops at the head's top edge. Nothing published
+// says which of the four numbers left over the Xbox and Share buttons send, so those
+// share a label by number, pointing at the pair. The touchpad isn't labelled: it is a
+// mouse to Windows, not part of the joystick (GitHub issue #34).
 const VELOCITYONE_FLIGHTSTICK = lower(30, {
   alt: 'Turtle Beach VelocityOne Flightstick, seen from above',
   dense: true,
@@ -833,6 +835,14 @@ const VELOCITYONE_FLIGHTSTICK = lower(30, {
         group: labelled(['btn5', 'A'], ['btn6', 'B'], ['btn7', 'X'], ['btn8', 'Y']),
       },
       { id: 'btn23', at: [534, 695] },
+      {
+        id: 'others',
+        name: 'Other Buttons',
+        tag: 'XBOX · SHARE',
+        at: [486, 714],
+        columns: 2,
+        group: labelled(['btn15', '15'], ['btn20', '20'], ['btn22', '22'], ['btn24', '24']),
+      },
     ]),
   ],
   guides: {
@@ -2627,7 +2637,169 @@ const STECS_MAX = lower(54, {
 });
 
 // Keyed by skin id (see SKINS in shared/devices.js). A skin with no entry shows as the list.
+// ─── Thrustmaster T.16000M FCS HOTAS (stick and TWCS throttle) ───────────────
+
+// The arc of a twist under a grip, for a collar of any size (see `collar`).
+const twistArc = (cx, cy, rx, ry, end = 0.25) => {
+  const dx = rx * Math.cos(end);
+  const y = cy + ry * Math.sin(end);
+  // How steeply the arc is climbing where it stops, for the arrowheads.
+  const slope = (Math.atan2(ry * Math.cos(end), rx * Math.sin(end)) * 180) / Math.PI;
+  return {
+    path: `M ${cx - dx} ${y} A ${rx} ${ry} 0 0 0 ${cx + dx} ${y}`,
+    arrows: [
+      [cx - dx, y, slope - 180],
+      [cx + dx, y, -slope],
+    ],
+    point: (v) => {
+      const a = Math.PI / 2 - v * (Math.PI / 2 - end);
+      return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
+    },
+  };
+};
+
+// Seen from straight above. The trigger is on the far side of the grip: its orange tip
+// shows above the head. Each side of the base has two rows of three buttons, numbered
+// outwards along the row of domes and back along the flat row in front of it; the
+// right-hand rows run under the hand rest, which hides the innermost button of each.
+const T16000M = {
+  alt: 'Thrustmaster T.16000M, seen from above',
+  dense: true,
+  image: { src: 'assets/t16000m.png', width: 781, height: 852, x: 519, y: 150, scale: 0.72 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 150, [
+      { id: 'hat1', tag: 'POV', columns: 2, at: [425, 162], group: hatSwitch('hat1') },
+      { id: 'btn3', at: [330, 172] },
+      { id: 'btn2', at: [420, 272] },
+      {
+        id: 'lefttop',
+        name: 'Left Top Row',
+        tag: '5 · 6 · 7',
+        columns: 2,
+        at: [130, 264],
+        group: leftToRight(labelled(['btn5', '5'], ['btn6', '6'], ['btn7', '7'])),
+      },
+      {
+        id: 'leftbottom',
+        name: 'Left Bottom Row',
+        tag: '10 · 9 · 8',
+        columns: 2,
+        at: [122, 380],
+        group: leftToRight(labelled(['btn10', '10'], ['btn9', '9'], ['btn8', '8'])),
+      },
+    ]),
+    ...stack('right', 150, [
+      { id: 'btn1', tag: 'FRONT', at: [418, 22] },
+      { id: 'btn4', at: [510, 172] },
+      {
+        id: 'righttop',
+        name: 'Right Top Row',
+        tag: '13 · 12 · 11',
+        columns: 2,
+        at: [653, 267],
+        group: labelled(['btn13', '13'], ['btn12', '12'], ['btn11', '11']),
+      },
+      {
+        id: 'rightbottom',
+        name: 'Right Bottom Row',
+        tag: '14 · 15 · 16',
+        columns: 2,
+        at: [665, 377],
+        group: labelled(['btn14', '14'], ['btn15', '15'], ['btn16', '16']),
+      },
+      {
+        id: 'stick',
+        name: 'Stick',
+        columns: 2,
+        at: [470, 400],
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'rz', label: 'Yaw', wide: true }],
+      },
+      { id: 'slider', tag: 'SLIDER', at: [400, 715] },
+    ]),
+  ],
+  guides: {
+    x: across(735, 905, 126),
+    y: upDown(940, 190, 330),
+    // An arc under the boot around the stick's base.
+    rz: twistArc(829, 552, 118, 40),
+    // Beside the scale printed along the slider.
+    slider: upDown(908, 614, 714),
+  },
+};
+
+// Seen from straight above, as the stick is: the pilot's hand lies over the handle, which
+// slides forward (up the picture) for more throttle. The thumb's three hats and its
+// orange button are down the right-hand end of the handle, seen edge on. Everything the
+// fingers reach is on the front, facing away: the ministick, the rocker and the two orange
+// buttons show over the top of the handle, with the paddles spread behind them.
+// The TFRP pedals aren't in the picture: they plug into the base, and their three axes
+// are listed for whoever has a set there.
+const TWCS_THROTTLE = {
+  alt: 'Thrustmaster TWCS throttle, seen from above',
+  dense: true,
+  image: { src: 'assets/twcs-throttle.png', width: 801, height: 892, x: 520, y: 160, scale: 0.7 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 150, [
+      { id: 'rocker', name: 'Rocker', tag: 'FRONT', columns: 2, at: [325, 96], group: [{ id: 'btn4', dir: 'up' }, { id: 'btn5', dir: 'down' }] },
+      { id: 'btn3', tag: 'FRONT', at: [272, 114] },
+      { id: 'btn2', tag: 'FRONT', at: [200, 141] },
+      { id: 'slider', tag: 'KNOB', at: [120, 205] },
+      { id: 'z', tag: 'Z AXIS', at: [330, 300] },
+      // Their socket is out of sight, so this points at the base they plug into.
+      {
+        id: 'tfrp',
+        name: 'TFRP Pedals',
+        tag: 'IF PLUGGED IN',
+        columns: 2,
+        at: [62, 560],
+        group: [{ id: 'dial', label: 'Rudder', wide: true }, { id: 'ry', label: 'Left', wide: true }, { id: 'rx', label: 'Right', wide: true }],
+      },
+    ]),
+    ...stack('right', 150, [
+      { id: 'rz', tag: 'FRONT', at: [480, 32] },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'FRONT',
+        columns: 2,
+        at: [432, 56],
+        group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'btn6', dir: 'push' }],
+      },
+      { id: 'hat1', tag: 'POV', columns: 2, at: [568, 155], group: hatSwitch('hat1') },
+      { id: 'middlehat', name: 'Middle Hat', columns: 2, at: [585, 240], group: fourWay(7) },
+      { id: 'lowerhat', name: 'Lower Hat', columns: 2, at: [603, 285], group: fourWay(11) },
+      { id: 'btn1', at: [590, 350] },
+    ]),
+  ],
+  // Beside the scale printed along the handle's slot.
+  guides: { z: upDown(891, 443, 597) },
+};
+
+// ─── Turtle Beach VelocityOne Rudder ─────────────────────────────────────────
+
+// Seen from behind and to the left: the left pedal is the near one. Each pedal tips
+// forward for its toe brake, and the pair slide opposite ways about the hub for the rudder.
+const VELOCITYONE_RUDDER = {
+  alt: 'Turtle Beach VelocityOne Rudder pedals, seen from behind',
+  dense: true,
+  image: { src: 'assets/velocityone-rudder.png', width: 884, height: 848, x: 472, y: 160, scale: 0.8 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 290, [{ id: 'x', tag: 'X AXIS', at: [130, 290] }]),
+    ...stack('right', 250, [
+      { id: 'y', tag: 'Y AXIS', at: [575, 105] },
+      { id: 'z', tag: 'Z AXIS', at: [395, 392] },
+    ]),
+  ],
+  guides: {},
+};
+
 export const LAYOUTS = {
+  t16000m: T16000M,
+  twcs: TWCS_THROTTLE,
+  velocityonerudder: VELOCITYONE_RUDDER,
   xboxcontroller: XBOX_CONTROLLER,
   xboxelite: XBOX_ELITE,
   dualshock4: DUALSHOCK_4,
