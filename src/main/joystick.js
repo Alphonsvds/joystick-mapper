@@ -7,6 +7,7 @@
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import HID from 'node-hid';
+import { BLOCKED_MESSAGE, isBlocked } from '../shared/blocked.js';
 import { ROLES, rolePrefix } from '../shared/controls.js';
 import { assignRoles, deviceKey, describeDevice, isCentered, isFlightGear, isKnownGamepad, mergeInputs, normalizeInput } from '../shared/devices.js';
 import { HidDescriptorParser } from './hiddescriptor.js';
@@ -221,7 +222,7 @@ export class JoystickManager extends EventEmitter {
       this.fault = null;
       await this.serial(() => this.sync(devices));
     } catch (err) {
-      this.fault = { state: 'error', message: err.message };
+      this.fault = isBlocked(err) ? { state: 'blocked', message: BLOCKED_MESSAGE } : { state: 'error', message: err.message };
       this.publish();
     }
     this.scheduleScan();
@@ -264,7 +265,9 @@ export class JoystickManager extends EventEmitter {
     try {
       parser = this.backend.createParser(info);
     } catch (err) {
-      this.problems.set(info.id, { state: 'unsupported', message: `${info.name}: ${err.message}` });
+      // Windows wouldn't load the reader itself (see shared/blocked.js): no fault of the device's.
+      const blocked = isBlocked(err);
+      this.problems.set(info.id, { state: blocked ? 'blocked' : 'unsupported', message: blocked ? BLOCKED_MESSAGE : `${info.name}: ${err.message}` });
       return;
     }
     const described = describeDevice(parser.layout, {

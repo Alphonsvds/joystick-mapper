@@ -7,6 +7,7 @@
 // Closing the handle makes the driver unplug our target, so a crash never leaves a ghost pad.
 import { EventEmitter } from 'node:events';
 import { createRequire } from 'node:module';
+import { BLOCKED_MESSAGE, isBlocked } from '../shared/blocked.js';
 import { VirtualUinputPad } from './uinput.js';
 import { readXboxSlots } from './xinput.js';
 
@@ -207,7 +208,7 @@ class VirtualX360 extends EventEmitter {
     } catch (err) {
       // Surface FFI/driver failures in the status bar instead of crashing the main process.
       if (gen === this.generation) {
-        this.setStatus('error', `Virtual controller error: ${err.message}`);
+        this.setStatus('error', isBlocked(err) ? BLOCKED_MESSAGE : `Virtual controller error: ${err.message}`);
         this.scheduleRetry();
       }
     }

@@ -172,6 +172,25 @@ const GLADIATOR_EVO = {
   },
 };
 
+// The Logitech Extreme 3D Pro, and the Force 3D Pro in the same shape.
+const EXTREME_3D = {
+  names: {
+    btn1: 'Trigger',
+    btn2: 'Thumb Button',
+    hat1: 'Hat Switch',
+    x: 'Roll',
+    y: 'Pitch',
+    rz: 'Yaw',
+    slider: 'Throttle',
+  },
+  hints: {
+    x: 'Stick left / right',
+    y: 'Stick forward / back',
+    rz: 'Twist the stick',
+    slider: 'Slider on the base',
+  },
+};
+
 // The same stick as an Omni Throttle: the grip itself is the throttle.
 const GLADIATOR_OMNI = {
   names: { ...GLADIATOR_EVO.names, x: 'Sideways', y: 'Throttle', rz: 'Twist', z: 'Base Wheel' },
@@ -482,14 +501,18 @@ export const SKINS = Object.freeze({
   // #35). Axis roles and button numbers are Thrustmaster's "PC generic mapping" chart for
   // it, which an owner's report matches: the throttle on Z, the ministick on X and Y, and
   // the two lower hats as buttons 7 to 10 and 11 to 14, clockwise from up.
-  // Rx, Ry and Dial aren't on the throttle at all: they are Thrustmaster's TFRP pedals,
+  // The chart calls the antenna knob "Slider 0" and the pedals' rudder "Slider 1", which
+  // are places in Windows' list of the throttle's sliders, not the controls the throttle
+  // itself names Slider and Dial. Windows lists the Dial first, so the knob is the Dial,
+  // as its owner found: the label on Slider never moved (GitHub issue #45).
+  // Rx, Ry and Slider aren't on the throttle at all: they are Thrustmaster's TFRP pedals,
   // when a set is plugged into the socket on its base. With none there Rx and Ry would
   // read as a second stick held in a corner, and keep the ministick and the paddle from
   // centring themselves, so they read end to end, as toe brakes do, and both the same way
   // (Ry would be reversed next to Rx): the chart's arrows run from 1024 down to 0, taken
   // to mean a brake reads 0 pressed home. The chart draws the pedals' rudder reading 0 at
-  // the left, so it isn't reversed, as a Dial would be. It stays an end-to-end axis: with
-  // no pedals it may not rest in the middle either.
+  // the left, so it isn't reversed, as a Slider would be, and with no pedals it rests in
+  // the middle, as a rudder does.
   // Not confirmed: which way the antenna knob reads, and that reading of the toe brakes.
   // Beta until an owner has confirmed every label.
   '044f:b687': {
@@ -509,25 +532,25 @@ export const SKINS = Object.freeze({
       y: 'Ministick Y',
       z: 'Throttle',
       rz: 'Paddle',
-      slider: 'Antenna',
+      dial: 'Antenna',
       rx: 'TFRP Right Pedal',
       ry: 'TFRP Left Pedal',
-      dial: 'TFRP Rudder',
+      slider: 'TFRP Rudder',
     },
     hints: {
       x: 'Ministick on the front of the handle',
       y: 'Ministick on the front of the handle',
       z: 'Slide the handle',
       rz: 'Paddles on the front of the handle',
-      slider: 'Knob on the end of the handle',
+      dial: 'Knob on the end of the handle',
       rx: 'Pedals plugged into the throttle',
       ry: 'Pedals plugged into the throttle',
-      dial: 'Pedals plugged into the throttle',
+      slider: 'Pedals plugged into the throttle',
     },
     axes: {
       rx: { centered: false, invert: true },
       ry: { centered: false, invert: true },
-      dial: { invert: false },
+      slider: { centered: true, invert: false },
     },
   },
   // WINWING Orion 2 joystick base with the F-16EX grip and its left extension (reports as
@@ -823,6 +846,55 @@ export const SKINS = Object.freeze({
       z: { centered: true, invert: false },
       x: { centered: false, invert: false },
       y: { centered: false, invert: false },
+    },
+  },
+  // Virpil Constellation ALPHA Prime, right hand, on a MongoosT-50CM3 base (reports as
+  // "R-VPC Stick MT-50CM3", GitHub issue #30). Button numbers are the Joystick Diagrams
+  // template for the grip, whose 32 buttons are the ones Virpil lists for it. Each hat is
+  // its push, then up, left, down, right. The flip trigger holds a button where it stands:
+  // 1 folded up, 2 down, and 3 when pulled. The scroll wheel clicks 21 and 22 as it turns
+  // and presses in two stages.
+  // The twist is on Z, which would read as a throttle lever. The brake lever is on Slider
+  // and rests at 0, which would read as held in.
+  // The USB ID is the base's: another grip on it would get this photo too, and its owner
+  // can switch to the list. Not confirmed: which way the twist reads. Beta until an owner
+  // has confirmed every label.
+  '3344:4391': {
+    id: 'alphaprimeright',
+    name: 'Virpil Alpha Prime Right',
+    support: 'beta',
+    names: {
+      ...positions(1, 'Flip Trigger', 'Up', 'Down', 'Pull'),
+      btn4: 'Trigger Stage 1',
+      btn5: 'Trigger Stage 2',
+      btn6: 'Ministick Push',
+      btn7: 'Upper Button',
+      ...positions(8, 'Top Hat', 'Push', 'Up', 'Left', 'Down', 'Right'),
+      btn13: 'Lower Button',
+      ...positions(14, 'Centre Hat', 'Push', 'Up', 'Left', 'Down', 'Right'),
+      ...positions(19, 'Scroll Wheel', 'Press 1', 'Press 2', 'Up', 'Down'),
+      ...positions(23, 'Thumb Hat', 'Push', 'Up', 'Left', 'Down', 'Right'),
+      ...positions(28, 'Front Hat', 'Push', 'Up', 'Down'),
+      btn31: 'Pinkie Button',
+      btn32: 'Brake Lever Button',
+      x: 'Roll',
+      y: 'Pitch',
+      z: 'Yaw',
+      rx: 'Ministick X',
+      ry: 'Ministick Y',
+      slider: 'Brake Lever',
+    },
+    hints: {
+      x: 'Stick left / right',
+      y: 'Stick forward / back',
+      z: 'Twist the stick',
+      rx: 'Ministick',
+      ry: 'Ministick',
+      slider: 'Lever on the front of the grip',
+    },
+    axes: {
+      z: { centered: true, deadzone: 0.1 },
+      slider: { centered: false, invert: false },
     },
   },
   // VKB STECS Modern Throttle Mk.II Standard: twin grips, base and STEM module (reports as
@@ -1182,25 +1254,29 @@ export const SKINS = Object.freeze({
   // Beta until an owner has confirmed every label.
   '231d:3200': { id: 'gladiatorotright', name: 'VKB Omni Throttle Right', support: 'beta', ...GLADIATOR_OMNI },
   '231d:3201': { id: 'gladiatorotleft', name: 'VKB Omni Throttle Left', support: 'beta', ...GLADIATOR_OMNI },
-  '046d:c215': {
-    id: 'extreme3dpro',
-    name: 'Logitech Extreme 3D Pro',
-    names: {
-      btn1: 'Trigger',
-      btn2: 'Thumb Button',
-      hat1: 'Hat Switch',
-      x: 'Roll',
-      y: 'Pitch',
-      rz: 'Yaw',
-      slider: 'Throttle',
-    },
-    hints: {
-      x: 'Stick left / right',
-      y: 'Stick forward / back',
-      rz: 'Twist the stick',
-      slider: 'Slider on the base',
+  // VKB T-Rudder pedals (reports as "VKB-Sim T-Rudder", GitHub issue #29, from a Mk.IV).
+  // The pedals are one axis, the rudder, on Rx. They have no toe brakes: Ry and Rz rest at
+  // 0 and are taken to be the two virtual brake axes VKB's T-Link software drives from a
+  // button on the stick, as the two buttons are taken to be its doing too. Read as a
+  // stick, those two axes would be held hard over and keep the rudder from centring itself.
+  // Not confirmed: which brake is which. Beta until an owner has confirmed every label.
+  '231d:011f': {
+    id: 'trudder',
+    name: 'VKB T-Rudder',
+    support: 'beta',
+    names: { rx: 'Rudder', ry: 'Virtual Brake (Ry)', rz: 'Virtual Brake (Rz)' },
+    hints: { rx: 'Push a pedal forward', ry: 'Set up in VKB T-Link', rz: 'Set up in VKB T-Link' },
+    axes: {
+      ry: { centered: false, invert: false },
+      rz: { centered: false, invert: false },
     },
   },
+  '046d:c215': { id: 'extreme3dpro', name: 'Logitech Extreme 3D Pro', ...EXTREME_3D },
+  // Logitech Force 3D Pro (GitHub issue #39): the Extreme 3D Pro's shape and controls with
+  // force feedback, reporting the same axes, hat and twelve buttons. It gives Windows no
+  // product name, only "Logitech". It shares the Extreme's skin, so its photo, labels and
+  // templates. Beta until an owner has confirmed every label.
+  '046d:c286': { id: 'extreme3dpro', name: 'Logitech Force 3D Pro', support: 'beta', ...EXTREME_3D },
 });
 
 // Turtle Beach VelocityOne Rudder (GitHub issue #31): pedals that slide for the rudder,

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('joymap', {
   setAxisCentered: (axisId, centered) => ipcRenderer.invoke('joymap:set-axis-centered', axisId, centered),
   copyDeviceInfo: () => ipcRenderer.invoke('joymap:copy-device-info'),
   reportDevice: () => ipcRenderer.invoke('joymap:report-device'),
+  blockedHelp: () => ipcRenderer.invoke('joymap:blocked-help'),
   recenter: () => ipcRenderer.invoke('joymap:recenter'),
   installDriver: () => ipcRenderer.invoke('joymap:install-driver'),
   installUpdate: () => ipcRenderer.invoke('joymap:install-update'),

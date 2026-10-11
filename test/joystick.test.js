@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { JoystickManager } from '../src/main/joystick.js';
+import { BLOCKED_MESSAGE, isBlocked } from '../src/shared/blocked.js';
 import { findPadSlot } from '../src/main/vigem.js';
 
 // ─── A pretend HID layer ──────────────────────────────────────────────────────
@@ -301,6 +302,51 @@ test('a device that cannot be opened is reported, and the others still work', as
   assert.equal(manager.status.state, 'error');
   assert.match(manager.status.message, /in use/);
   assert.equal(manager.status.device, null);
+  await manager.stop();
+});
+
+test('Windows refusing to load the reader is told apart from a stick that cannot be read', async () => {
+  // What Node throws for a native file the system won't load, as Windows worded it in
+  // GitHub issue #38.
+  const refused = () => Object.assign(new Error('An Application Control policy has blocked this file.'), { code: 'ERR_DLOPEN_FAILED' });
+  assert.equal(isBlocked(refused()), true);
+  assert.equal(isBlocked(new Error('The device did not describe its controls')), false);
+  assert.equal(isBlocked(null), false);
+
+  const { backend, manager } = rig(STICK, THROTTLE);
+  const createParser = backend.createParser;
+  backend.createParser = () => {
+    throw refused();
+  };
+  await manager.scan();
+  // Every device is still listed, each saying what happened in words a user can act on.
+  assert.equal(manager.status.state, 'blocked');
+  assert.equal(manager.status.message, BLOCKED_MESSAGE);
+  assert.equal(manager.status.device, null);
+  assert.deepEqual(manager.status.devices.map((d) => [d.id, d.problem]), [
+    ['046d:c215', BLOCKED_MESSAGE],
+    ['044f:b687', BLOCKED_MESSAGE],
+  ]);
+  // Not even listing the devices: the same.
+  const list = backend.list;
+  backend.list = async () => {
+    throw refused();
+  };
+  await manager.scan();
+  assert.deepEqual([manager.status.state, manager.status.message], ['blocked', BLOCKED_MESSAGE]);
+  // A stick the reader can't make sense of still names itself and the reason.
+  backend.list = list;
+  backend.createParser = () => {
+    throw new Error('The device did not describe its controls');
+  };
+  await manager.scan();
+  assert.equal(manager.status.state, 'unsupported');
+  assert.match(manager.status.message, /Logitech Extreme 3D: The device did not describe its controls/);
+  // Once Windows lets the file load, the devices open on the next scan.
+  backend.createParser = createParser;
+  await manager.scan();
+  assert.equal(manager.status.state, 'connected');
+  assert.deepEqual(manager.status.devices.map((d) => d.problem), ['', '']);
   await manager.stop();
 });
 

@@ -2745,7 +2745,7 @@ const TWCS_THROTTLE = {
       { id: 'rocker', name: 'Rocker', tag: 'FRONT', columns: 2, at: [325, 96], group: [{ id: 'btn4', dir: 'up' }, { id: 'btn5', dir: 'down' }] },
       { id: 'btn3', tag: 'FRONT', at: [272, 114] },
       { id: 'btn2', tag: 'FRONT', at: [200, 141] },
-      { id: 'slider', tag: 'KNOB', at: [120, 205] },
+      { id: 'dial', tag: 'KNOB', at: [120, 205] },
       { id: 'z', tag: 'Z AXIS', at: [330, 300] },
       // Their socket is out of sight, so this points at the base they plug into.
       {
@@ -2754,7 +2754,7 @@ const TWCS_THROTTLE = {
         tag: 'IF PLUGGED IN',
         columns: 2,
         at: [62, 560],
-        group: [{ id: 'dial', label: 'Rudder', wide: true }, { id: 'ry', label: 'Left', wide: true }, { id: 'rx', label: 'Right', wide: true }],
+        group: [{ id: 'slider', label: 'Rudder', wide: true }, { id: 'ry', label: 'Left', wide: true }, { id: 'rx', label: 'Right', wide: true }],
       },
     ]),
     ...stack('right', 150, [
@@ -2796,7 +2796,117 @@ const VELOCITYONE_RUDDER = {
   guides: {},
 };
 
+// ─── Virpil Constellation ALPHA Prime (right hand) ───────────────────────────
+
+// A hat that reports as five buttons from its push, then up, left, down and right.
+const virpilHat = (push) => [
+  { id: `btn${push + 1}`, dir: 'up' },
+  { id: `btn${push + 4}`, dir: 'right' },
+  { id: `btn${push + 3}`, dir: 'down' },
+  { id: `btn${push + 2}`, dir: 'left' },
+  { id: `btn${push}`, dir: 'push' },
+];
+
+// Seen from behind and to the left, so forward is to the left. The lever hanging under
+// the head is the flip trigger, folded down; the two-stage trigger is behind it, out of
+// sight, as is the front hat on the far side of the head: their lines stop at the nearest
+// edge.
+const ALPHA_PRIME_RIGHT = {
+  alt: 'Virpil Constellation ALPHA Prime, right hand, seen from behind',
+  dense: true,
+  image: { src: 'assets/alpha-prime-right.png', width: 638, height: 1024, x: 560, y: 112, scale: 0.76 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 120, [
+      { id: 'btn7', at: [228, 96] },
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        columns: 2,
+        at: [172, 190],
+        group: [{ id: 'rx', label: 'X', wide: true }, { id: 'ry', label: 'Y', wide: true }, { id: 'btn6', dir: 'push' }],
+      },
+      { id: 'trigger', name: 'Trigger', tag: 'TWO STAGE', columns: 2, at: [204, 368], group: labelled(['btn4', '1st'], ['btn5', '2nd']) },
+      {
+        id: 'fliptrigger',
+        name: 'Flip Trigger',
+        columns: 2,
+        at: [190, 428],
+        group: labelled(['btn1', 'Up'], ['btn2', 'Down'], ['btn3', 'Pull']),
+      },
+      { id: 'brake', name: 'Brake Lever', columns: 2, at: [220, 585], group: [{ id: 'slider', wide: true }, { id: 'btn32', label: 'Button' }] },
+      { id: 'btn31', at: [298, 705] },
+      {
+        id: 'stick',
+        name: 'Stick',
+        columns: 2,
+        at: [392, 818],
+        group: [{ id: 'x', label: 'Roll', wide: true }, { id: 'y', label: 'Pitch', wide: true }, { id: 'z', label: 'Yaw', wide: true }],
+      },
+    ]),
+    ...stack('right', 120, [
+      { id: 'tophat', name: 'Top Hat', columns: 2, at: [322, 82], group: virpilHat(8) },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        tag: 'FRONT',
+        columns: 2,
+        at: [350, 128],
+        group: [{ id: 'btn29', dir: 'up' }, { id: 'btn30', dir: 'down' }, { id: 'btn28', dir: 'push' }],
+      },
+      { id: 'btn13', at: [337, 188] },
+      { id: 'centrehat', name: 'Centre Hat', columns: 2, at: [262, 200], group: virpilHat(14) },
+      {
+        id: 'scroll',
+        name: 'Scroll Wheel',
+        tag: 'TWO-STAGE PUSH',
+        columns: 2,
+        at: [335, 283],
+        group: labelled(['btn21', 'Up'], ['btn22', 'Down'], ['btn19', '1st'], ['btn20', '2nd']),
+      },
+      { id: 'thumbhat', name: 'Thumb Hat', columns: 2, at: [254, 418], group: virpilHat(23) },
+    ]),
+  ],
+  guides: {
+    x: across(630, 790, 94),
+    y: upDown(880, 150, 310),
+    // An arc around the nut under the grip.
+    z: twistArc(870, 836, 92, 26),
+    // Above the brake lever's tip, which swings in towards the grip.
+    slider: across(652, 712, 496),
+  },
+};
+
+// ─── VKB T-Rudder ────────────────────────────────────────────────────────────
+
+// Seen from above, the pilot at the bottom: the left pedal is on the left. One pedal comes
+// back as the other goes forward. The virtual brakes and the buttons aren't on the pedals:
+// their lines point at the box that sends them.
+const T_RUDDER = {
+  alt: 'VKB T-Rudder pedals, seen from above',
+  dense: true,
+  image: { src: 'assets/t-rudder.png', width: 526, height: 320, x: 484, y: 300, scale: 1.2 },
+  columns: X56_COLUMNS,
+  callouts: [
+    ...stack('left', 420, [{ id: 'rx', tag: 'RX AXIS', at: [105, 255] }]),
+    ...stack('right', 380, [
+      {
+        id: 'brakes',
+        name: 'Virtual Brakes',
+        tag: 'T-LINK',
+        columns: 2,
+        at: [262, 120],
+        group: [{ id: 'ry', label: 'Ry', wide: true }, { id: 'rz', label: 'Rz', wide: true }],
+      },
+      { id: 'buttons', name: 'Buttons', columns: 2, at: [262, 200], group: labelled(['btn1', '1'], ['btn2', '2']) },
+    ]),
+  ],
+  guides: {},
+};
+
 export const LAYOUTS = {
+  alphaprimeright: ALPHA_PRIME_RIGHT,
+  trudder: T_RUDDER,
   t16000m: T16000M,
   twcs: TWCS_THROTTLE,
   velocityonerudder: VELOCITYONE_RUDDER,

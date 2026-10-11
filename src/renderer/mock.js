@@ -6,27 +6,32 @@
 // Beach VelocityOne Flightstick II, Dual Throttle and Flightdeck stick and throttle, an
 // Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense, the WINCTRL URSA MINOR
 // Combat stick and throttle, the Thrustmaster T.16000M and TWCS throttle, the Turtle Beach
-// VelocityOne Rudder (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a
-// made-up set of pedals (universal layout).
+// VelocityOne Rudder, the Logitech Force 3D Pro, the Virpil Alpha Prime, the VKB T-Rudder
+// (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a made-up set of
+// pedals (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
 // ?device=orionstick, ?device=orionthrottle, ?device=solrright, ?device=solrleft,
 // ?device=x56stick, ?device=x56throttle, ?device=flightdeckstick,
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
 // ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle,
-// ?device=ursastick, ?device=ursathrottle, ?device=t16000m, ?device=twcs, ?device=rudder
-// or ?device=pedals to plug in one of the others.
+// ?device=ursastick, ?device=ursathrottle, ?device=t16000m, ?device=twcs, ?device=rudder,
+// ?device=force3dpro, ?device=alphaprime, ?device=trudder or ?device=pedals to plug in one
+// of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
 // pair from issues #13 and #23, ?device=ursaminor the pair from issues #24 and #25,
-// ?device=fcs the pair from issues #35 and #41; any comma-separated list works too
+// ?device=fcs the pair from issues #35 and #41, ?device=virpil the pair from issues #29
+// and #30; any comma-separated list works too
 // (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download),
 // and ?hide=missing to start without HidHide (switching the setting on plays a pretend install).
+// ?blocked=1 shows what is plugged in as it looks when Windows blocks the app's reader.
 // The keyboard drives whichever device is on screen:
 //   W/S pitch · A/D roll · Q/E twist · R/F throttle · arrows = hat
 //   Space = button 1 · V = button 2 · 3–9, 0 = buttons 3–10 · - = = buttons 11–12
+import { BLOCKED_HELP_URL, BLOCKED_MESSAGE } from '../shared/blocked.js';
 import { ROLES, sanitizeBinding, emptyBindings, rolePrefix } from '../shared/controls.js';
 import { XBOX_ELITE_PAD, XBOX_LAYOUT, XBOX_PAD, assignRoles, changeRole, describeDevice, mergeInputs } from '../shared/devices.js';
 import { NEUTRAL_INPUT, mapInput } from '../shared/mapper.js';
@@ -66,24 +71,21 @@ const SOL_R_LAYOUT = {
   ],
   buttonCount: 44,
 };
+// The Extreme 3D Pro, and the Force 3D Pro, which reports the same (GitHub issue #39).
+const EXTREME_3D_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x31, min: 0, max: 1023 },
+    { page: 1, usage: 0x30, min: 0, max: 1023 },
+    hat,
+    { page: 1, usage: 0x35, min: 0, max: 255 },
+    { page: 1, usage: 0x36, min: 0, max: 255 },
+  ],
+  buttonCount: 12,
+};
 const SIMULATED = [
-  {
-    vendorId: 0x046d,
-    productId: 0xc215,
-    name: 'Logitech Extreme 3D',
-    alias: 'extreme3dpro',
-    throttle: 'slider',
-    layout: {
-      values: [
-        { page: 1, usage: 0x31, min: 0, max: 1023 },
-        { page: 1, usage: 0x30, min: 0, max: 1023 },
-        hat,
-        { page: 1, usage: 0x35, min: 0, max: 255 },
-        { page: 1, usage: 0x36, min: 0, max: 255 },
-      ],
-      buttonCount: 12,
-    },
-  },
+  { vendorId: 0x046d, productId: 0xc215, name: 'Logitech Extreme 3D', alias: 'extreme3dpro', throttle: 'slider', layout: EXTREME_3D_LAYOUT },
+  // The Force 3D Pro gives Windows no product name, only its maker's.
+  { vendorId: 0x046d, productId: 0xc286, name: 'Logitech', alias: 'force3dpro', throttle: 'slider', layout: EXTREME_3D_LAYOUT },
   {
     vendorId: 0x044f,
     productId: 0xb10a,
@@ -583,7 +585,7 @@ const SIMULATED = [
       buttonCount: 15,
     },
   },
-  // As reported by a real throttle (GitHub issue #35). Rx, Ry and Dial are the TFRP pedals
+  // As reported by a real throttle (GitHub issue #35). Rx, Ry and Slider are the TFRP pedals
   // that plug into it.
   {
     vendorId: 0x044f,
@@ -624,6 +626,47 @@ const SIMULATED = [
         { page: 1, usage: 0x32, min: 0, max: 65535 },
       ],
       buttonCount: 0,
+    },
+  },
+  // As reported by a real stick (GitHub issue #30): a Virpil Alpha Prime on a
+  // MongoosT-50CM3 base. R / F squeeze the brake lever, Q / E twist the grip.
+  {
+    vendorId: 0x3344,
+    productId: 0x4391,
+    name: 'VIRPIL Controls 20250730 R-VPC Stick MT-50CM3',
+    alias: 'alphaprime',
+    throttle: 'slider',
+    twist: 'z',
+    layout: {
+      values: [
+        { page: 1, usage: 0x30, min: 0, max: 60000 },
+        { page: 1, usage: 0x31, min: 0, max: 60000 },
+        { page: 1, usage: 0x34, min: 0, max: 60000 },
+        { page: 1, usage: 0x33, min: 0, max: 60000 },
+        { page: 1, usage: 0x36, min: 0, max: 60000 },
+        { page: 1, usage: 0x32, min: 0, max: 60000 },
+      ],
+      buttonCount: 32,
+    },
+  },
+  // As reported by real pedals (GitHub issue #29): the rudder on Rx, two axes that rest at
+  // 0, two buttons and five values with no usage. R / F work both brakes, Q / E push the
+  // rudder.
+  {
+    vendorId: 0x231d,
+    productId: 0x011f,
+    name: '© Alex Oz 2012-2019 VKB-Sim T-Rudder',
+    alias: 'trudder',
+    throttle: ['ry', 'rz'],
+    twist: 'rx',
+    layout: {
+      values: [
+        ...Array.from({ length: 5 }, () => ({ page: 0, usage: 0, min: 0, max: 1023 })),
+        { page: 1, usage: 0x35, min: 0, max: 1023 },
+        { page: 1, usage: 0x33, min: 0, max: 2047 },
+        { page: 1, usage: 0x34, min: 0, max: 1023 },
+      ],
+      buttonCount: 2,
     },
   },
   // Pedals for trying a HOTAS. Their layout is made up for the preview, not captured from
@@ -674,6 +717,7 @@ const RIGS = {
   racing: ['wheel', 'racingpedals', 'shifter', 'handbrake', 'orionstick', 'orionthrottle'],
   ursaminor: ['ursastick', 'ursathrottle'],
   fcs: ['t16000m', 'twcs'],
+  virpil: ['alphaprime', 'trudder'],
 };
 
 const KEY_BUTTONS = {
@@ -734,6 +778,8 @@ export function createMockApi() {
   // Hiding the joysticks from games: ?hide=missing starts without HidHide installed, so
   // switching it on plays a pretend install that ends waiting for a restart.
   let hide = { on: false, state: 'off', installed: query.get('hide') !== 'missing' };
+  // Windows blocking the reader (GitHub issue #38): the devices are listed, none can be read.
+  const blocked = query.get('blocked') === '1';
   // What's plugged in. As in the app, every device is live and one of them is on screen.
   const names = (RIGS[wanted] ?? (wanted ?? '').split(',')).map((name) => name.trim());
   const found = names.map((name) => SIMULATED.find((d) => d.id === name || d.alias === name)).filter(Boolean);
@@ -770,20 +816,20 @@ export function createMockApi() {
   const status = () => {
     const p = active();
     const assigned = roles();
-    const device = view();
+    const device = blocked ? null : view();
     return {
       joystick: {
-        state: device ? 'connected' : 'searching',
-        message: '',
+        state: blocked ? 'blocked' : device ? 'connected' : 'searching',
+        message: blocked ? BLOCKED_MESSAGE : '',
         device: device ? { ...device.model, role: assigned[device.id] } : null,
         devices: plugged.map(({ id, model }) => ({
           id,
           key: model.key,
           name: model.name,
           role: assigned[id] ?? null,
-          skin: model.skin,
-          support: model.support,
-          problem: '',
+          skin: blocked ? null : model.skin,
+          support: blocked ? null : model.support,
+          problem: blocked ? BLOCKED_MESSAGE : '',
         })),
         settings: deviceSettings[device?.id] ?? {},
       },
@@ -979,6 +1025,9 @@ export function createMockApi() {
     },
     async reportDevice() {
       window.open('https://github.com/Alphonsvds/joystick-mapper/issues/new?template=joystick-support.yml', '_blank');
+    },
+    async blockedHelp() {
+      window.open(BLOCKED_HELP_URL, '_blank');
     },
     async recenter() {
       return true;

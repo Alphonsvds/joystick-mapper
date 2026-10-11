@@ -343,8 +343,15 @@ function buildStage({ instant = false } = {}) {
     endIntro();
   } else {
     const empty = htmlEl('div', 'gen-empty', $('#generic'));
-    htmlEl('div', 'gen-empty-title', empty).textContent = 'No joystick detected';
-    htmlEl('p', 'gen-tip', empty).textContent = 'Plug in your flight stick. It shows up here automatically.';
+    if (status?.joystick.state === 'blocked') {
+      // Windows wouldn't load the app's reader (see shared/blocked.js).
+      htmlEl('div', 'gen-empty-title', empty).textContent = 'Blocked by Windows';
+      htmlEl('p', 'gen-tip', empty).textContent = `${status.joystick.message}, so no joystick can be read.`;
+      button('ghost gen-empty-action', 'How to fix ↗', empty, () => api.blockedHelp());
+    } else {
+      htmlEl('div', 'gen-empty-title', empty).textContent = 'No joystick detected';
+      htmlEl('p', 'gen-tip', empty).textContent = 'Plug in your flight stick. It shows up here automatically.';
+    }
     endIntro();
   }
   renderAllChips();
@@ -1090,7 +1097,7 @@ function openDeviceMenu(pickedId = null) {
   // now plugged in alone (it stays the throttle until it's made the stick here).
   const roles = several || plugged.some((d) => d.role !== 'stick');
   if (!plugged.length) htmlEl('p', 'menu-empty', list).textContent = 'No joystick detected. Plug one in.';
-  if (several) htmlEl('p', 'menu-note', list).textContent = 'All of these work together. Pick one to map its controls.';
+  if (several && status?.joystick.state !== 'blocked') htmlEl('p', 'menu-note', list).textContent = 'All of these work together. Pick one to map its controls.';
   for (const d of plugged) {
     const current = d.id === model?.id;
     const item = htmlEl('button', 'profile-item', list);
@@ -1132,7 +1139,14 @@ function openDeviceMenu(pickedId = null) {
     }
   }
   // These are about the device on screen, so they step aside while another is picked.
-  if (model && subject?.id === model.id) {
+  if (status?.joystick.state === 'blocked') {
+    // Windows wouldn't load the app's reader (see shared/blocked.js): no device is on screen.
+    const actions = htmlEl('div', 'profile-actions', deviceMenu);
+    button('ghost', 'How to fix ↗', actions, () => {
+      closeMenus();
+      api.blockedHelp();
+    });
+  } else if (model && subject?.id === model.id) {
     const actions = htmlEl('div', 'profile-actions', deviceMenu);
     const alternate = ALTERNATES[model.skin];
     if (alternate && LAYOUTS[model.skin]) {
@@ -1333,6 +1347,7 @@ let lastPadError = '';
 // The joystick button's words when no device could be opened.
 const DEVICE_PROBLEM = {
   unsupported: 'Unsupported',
+  blocked: 'Blocked by Windows', // see shared/blocked.js
   'needs-access': 'Access needed', // Linux
 };
 
@@ -1352,7 +1367,7 @@ const SUPPORT_TIPS = {
 };
 
 // A device's layout signature; the stage is rebuilt only when it changes.
-const layoutSignature = (m, settings) =>
+const layoutSignature = (m, settings, state) =>
   m
     ? JSON.stringify([
         m.id,
@@ -1365,7 +1380,9 @@ const layoutSignature = (m, settings) =>
         m.buttons,
         settings.centered ?? {},
       ])
-    : 'none';
+    : state === 'blocked'
+      ? 'blocked'
+      : 'none';
 
 function renderStatus(next) {
   status = next;
@@ -1374,7 +1391,7 @@ function renderStatus(next) {
   $('#profile-name').textContent = next.profile.name;
 
   model = next.joystick.device ?? null;
-  const signature = layoutSignature(model, next.joystick.settings ?? {});
+  const signature = layoutSignature(model, next.joystick.settings ?? {}, next.joystick.state);
   if (signature !== layoutKey) {
     layoutKey = signature;
     buildStage();

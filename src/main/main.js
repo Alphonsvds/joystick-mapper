@@ -17,6 +17,7 @@ import { ROLES, ROLE_OFF, emptyBindings, sanitizeBinding } from '../shared/contr
 import { changeRole, isCentered } from '../shared/devices.js';
 import { NEUTRAL_INPUT, NEUTRAL_OUTPUT, mapInput, sameOutput } from '../shared/mapper.js';
 import { PRESETS } from '../shared/presets.js';
+import { BLOCKED_HELP_URL } from '../shared/blocked.js';
 import { pressHolder } from '../shared/pulses.js';
 import { LATEST_RELEASE_API, updateFromRelease } from '../shared/updates.js';
 import {
@@ -665,6 +666,8 @@ function registerIpc() {
   });
 
   ipcMain.handle('joymap:report-device', () => shell.openExternal(NEW_ISSUE_URL));
+
+  ipcMain.handle('joymap:blocked-help', () => shell.openExternal(BLOCKED_HELP_URL));
 
   ipcMain.handle('joymap:recenter', () => recenter({ onlyIfResting: false }));
 
