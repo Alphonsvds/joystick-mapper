@@ -145,6 +145,24 @@ const ALPHA_PRIME_LAYOUT = {
 const ALPHA_PRIME = { vendorId: 0x3344, productId: 0x4391, name: 'VIRPIL Controls 20250730 R-VPC Stick MT-50CM3' };
 const ALPHA_PRIME_REST = [30000, 30000, 30000, 30000, 0, 30000];
 
+// A Virpil MongoosT-50CM3 Throttle, from an owner's "Copy device info" (GitHub issue #28).
+// CM3_THROTTLE_REST is the axis part of its last report, the two levers locked together;
+// CM3_THROTTLE_HELD the buttons that report held.
+const CM3_THROTTLE_LAYOUT = {
+  values: [
+    { page: 1, usage: 0x33, min: 0, max: 60000 },
+    { page: 1, usage: 0x34, min: 0, max: 60000 },
+    { page: 1, usage: 0x35, min: 0, max: 60000 },
+    { page: 1, usage: 0x30, min: 0, max: 60000 },
+    { page: 1, usage: 0x31, min: 0, max: 60000 },
+    { page: 1, usage: 0x32, min: 0, max: 60000 },
+  ],
+  buttonCount: 60,
+};
+const CM3_THROTTLE = { vendorId: 0x3344, productId: 0x0194, name: 'VIRPIL Controls 20250730 L-VPC MongoosT-50CM3' };
+const CM3_THROTTLE_REST = [30749, 30749, 5316, 30000, 30000, 0];
+const CM3_THROTTLE_HELD = [34, 35, 56];
+
 // VKB T-Rudder pedals, from an owner's "Copy device info" (GitHub issue #29): five values
 // with no usage ahead of the three axes. T_RUDDER_REST is its last report, pedals let go.
 const T_RUDDER_LAYOUT = {
@@ -1818,6 +1836,7 @@ test('every photo layout points only at controls its stick has, each one once', 
     twcs: [TWCS_LAYOUT, TWCS],
     velocityonerudder: [RUDDER_LAYOUT, RUDDER],
     alphaprimeright: [ALPHA_PRIME_LAYOUT, ALPHA_PRIME],
+    cm3throttle: [CM3_THROTTLE_LAYOUT, CM3_THROTTLE],
     trudder: [T_RUDDER_LAYOUT, T_RUDDER],
   };
   // Every photo belongs to a skin; the ACE-Torq is the one skin without a photo.
@@ -2224,6 +2243,59 @@ test('the Virpil Alpha Prime twists on Z, and its brake lever rests let go', () 
     'Trigger Stage 1',
     'Trigger Stage 2',
   ]);
+});
+
+test('the Virpil CM3 throttle reads its two levers alike, on Rx and Ry', () => {
+  const model = describeDevice(CM3_THROTTLE_LAYOUT, CM3_THROTTLE);
+  assert.deepEqual([model.key, model.skin, model.support, model.name], ['3344:0194', 'cm3throttle', 'beta', 'Virpil CM3 Throttle']);
+  assert.deepEqual(model.axes.map((a) => [a.id, a.name, a.centered, a.invert]), [
+    ['rx', 'Throttle (Rx)', false, false],
+    ['ry', 'Throttle (Ry)', false, false],
+    ['rz', 'Flaps Lever', false, false],
+    ['x', 'Ministick X', true, false],
+    ['y', 'Ministick Y', true, true],
+    ['z', 'Slider', false, true],
+  ]);
+  // As its owner's throttle reported at rest: the levers together, the ministick let go,
+  // and the buttons held are two flip switches and the mode dial's first place.
+  const rest = normalizeInput(decoded(CM3_THROTTLE_REST, CM3_THROTTLE_HELD), model, {});
+  assert.equal(rest.axes.rx, rest.axes.ry);
+  assert.deepEqual([rest.axes.x, rest.axes.y], [0, 0]);
+  assert.deepEqual(CM3_THROTTLE_HELD.map((b) => model.buttonNames[`btn${b}`]), ['T1 Switch', 'T2 Switch', 'Mode 1']);
+  // Both levers on LT / RT pull the same trigger. Read as a stick, Ry ran the other way and
+  // pulled the other one too (GitHub issue #28).
+  const both = { rx: { target: 'lt_rt', invert: false, deadzone: 0.02 }, ry: { target: 'lt_rt', invert: false, deadzone: 0.02 } };
+  const pushed = decoded([60000, 60000, 5316, 30000, 30000, 0]);
+  const pulled = decoded([0, 0, 5316, 30000, 30000, 0]);
+  const triggers = (m, report) => {
+    const out = mapInput(normalizeInput(report, m, {}), both);
+    return [out.lt, out.rt];
+  };
+  assert.deepEqual(triggers(model, pushed), [0, 255]);
+  assert.deepEqual(triggers(model, pulled), [255, 0]);
+  const generic = describeDevice(CM3_THROTTLE_LAYOUT, { ...CM3_THROTTLE, ignoreSkin: true });
+  assert.deepEqual(triggers(generic, pushed), [255, 255]);
+  // Its owner mapped Rx on the generic layout: it still reads the way it did then.
+  const rx = (m) => m.axes.find((a) => a.id === 'rx').invert;
+  assert.equal(rx(model), rx(generic));
+  const split = { rx: both.rx };
+  for (const report of [pushed, pulled]) {
+    assert.deepEqual(mapInput(normalizeInput(report, model, {}), split), mapInput(normalizeInput(report, generic, {}), split));
+  }
+  // Its photo shows all 60 buttons and the six axes, each named, every control under a
+  // folded label with a dot of its own on the photo.
+  const layout = LAYOUTS.cm3throttle;
+  assert.equal(layout.folded, true);
+  const shown = shownBy(layout.callouts);
+  assert.deepEqual(shown.filter((id) => /^btn/.test(id)).map((id) => Number(id.slice(3))).sort((a, b) => a - b), range(1, 60));
+  assert.deepEqual(shown.filter((id) => !/^btn/.test(id)).sort(), ['rx', 'ry', 'rz', 'x', 'y', 'z']);
+  for (const id of shown) assert.ok(SKINS['3344:0194'].names[id], `${id} has a name`);
+  const dots = layout.callouts.map((c) => c.at);
+  for (const [i, a] of dots.entries()) {
+    assert.ok(a[0] >= 0 && a[0] <= layout.image.width && a[1] >= 0 && a[1] <= layout.image.height, `${a}`);
+    for (const b of dots.slice(i + 1)) assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) * layout.image.scale >= 24, `${a} and ${b}`);
+  }
+  assert.deepEqual(layout.guides, {}); // which way each axis runs isn't known
 });
 
 test('the VKB T-Rudder reads its rudder on Rx, with virtual brakes that rest at one end', () => {

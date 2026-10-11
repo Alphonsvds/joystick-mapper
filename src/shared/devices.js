@@ -897,6 +897,67 @@ export const SKINS = Object.freeze({
       slider: { centered: false, invert: false },
     },
   },
+  // Virpil MongoosT-50CM3 Throttle (reports as "VPC Throttle MT-50CM3", or whatever its
+  // owner renamed it to: "L-VPC MongoosT-50CM3" in GitHub issue #28). Its two throttle
+  // levers are the Rx and Ry axes, which would read as a second stick: Ry reversed next to
+  // Rx, so that mapping both pulled against each other, and wherever the levers sat taken
+  // as their middle. The flaps lever on Rz would read as a twist.
+  // Nothing published gives this throttle's button numbers. They are the Joystick Diagrams
+  // template for the MongoosT-50CM2 Throttle, which has the same grip and panel and the
+  // same sixty buttons. An owner's report at rest held 34, 35 and 56: two flip switches
+  // and the mode dial on 1, as that template has them. The left knob's push (2) isn't on
+  // the template. Virpil's software can renumber every button, and can turn the mode dial
+  // into a shift for B1 to B6: these are the numbers it sends as it comes.
+  // The axes are named from the same report: Rx and Ry sat at one value, the levers locked
+  // together; X and Y in the middle, the ministick; Rz near one end, the flaps lever.
+  // Not confirmed: which lever is Rx, which way the knobs, dials and the slider read, and
+  // the grip's numbers. Beta until an owner has confirmed every label.
+  '3344:0194': {
+    id: 'cm3throttle',
+    name: 'Virpil CM3 Throttle',
+    support: 'beta',
+    names: {
+      ...positions(1, 'Left Knob', 'Turn 1', 'Push', 'Turn 2'),
+      btn4: 'Front Button',
+      ...positions(5, 'Rocker', 'Push', 'Down', 'Up'),
+      ...positions(8, 'Front Hat', 'Up', 'Down', 'Right', 'Push', 'Left'),
+      btn13: 'Ministick Push',
+      ...positions(14, 'Thumb Dial', 'Turn 1', 'Turn 2'),
+      ...buttonHat('Dial Hat', 16),
+      btn21: 'Thumb Button',
+      ...positions(22, 'Upper Hat', 'Up', 'Down', 'Left', 'Push', 'Right'),
+      ...positions(27, 'Lower Hat', 'Down', 'Push', 'Left', 'Up', 'Right'),
+      btn32: 'Side Button',
+      btn33: 'Red Button',
+      ...numbered(34, 4, (n) => `T${n} Switch`),
+      ...numbered(38, 6, (n) => `B${n} Button`),
+      ...positions(44, 'T5', 'Up', 'Down'),
+      ...positions(46, 'T6', 'Up', 'Down'),
+      ...positions(48, 'T7', 'Up', 'Down'),
+      ...positions(50, 'E1', 'Push', 'Turn 1', 'Turn 2'),
+      ...positions(53, 'E2', 'Push', 'Turn 1', 'Turn 2'),
+      ...numbered(56, 5, (n) => `Mode ${n}`),
+      x: 'Ministick X',
+      y: 'Ministick Y',
+      z: 'Slider',
+      rx: 'Throttle (Rx)',
+      ry: 'Throttle (Ry)',
+      rz: 'Flaps Lever',
+    },
+    hints: {
+      x: 'Ministick on the front of the grip',
+      y: 'Ministick on the front of the grip',
+      z: 'Slider on the front of the grip',
+      rx: 'Throttle lever',
+      ry: 'Throttle lever',
+      rz: 'Lever on the right of the base',
+    },
+    axes: {
+      rx: { centered: false, invert: false },
+      ry: { centered: false, invert: false },
+      rz: { centered: false, invert: false, deadzone: 0.02 },
+    },
+  },
   // VKB STECS Modern Throttle Mk.II Standard: twin grips, base and STEM module (reports as
   // "S-TECS MODERN THROTTLE STANDARD STEM"). Its two throttle levers are the 12-bit X and
   // Y axes, which would read as a stick (GitHub issue #2): Y reversed next to X, drawn as

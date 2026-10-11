@@ -6,8 +6,8 @@
 // Beach VelocityOne Flightstick II, Dual Throttle and Flightdeck stick and throttle, an
 // Xbox controller, an Xbox Elite, a DualShock 4 and a DualSense, the WINCTRL URSA MINOR
 // Combat stick and throttle, the Thrustmaster T.16000M and TWCS throttle, the Turtle Beach
-// VelocityOne Rudder, the Logitech Force 3D Pro, the Virpil Alpha Prime, the VKB T-Rudder
-// (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a made-up set of
+// VelocityOne Rudder, the Logitech Force 3D Pro, the Virpil Alpha Prime and CM3 throttle, the
+// VKB T-Rudder (photo layouts), the Virpil ACE-Torq pedals (named, no photo), and a made-up set of
 // pedals (universal layout).
 // Add ?device=gladiator, ?device=gladiatorleft, ?device=omnileft, ?device=omniright,
 // ?device=stecs, ?device=stecsmax, ?device=stecsspace, ?device=flightstick,
@@ -16,14 +16,14 @@
 // ?device=flightdeckthrottle, ?device=xbox, ?device=elite, ?device=dualshock4,
 // ?device=dualsense, ?device=acetorq, ?device=flightstick2, ?device=dualthrottle,
 // ?device=ursastick, ?device=ursathrottle, ?device=t16000m, ?device=twcs, ?device=rudder,
-// ?device=force3dpro, ?device=alphaprime, ?device=trudder or ?device=pedals to plug in one
-// of the others.
+// ?device=force3dpro, ?device=alphaprime, ?device=cm3throttle, ?device=trudder or
+// ?device=pedals to plug in one of the others.
 // ?device=hotas plugs in a stick, a throttle and pedals together, ?device=winwing the rig
 // from GitHub issue #7, ?device=solr the pair from issue #8, ?device=x56 the pair from
 // issue #16, ?device=flightdeck the pair from issues #14 and #15, ?device=velocityone the
 // pair from issues #13 and #23, ?device=ursaminor the pair from issues #24 and #25,
-// ?device=fcs the pair from issues #35 and #41, ?device=virpil the pair from issues #29
-// and #30; any comma-separated list works too
+// ?device=fcs the pair from issues #35 and #41, ?device=virpil the rig from issues #28,
+// #29 and #30; any comma-separated list works too
 // (?device=gladiator,twcs).
 // Add ?update=9.9.9 to see the "Update available" button (clicking it plays a pretend download),
 // and ?hide=missing to start without HidHide (switching the setting on plays a pretend install).
@@ -649,6 +649,26 @@ const SIMULATED = [
       buttonCount: 32,
     },
   },
+  // As reported by a real throttle (GitHub issue #28): a Virpil MongoosT-50CM3. R / F push
+  // both levers.
+  {
+    vendorId: 0x3344,
+    productId: 0x0194,
+    name: 'VIRPIL Controls 20250730 L-VPC MongoosT-50CM3',
+    alias: 'cm3throttle',
+    throttle: ['rx', 'ry'],
+    layout: {
+      values: [
+        { page: 1, usage: 0x33, min: 0, max: 60000 },
+        { page: 1, usage: 0x34, min: 0, max: 60000 },
+        { page: 1, usage: 0x35, min: 0, max: 60000 },
+        { page: 1, usage: 0x30, min: 0, max: 60000 },
+        { page: 1, usage: 0x31, min: 0, max: 60000 },
+        { page: 1, usage: 0x32, min: 0, max: 60000 },
+      ],
+      buttonCount: 60,
+    },
+  },
   // As reported by real pedals (GitHub issue #29): the rudder on Rx, two axes that rest at
   // 0, two buttons and five values with no usage. R / F work both brakes, Q / E push the
   // rudder.
@@ -717,7 +737,7 @@ const RIGS = {
   racing: ['wheel', 'racingpedals', 'shifter', 'handbrake', 'orionstick', 'orionthrottle'],
   ursaminor: ['ursastick', 'ursathrottle'],
   fcs: ['t16000m', 'twcs'],
-  virpil: ['alphaprime', 'trudder'],
+  virpil: ['alphaprime', 'cm3throttle', 'trudder'],
 };
 
 const KEY_BUTTONS = {

@@ -2904,7 +2904,141 @@ const T_RUDDER = {
   guides: {},
 };
 
+// ─── Virpil MongoosT-50CM3 Throttle ──────────────────────────────────────────
+
+// A knob or dial that sends a button each way it turns. Which way is which isn't known,
+// so the two are listed as 1 and 2.
+const turns = (first, second, push) => [
+  ...labelled([`btn${first}`, '1'], [`btn${second}`, '2']),
+  ...(push ? [{ id: `btn${push}`, dir: 'push' }] : []),
+];
+
+// Seen from behind and to the left: forward is to the left and the pilot's right is up and
+// to the right. With sixty buttons it has more controls than there is room to show
+// dropdowns for, so every one gets its own line and a folded label; the labels are in the
+// order that keeps the lines from crossing. The six B buttons share a label.
+// The left handle's end knob faces the camera. The right handle's thumb side faces away to
+// the right, its controls seen edge-on: the dial at the top, the two hats under it, and the
+// red button below the handle. The thumb button and the side button are behind them, and
+// everything on the front of the handles is out of sight: those point at the edge nearest
+// where each one sits. Which lever is Rx isn't known, so the two share a label, and no
+// axis has a guide: which way each one reads isn't known either.
+const CM3_THROTTLE = {
+  alt: 'Virpil MongoosT-50CM3 Throttle, seen from behind',
+  dense: true,
+  folded: true,
+  image: { src: 'assets/cm3-throttle.png', width: 780, height: 832, x: 449, y: 140, scale: 0.9 },
+  columns: {
+    left: { edge: 330, anchor: 344, elbow: 400 },
+    right: { edge: 1270, anchor: 1256, elbow: 1200 },
+  },
+  callouts: [
+    ...fold('left', 180, [
+      {
+        id: 'ministick',
+        name: 'Ministick',
+        tag: 'FRONT',
+        at: [318, 14],
+        columns: 2,
+        group: [{ id: 'x', label: 'X', wide: true }, { id: 'y', label: 'Y', wide: true }, { id: 'btn13', dir: 'push' }],
+      },
+      {
+        id: 'fronthat',
+        name: 'Front Hat',
+        tag: 'FRONT',
+        at: [275, 36],
+        columns: 2,
+        group: [
+          { id: 'btn8', dir: 'up' },
+          { id: 'btn10', dir: 'right' },
+          { id: 'btn9', dir: 'down' },
+          { id: 'btn12', dir: 'left' },
+          { id: 'btn11', dir: 'push' },
+        ],
+      },
+      { id: 'z', tag: 'FRONT', at: [225, 62] },
+      {
+        id: 'rocker',
+        name: 'Rocker',
+        tag: 'FRONT',
+        at: [150, 102],
+        columns: 2,
+        group: [
+          { id: 'btn7', dir: 'up' },
+          { id: 'btn6', dir: 'down' },
+          { id: 'btn5', dir: 'push' },
+        ],
+      },
+      { id: 'btn4', tag: 'FRONT', at: [105, 126] },
+      { id: 'leftknob', name: 'Left Knob', at: [90, 218], columns: 2, group: leftToRight(turns(1, 3, 2)) },
+    ]),
+    ...fold('left', 470, [
+      {
+        id: 'throttles',
+        name: 'Throttles',
+        tag: 'LEVERS',
+        at: [262, 395],
+        columns: 2,
+        group: [{ id: 'rx', label: 'Rx', wide: true }, { id: 'ry', label: 'Ry', wide: true }],
+      },
+      {
+        id: 'bbuttons',
+        name: 'B Buttons',
+        tag: 'B1–B6',
+        at: [425, 482],
+        columns: 2,
+        group: leftToRight(labelled(['btn38', 'B1'], ['btn39', 'B2'], ['btn40', 'B3'], ['btn41', 'B4'], ['btn42', 'B5'], ['btn43', 'B6'])),
+      },
+      { id: 'btn36', at: [295, 527] },
+      { id: 'btn37', at: [352, 565] },
+      { id: 't5', name: 'T5', tag: 'TOGGLE', at: [417, 595], columns: 2, group: [{ id: 'btn44', dir: 'up' }, { id: 'btn45', dir: 'down' }] },
+    ]),
+    ...fold('right', 210, [
+      { id: 'thumbdial', name: 'Thumb Dial', at: [365, 28], columns: 2, group: [...turns(14, 15), ...buttonHat(16)] },
+      {
+        id: 'upperhat',
+        name: 'Upper Hat',
+        at: [382, 68],
+        columns: 2,
+        group: [
+          { id: 'btn22', dir: 'up' },
+          { id: 'btn26', dir: 'right' },
+          { id: 'btn23', dir: 'down' },
+          { id: 'btn24', dir: 'left' },
+          { id: 'btn25', dir: 'push' },
+        ],
+      },
+      { id: 'btn21', tag: 'OUT OF VIEW', at: [372, 100] },
+      {
+        id: 'lowerhat',
+        name: 'Lower Hat',
+        at: [393, 130],
+        columns: 2,
+        group: [
+          { id: 'btn30', dir: 'up' },
+          { id: 'btn31', dir: 'right' },
+          { id: 'btn27', dir: 'down' },
+          { id: 'btn29', dir: 'left' },
+          { id: 'btn28', dir: 'push' },
+        ],
+      },
+      { id: 'btn32', tag: 'OUT OF VIEW', at: [368, 172] },
+      { id: 'rz', at: [450, 220] },
+      { id: 'btn33', at: [357, 218] },
+      { id: 'btn34', at: [347, 350] },
+      { id: 'btn35', at: [400, 377] },
+      { id: 'mode', name: 'Mode', tag: 'DIAL', at: [555, 415], columns: 2, group: labelled(['btn56', '1'], ['btn57', '2'], ['btn58', '3'], ['btn59', '4'], ['btn60', '5']) },
+      { id: 'e2', name: 'E2', tag: 'ENCODER', at: [642, 445], columns: 2, group: turns(54, 55, 53) },
+      { id: 'e1', name: 'E1', tag: 'ENCODER', at: [587, 477], columns: 2, group: turns(51, 52, 50) },
+      { id: 't7', name: 'T7', tag: 'TOGGLE', at: [527, 522], columns: 2, group: [{ id: 'btn48', dir: 'up' }, { id: 'btn49', dir: 'down' }] },
+      { id: 't6', name: 'T6', tag: 'TOGGLE', at: [472, 555], columns: 2, group: [{ id: 'btn46', dir: 'up' }, { id: 'btn47', dir: 'down' }] },
+    ]),
+  ],
+  guides: {},
+};
+
 export const LAYOUTS = {
+  cm3throttle: CM3_THROTTLE,
   alphaprimeright: ALPHA_PRIME_RIGHT,
   trudder: T_RUDDER,
   t16000m: T16000M,
