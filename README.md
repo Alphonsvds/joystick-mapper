@@ -15,8 +15,9 @@
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
-So this app makes your flight stick show up to games as an Xbox 360 controller.
-Map the stick once and fly with it in any game that only understands gamepads.
+This app let's you easily use a HOTAS in Ace Combat 8... or really any game as it simply takes your joystick, throttle, rudders, etc... and emulates an xbox controller.
+
+So, if you're looking for how to use a HOTAS in Ace Combat... well this is a one click install and takes no time at all to setup!
 
 ## How to install
 
