@@ -11,7 +11,7 @@
   <a href="https://buymeacoffee.com/alphonsvds"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" width="200"></a>
 </p>
 
-# Joystick Mapper
+# Joystick and HOTAS Mapper for Ace Combat 8 and Other Games
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
