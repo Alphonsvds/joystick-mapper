@@ -11,11 +11,11 @@
   <a href="https://buymeacoffee.com/alphonsvds"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" width="200"></a>
 </p>
 
-# Joystick and HOTAS Mapper for Ace Combat 8 and Other Games
+# Joystick and HOTAS Support for Ace Combat 8 and Other Games
 
 **Why this exists: Ace Combat 8 is a flight game that doesn't support flight sticks.** 🙃
 
-This app let's you easily use a HOTAS in Ace Combat 8... or really any game as it simply takes your joystick, throttle, rudders, etc... and emulates an xbox controller.
+This app let's you easily use a HOTAS in Ace Combat 8... or really any game as it simply takes your joystick, throttle, rudders, etc... and emulates an xbox controller. It is the easiest to use HOTAS and joystick mapper out there. Completely free!
 
 So, if you're looking for how to use a HOTAS in Ace Combat... well this is a one click install and takes no time at all to setup!
 
